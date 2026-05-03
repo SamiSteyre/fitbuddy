@@ -29,7 +29,6 @@
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .purchased { opacity: 0.35; filter: grayscale(1); transform: scale(0.95); transition: all 0.3s ease; }
         
-        /* Animation pour le micro actif */
         @keyframes pulse-red {
             0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
             70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
@@ -37,7 +36,7 @@
         }
         .mic-active { 
             animation: pulse-red 1.5s infinite; 
-            background-color: rgba(239, 68, 68, 0.2) !important; 
+            background-color: rgba(239, 68, 68, 0.3) !important; 
             border-color: #ef4444 !important; 
         }
     </style>
@@ -54,7 +53,7 @@
         </div>
 
         <div class="flex-1 flex flex-col landscape:flex-row md:flex-row overflow-hidden">
-            <div class="flex-none h-40 landscape:h-full landscape:w-1/3 md:h-full md:w-1/2 bg-black relative border-b landscape:border-b-0 landscape:border-r md:border-b-0 md:border-r border-white/10">
+            <div class="flex-none h-40 landscape:h-full landscape:w-1/3 md:h-full md:w-1/2 bg-black relative border-b border-white/10">
                 <div class="video-container">
                     <video id="agentVideo" class="w-full h-full object-contain" autoplay loop muted playsinline>
                         <source src="agent-avatar.mp4" type="video/mp4">
@@ -72,7 +71,7 @@
 
                 <div class="flex-none p-3 md:p-4 bg-black/40 border-t border-white/5">
                     <div class="relative flex items-center gap-2">
-                        <button id="micBtn" onclick="toggleMic()" class="relative z-50 flex-none w-12 h-12 bg-white/10 border border-white/20 rounded-xl flex items-center justify-center active:scale-95 transition-all group">
+                        <button id="micBtn" onclick="toggleMic()" class="relative z-50 flex-none w-12 h-12 bg-white/10 border border-white/20 rounded-xl flex items-center justify-center transition-all">
                             <i id="micIcon" data-lucide="mic" class="w-5 h-5 text-cyan-400 transition-colors"></i>
                         </button>
                         <div class="relative flex-1">
@@ -95,89 +94,73 @@
 
         let userEmail = localStorage.getItem('fitbuddy_email');
         const N8N_URL = "https://greedily-submarine-prance.ngrok-free.dev";
-        const DEFAULT_IMAGE = "default-item.svg";
         const RAYONS = ["Boulangerie & Viennoiserie", "Fruits & Légumes frais", "Boucherie & Volaille", "Poissonnerie", "Pâtes Riz & féculents", "Conserves de Légumes & Plats Cuisinés", "Conserves de Poisson", "Huiles Vinaigres Epices & Sauces", "Apéritif", "Petit-déjeuner", "Biscuits & Gâteaux", "Confiserie & Chocolat", "Confitures Miels & Pâtes à tartiner", "Aide à la pâtisserie", "Lait & Oeufs", "Produits laitiers", "Surgelés", "Boissons", "Hygiène", "Entretien de la maison", "Animalerie", "Loisirs", "Autres"];
 
         let isListening = false;
-        let currentAudio = null;
         let currentList = [];
 
-        // --- AUTHENTIFICATION ---
         function checkAuth() {
             if (!userEmail) {
-                userEmail = prompt("Veuillez entrer votre e-mail pour accéder au coach :");
+                userEmail = prompt("E-mail :");
                 if (userEmail && userEmail.includes("@")) {
                     localStorage.setItem('fitbuddy_email', userEmail);
-                    document.getElementById('system-status').innerText = `Connecté : ${userEmail}`;
                 } else {
-                    alert("E-mail invalide.");
                     location.reload();
                 }
-            } else {
-                document.getElementById('system-status').innerText = `Ravi de vous revoir !`;
             }
         }
 
-        // --- RECONNAISSANCE VOCALE ---
+        // --- MICRO CORRIGÉ ---
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         let recognition = null;
 
         if (SpeechRecognition) {
             recognition = new SpeechRecognition();
             recognition.lang = 'fr-FR';
-            recognition.continuous = false;
-            recognition.interimResults = false;
-
-            recognition.onresult = (e) => {
-                const transcript = e.results[0][0].transcript;
-                document.getElementById('userInput').value = transcript;
-                stopMicVisuals();
-                setTimeout(envoyerMessage, 500);
+            
+            recognition.onstart = () => {
+                isListening = true;
+                const btn = document.getElementById('micBtn');
+                const icon = document.getElementById('micIcon');
+                btn.classList.add('mic-active');
+                icon.classList.remove('text-cyan-400');
+                icon.classList.add('text-red-500');
             };
 
-            recognition.onerror = () => stopMicVisuals();
-            recognition.onend = () => stopMicVisuals();
+            recognition.onresult = (e) => {
+                document.getElementById('userInput').value = e.results[0][0].transcript;
+                // Le onend se chargera de remettre les couleurs
+                setTimeout(envoyerMessage, 400);
+            };
+
+            recognition.onend = () => {
+                isListening = false;
+                const btn = document.getElementById('micBtn');
+                const icon = document.getElementById('micIcon');
+                btn.classList.remove('mic-active');
+                icon.classList.remove('text-red-500');
+                icon.classList.add('text-cyan-400');
+            };
+
+            recognition.onerror = () => { isListening = false; recognition.stop(); };
         }
 
         function toggleMic() {
-            const micBtn = document.getElementById('micBtn');
-            const micIcon = document.getElementById('micIcon');
-
-            if (!recognition) {
-                alert("Micro non supporté sur ce navigateur.");
-                return;
-            }
-
-            if (!isListening) {
-                try {
-                    recognition.start();
-                    isListening = true;
-                    // Forcer l'état actif (Rouge)
-                    micBtn.classList.add('mic-active');
-                    micIcon.classList.remove('text-cyan-400');
-                    micIcon.classList.add('text-red-500');
-                } catch (e) {
-                    stopMicVisuals();
-                }
-            } else {
-                recognition.stop();
-            }
+            if (!recognition) return;
+            if (!isListening) recognition.start();
+            else recognition.stop();
         }
 
-        function stopMicVisuals() {
-            isListening = false;
-            const micBtn = document.getElementById('micBtn');
-            const micIcon = document.getElementById('micIcon');
-            
-            // Retour à l'état repos (Cyan)
-            micBtn.classList.remove('mic-active');
-            micIcon.classList.remove('text-red-500');
-            micIcon.classList.add('text-cyan-400');
-        }
-
-        // --- FONCTIONS SHOPPING ---
+        // --- SHOPPING ---
         function switchToShopping(items) {
-            currentList = items.map(i => ({...i, isPurchased: false}));
+            const data = Array.isArray(items) ? items : (items.items || []);
+            currentList = data.map((i, idx) => ({
+                id: i.id || idx,
+                nom: i.nom || i.item || "Produit",
+                quantite: i.quantite || i.quantity || "1",
+                rayon: i.rayon || i.category || "Autres",
+                isPurchased: false
+            }));
             renderShopping();
         }
 
@@ -186,43 +169,41 @@
             chat.innerHTML = `
                 <div class="sticky top-0 left-0 w-full bg-[#050505] border-b border-white/10 z-[60] shadow-2xl">
                     <div class="p-3 overflow-x-auto no-scrollbar flex gap-2 backdrop-blur-md bg-black/40">
-                        <button onclick="renderShopping('Tous les rayons')" class="rayon-btn whitespace-nowrap px-4 py-1.5 rounded-full border ${filterRayonName === 'Tous les rayons' ? 'bg-cyan-500 text-black border-cyan-500' : 'border-cyan-500/30'} text-[9px] uppercase font-black transition-all">Tous les rayons</button>
-                        ${RAYONS.map(r => `<button onclick="renderShopping('${r}')" class="rayon-btn whitespace-nowrap px-4 py-1.5 rounded-full border ${filterRayonName === r ? 'bg-cyan-500 text-black border-cyan-500' : 'border-cyan-500/30'} text-[9px] uppercase font-black transition-all">${r}</button>`).join('')}
+                        <button onclick="renderShopping('Tous les rayons')" class="rayon-btn whitespace-nowrap px-4 py-1.5 rounded-full border ${filterRayonName === 'Tous les rayons' ? 'bg-cyan-500 text-black border-cyan-500' : 'border-cyan-500/30'} text-[9px] font-black uppercase transition-all">Tous les rayons</button>
+                        ${RAYONS.map(r => `<button onclick="renderShopping('${r}')" class="rayon-btn whitespace-nowrap px-4 py-1.5 rounded-full border ${filterRayonName === r ? 'bg-cyan-500 text-black border-cyan-500' : 'border-cyan-500/30'} text-[9px] font-black uppercase transition-all">${r}</button>`).join('')}
                     </div>
                 </div>
                 <div id="shopping-content" class="p-4 pb-24 space-y-8"></div>
             `;
             const content = document.getElementById('shopping-content');
+            
             if (filterRayonName === "Tous les rayons") {
-                RAYONS.forEach(rayon => {
-                    const items = currentList.filter(i => (i.rayon || i.category) === rayon && !i.isPurchased);
-                    if (items.length > 0) appendCategory(content, rayon, items);
+                RAYONS.forEach(r => {
+                    const rItems = currentList.filter(i => i.rayon === r && !i.isPurchased);
+                    if (rItems.length > 0) appendCategory(content, r, rItems);
                 });
             } else {
-                const items = currentList.filter(i => (i.rayon || i.category) === filterRayonName && !i.isPurchased);
-                if (items.length > 0) appendCategory(content, filterRayonName, items);
+                const rItems = currentList.filter(i => i.rayon === filterRayonName && !i.isPurchased);
+                appendCategory(content, filterRayonName, rItems);
             }
-            const purchasedItems = currentList.filter(i => i.isPurchased);
-            if (purchasedItems.length > 0) appendCategory(content, "ACHETÉ (Panier)", purchasedItems, true);
+
+            const purchased = currentList.filter(i => i.isPurchased);
+            if (purchased.length > 0) appendCategory(content, "PANIER", purchased, true);
         }
 
         function appendCategory(container, title, items, isPurchasedSection = false) {
             const section = document.createElement('div');
-            section.innerHTML = `<h2 class="text-[10px] font-black text-cyan-400/50 uppercase tracking-[0.2em] mb-4 pl-1 border-l-2 border-cyan-400/30">${title}</h2><div class="grid grid-cols-3 gap-2 md:gap-4"></div>`;
+            section.innerHTML = `<h2 class="text-[10px] font-black text-cyan-400/50 uppercase mb-4 pl-1 border-l-2 border-cyan-400/30">${title}</h2><div class="grid grid-cols-3 gap-2"></div>`;
             const grid = section.querySelector('.grid');
             items.forEach(item => {
-                const nomProd = item.nom || item.item || "Produit";
-                const qteProd = item.quantite || item.quantity || "1";
                 const card = document.createElement('div');
                 card.onclick = () => togglePurchase(item.id);
-                card.className = `relative aspect-[4/5] w-full rounded-2xl overflow-hidden border border-white/10 glass shadow-lg cursor-pointer active:scale-95 transition-all ${isPurchasedSection ? 'purchased' : ''}`;
+                card.className = `relative aspect-[4/5] rounded-xl overflow-hidden border border-white/10 glass ${isPurchasedSection ? 'purchased' : ''}`;
                 card.innerHTML = `
-                    <img src="https://loremflickr.com/400/500/food,${encodeURIComponent(nomProd)}" 
-                         onerror="this.onerror=null;this.src='${DEFAULT_IMAGE}';" 
-                         class="absolute inset-0 w-full h-full object-cover opacity-60">
-                    <div class="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent p-2 flex flex-col justify-end">
-                        <h3 class="text-[10px] font-black uppercase leading-tight text-white mb-1 line-clamp-2">${nomProd}</h3>
-                        <span class="text-[8px] font-bold text-cyan-400 bg-cyan-950/50 px-1.5 py-0.5 rounded border border-cyan-500/30 w-fit">${qteProd}</span>
+                    <img src="https://loremflickr.com/400/500/food,${encodeURIComponent(item.nom)}" class="absolute inset-0 w-full h-full object-cover opacity-50">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent p-2 flex flex-col justify-end">
+                        <h3 class="text-[9px] font-black uppercase text-white line-clamp-2">${item.nom}</h3>
+                        <span class="text-[8px] text-cyan-400 font-bold">${item.quantite}</span>
                     </div>`;
                 grid.appendChild(card);
             });
@@ -238,25 +219,19 @@
                 await fetch(`${N8N_URL}/webhook/shopping-action`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        action: item.isPurchased ? "delete" : "add", 
-                        item: item.nom, 
-                        email: userEmail 
-                    })
+                    body: JSON.stringify({ action: item.isPurchased ? "delete" : "add", item: item.nom, email: userEmail })
                 });
             } catch (e) {}
         }
 
-        // --- ENVOI DE MESSAGE ---
         async function envoyerMessage() {
             const input = document.getElementById('userInput');
-            const chat = document.getElementById('chat');
             const message = input.value.trim();
-            if (!message || !userEmail) return;
-
-            chat.innerHTML += `<div class="message-user m-4 p-4 max-w-[90%] shadow-xl"><p class="text-xs text-white">${message}</p></div>`;
+            if (!message) return;
+            
+            document.getElementById('chat').innerHTML += `<div class="message-user m-4 p-4 max-w-[90%]"><p class="text-xs text-white">${message}</p></div>`;
             input.value = '';
-            chat.scrollTop = chat.scrollHeight;
+            document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
 
             try {
                 const response = await fetch(`${N8N_URL}/webhook/chat-agent`, { 
@@ -275,24 +250,21 @@
                 }
                 
                 if (outputText) { 
-                    chat.innerHTML += `<div class="message-agent m-4 p-4 max-w-[90%] shadow-xl border-l-4 border-cyan-500/50 bg-cyan-500/5"><p class="text-xs italic text-gray-200">${outputText}</p></div>`; 
+                    document.getElementById('chat').innerHTML += `<div class="message-agent m-4 p-4 max-w-[90%] bg-cyan-500/5"><p class="text-xs text-gray-200">${outputText}</p></div>`; 
                 }
                 
                 const action = cmd?.action || result.action;
                 const dataPayload = cmd?.data || result.data;
+
                 if (action === "switchToShopping") {
-                    let list = dataPayload;
-                    if (typeof list === 'string') list = JSON.parse(list);
-                    switchToShopping(list.items || list);
+                    switchToShopping(dataPayload);
                 }
                 
                 if (result.audio_base64 && result.audio_base64 !== "empty") { 
                     new Audio("data:audio/mp3;base64," + result.audio_base64).play(); 
                 }
-                chat.scrollTop = chat.scrollHeight;
-            } catch (e) {
-                console.error("Erreur n8n:", e);
-            }
+                document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
+            } catch (e) {}
         }
     </script>
 </body>
