@@ -110,7 +110,7 @@
             }
         }
 
-        // --- MICRO CORRIGÉ ---
+        // --- MICRO ---
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         let recognition = null;
 
@@ -150,34 +150,36 @@
             else recognition.stop();
         }
 
-        // --- SHOPPING ULTRA-TOLÉRANT ---
-        function switchToShopping(items) {
-            console.log("Données brutes reçues :", items);
-            let rawData = items;
-            if (typeof items === 'string') {
-                try { rawData = JSON.parse(items); } catch(e) {}
-            }
+        // --- SHOPPING LOGIC CORRIGÉE ---
+        function switchToShopping(rawData) {
+            console.log("Analyse des produits entrants...", rawData);
+            
+            let itemsToProcess = [];
 
-            let finalArray = [];
+            // 1. On cherche où se trouve le tableau de produits
             if (Array.isArray(rawData)) {
-                finalArray = rawData;
-            } else if (rawData.items && Array.isArray(rawData.items)) {
-                finalArray = rawData.items;
-            } else if (rawData.data && Array.isArray(rawData.data)) {
-                finalArray = rawData.data;
-            } else {
-                finalArray = [rawData];
+                itemsToProcess = rawData;
+            } else if (rawData && typeof rawData === 'object') {
+                // Cas courant : n8n envoie { items: [...] } ou { data: [...] }
+                itemsToProcess = rawData.items || rawData.data || [];
+                
+                // Si c'est un objet unique (un seul produit) pas dans un tableau
+                if (itemsToProcess.length === 0 && (rawData.nom || rawData.item)) {
+                    itemsToProcess = [rawData];
+                }
             }
 
-            currentList = finalArray.map((i, idx) => ({
-                id: i.id || i.pageId || `item-${idx}-${Date.now()}`,
-                nom: i.nom || i.item || "Produit",
+            // 2. On transforme les données pour l'affichage
+            currentList = itemsToProcess.map((i, idx) => ({
+                id: i.id || i.pageId || `prod-${idx}-${Date.now()}`,
+                nom: i.nom || i.item || "Inconnu",
                 quantite: i.quantite || i.quantity || "1",
                 unite: i.unite || i.unit || "",
                 rayon: i.rayon || i.category || "Autres",
                 isPurchased: false
             }));
-            
+
+            console.log("Liste prête pour affichage :", currentList);
             renderShopping();
         }
 
@@ -192,11 +194,12 @@
                 </div>
                 <div id="shopping-content" class="p-4 pb-24 space-y-8"></div>
             `;
+            
             const content = document.getElementById('shopping-content');
             
             if (filterRayonName === "Tous les rayons") {
                 RAYONS.forEach(r => {
-                    const rItems = currentList.filter(i => i.rayon === r && !i.isPurchased);
+                    const rItems = currentList.filter(i => (i.rayon === r) && !i.isPurchased);
                     if (rItems.length > 0) appendCategory(content, r, rItems);
                 });
             } else {
@@ -212,6 +215,7 @@
             const section = document.createElement('div');
             section.innerHTML = `<h2 class="text-[10px] font-black text-cyan-400/50 uppercase mb-4 pl-1 border-l-2 border-cyan-400/30">${title}</h2><div class="grid grid-cols-3 gap-2"></div>`;
             const grid = section.querySelector('.grid');
+            
             items.forEach(item => {
                 const card = document.createElement('div');
                 card.onclick = () => togglePurchase(item.id);
@@ -241,13 +245,13 @@
             } catch (e) {}
         }
 
-        // --- ENVOI DE MESSAGE DÉCODEUR ---
+        // --- ENVOI DE MESSAGE ---
         async function envoyerMessage() {
             const input = document.getElementById('userInput');
             const message = input.value.trim();
             if (!message) return;
             
-            document.getElementById('chat').innerHTML += `<div class="message-user m-4 p-4 max-w-[90%] shadow-xl"><p class="text-xs text-white">${message}</p></div>`;
+            document.getElementById('chat').innerHTML += `<div class="message-user m-4 p-4 max-w-[90%]"><p class="text-xs text-white">${message}</p></div>`;
             input.value = '';
             document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
 
@@ -257,27 +261,29 @@
                     headers: { 'Content-Type': 'application/json' }, 
                     body: JSON.stringify({ message: message, email: userEmail }) 
                 });
-                const data = await response.json();
-                const result = Array.isArray(data) ? data[0] : data;
+                const responseData = await response.json();
+                const result = Array.isArray(responseData) ? responseData[0] : responseData;
                 
                 let outputText = result.output || "";
                 let action = result.action;
                 let dataPayload = result.data;
 
+                // Décoder payload si c'est une chaîne JSON
                 if (typeof dataPayload === 'string') {
                     try { dataPayload = JSON.parse(dataPayload); } catch(e) {}
                 }
 
+                // Vérification si l'action est imbriquée dans le payload
                 if (dataPayload && dataPayload.action) {
                     action = dataPayload.action;
-                    dataPayload = dataPayload.items || dataPayload.data || dataPayload;
                 }
-                
+
                 if (outputText) { 
-                    document.getElementById('chat').innerHTML += `<div class="message-agent m-4 p-4 max-w-[90%] shadow-xl border-l-4 border-cyan-500/50 bg-cyan-500/5"><p class="text-xs italic text-gray-200">${outputText}</p></div>`; 
+                    document.getElementById('chat').innerHTML += `<div class="message-agent m-4 p-4 max-w-[90%] bg-cyan-500/5"><p class="text-xs text-gray-200">${outputText}</p></div>`; 
                 }
                 
-                if (action === "switchToShopping") {
+                // Si l'action est bien le switch, on lance le rendu
+                if (action === "switchToShopping" && dataPayload) {
                     switchToShopping(dataPayload);
                 }
                 
