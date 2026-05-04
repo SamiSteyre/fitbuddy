@@ -89,6 +89,234 @@
         let userEmail = localStorage.getItem('fitbuddy_email');
         const N8N_URL = "https://greedily-submarine-prance.ngrok-free.dev";
         const DEFAULT_IMAGE = "default-item.svg";
+        const RAYONS = ["Frais", "Boulangerie & Viennoiserie", "Fruits & Légumes frais", "Boucherie & Volaille", "Poissonnerie", "Pâtes Riz & féculents", "Conserves de Légumes & Plats Cuisinés", "Conserves de Poisson", "Huiles Vinaigres Epices & Sauces", "Apéritif", "Petit-déjeuner", "Biscuits & Gâteaux", "Confiserie & Chocolat", "Confitures Miels & Pâtes à tartiner", "Aide à la pâtisserie", "Lait & Oeufs", "Produits laitiers", "Surgelés", "Boissons", "Hygiène", "Entretien de la maison", "Animalerie", "Loisirs", "Autres"];
+
+        let currentList = [];
+        let isListening = false;
+
+        function checkAuth() {
+            if (!userEmail) {
+                userEmail = prompt("E-mail :");
+                if (userEmail && userEmail.includes("@")) {
+                    localStorage.setItem('fitbuddy_email', userEmail);
+                } else {
+                    location.reload();
+                }
+            }
+            document.getElementById('system-status').innerText = `Connecté : ${userEmail}`;
+        }
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'fr-FR';
+            recognition.onstart = () => {
+                isListening = true;
+                document.getElementById('micBtn').classList.add('mic-active');
+                document.getElementById('micIcon').classList.replace('text-cyan-400', 'text-red-500');
+            };
+            recognition.onresult = (e) => {
+                document.getElementById('userInput').value = e.results[0][0].transcript;
+                setTimeout(envoyerMessage, 400);
+            };
+            recognition.onend = () => stopMicVisuals();
+            recognition.onerror = () => stopMicVisuals();
+        }
+
+        function toggleMic() {
+            if (!recognition) return;
+            if (!isListening) recognition.start();
+            else recognition.stop();
+        }
+
+        function stopMicVisuals() {
+            isListening = false;
+            document.getElementById('micBtn').classList.remove('mic-active');
+            const icon = document.getElementById('micIcon');
+            if(icon) {
+                icon.classList.remove('text-red-500');
+                icon.classList.add('text-cyan-400');
+            }
+        }
+
+        // --- VERSION BLINDÉE DE SWITCHTOSHOPPING ---
+        function switchToShopping(data) {
+            // On extrait les items peu importe si n8n les met dans data.items ou data.data.items
+            let rawItems = data.items || (data.data ? data.data.items : []);
+            
+            if (!Array.isArray(rawItems)) {
+                console.error("Format d'items invalide :", rawItems);
+                return;
+            }
+
+            currentList = rawItems.map((i, idx) => ({
+                id: i.id || i.pageId || `idx-${idx}-${Date.now()}`,
+                nom: (i.nom || i.item || "Produit").trim(),
+                quantite: i.quantite || i.quantity || "1",
+                unite: i.unite || i.unit || "",
+                rayon: (i.rayon || i.category || "Autres").trim(),
+                isPurchased: false
+            }));
+            
+            renderShopping();
+        }
+
+        function renderShopping() {
+            const chat = document.getElementById('chat');
+            chat.innerHTML = `<div id="shopping-content" class="p-4 pb-24 space-y-8"></div>`;
+            
+            const content = document.getElementById('shopping-content');
+
+            RAYONS.forEach(rayon => {
+                const items = currentList.filter(i => i.rayon === rayon && !i.isPurchased);
+                if (items.length > 0) appendCategory(content, rayon, items);
+            });
+
+            const purchased = currentList.filter(i => i.isPurchased);
+            if (purchased.length > 0) {
+                appendCategory(content, "PANIER", purchased, true);
+            }
+        }
+
+        function appendCategory(container, title, items, isPurchasedSection = false) {
+            const section = document.createElement('div');
+            section.innerHTML = `
+                <h2 class="text-[10px] font-black text-cyan-400/50 uppercase mb-4 pl-1 border-l-2 border-cyan-400/30">
+                    ${title}
+                </h2>
+                <div class="grid grid-cols-3 gap-2 md:gap-4"></div>
+            `;
+            const grid = section.querySelector('.grid');
+            
+            items.forEach(item => {
+                const card = document.createElement('div');
+                card.onclick = () => togglePurchase(item.id);
+                card.className = `relative aspect-[4/5] rounded-xl overflow-hidden border border-white/10 glass transition-all active:scale-95 ${isPurchasedSection ? 'purchased' : ''}`;
+                
+                const searchTerm = encodeURIComponent(item.nom + ",healthy,food");
+                const imageUrl = `https://source.unsplash.com/featured/400x500?${searchTerm}`;
+
+                card.innerHTML = `
+                    <img src="${imageUrl}" 
+                         class="absolute inset-0 w-full h-full object-cover" 
+                         onerror="this.onerror=null;this.src='${DEFAULT_IMAGE}';">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent p-2 flex flex-col justify-end">
+                        <h3 class="text-[10px] font-black uppercase text-white leading-tight drop-shadow-lg" style="text-shadow: 0 2px 4px rgba(0,0,0,0.8);">
+                            ${item.nom}
+                        </h3>
+                        <span class="text-[8px] text-cyan-400 font-bold mt-1 drop-shadow-md">
+                            ${item.quantite} ${item.unite}
+                        </span>
+                    </div>`;
+                
+                grid.appendChild(card);
+            });
+            
+            container.appendChild(section);
+        }
+
+        async function togglePurchase(id) {
+            const item = currentList.find(i => i.id === id);
+            if (!item) return;
+
+            item.isPurchased = !item.isPurchased;
+            renderShopping();
+
+            try {
+                await fetch(`${N8N_URL}/webhook/shopping-action`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        action: item.isPurchased ? "delete" : "add", 
+                        pageId: item.id, 
+                        produit: item.nom, 
+                        quantite: item.quantite,
+                        rayon: item.rayon,
+                        unite: item.unite,
+                        email: userEmail 
+                    })
+                });
+            } catch (e) {
+                console.error("Erreur synchro:", e);
+            }
+        }
+
+        // --- VERSION BLINDÉE DE ENVOYERMESSAGE ---
+        async function envoyerMessage() {
+            const input = document.getElementById('userInput');
+            const message = input.value.trim();
+            if (!message || !userEmail) return;
+            
+            document.getElementById('chat').innerHTML += `<div class="message-user m-4 p-4 max-w-[90%]"><p class="text-xs text-white">${message}</p></div>`;
+            input.value = '';
+            document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
+
+            try {
+                const response = await fetch(`${N8N_URL}/webhook/chat-agent`, { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ message: message, email: userEmail }) 
+                });
+                
+                const responseData = await response.json();
+                const result = Array.isArray(responseData) ? responseData[0] : responseData;
+                
+                console.log("DEBUG - Reçu de n8n :", result);
+
+                let outputText = result.output || "";
+                let action = result.action || (result.data ? result.data.action : null);
+                
+                // On récupère le payload complet pour l'affichage
+                let dataPayload = result.data || result; 
+
+                if (outputText) { 
+                    document.getElementById('chat').innerHTML += `<div class="message-agent m-4 p-4 max-w-[90%] bg-cyan-500/5"><p class="text-xs text-gray-200">${outputText}</p></div>`; 
+                }
+                
+                if (action === "switchToShopping" || action === "shopping-list") {
+                    console.log("Données envoyées à switchToShopping :", dataPayload);
+                    switchToShopping(dataPayload);
+                }
+                
+                if (result.audio_base64 && result.audio_base64 !== "empty") { 
+                    new Audio("data:audio/mp3;base64," + result.audio_base64).play(); 
+                }
+                document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
+            } catch (e) {
+                console.error("Erreur critique n8n :", e);
+            }
+        }
+    </script>
+</body>
+</html>
+                <div class="flex-none p-3 md:p-4 bg-black/40 border-t border-white/5">
+                    <div class="relative flex items-center gap-2">
+                        <button id="micBtn" onclick="toggleMic()" class="relative z-50 flex-none w-12 h-12 bg-white/10 border border-white/20 rounded-xl flex items-center justify-center transition-all group">
+                            <i id="micIcon" data-lucide="mic" class="w-5 h-5 text-cyan-400"></i>
+                        </button>
+                        <div class="relative flex-1">
+                            <input type="text" id="userInput" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 md:p-4 pr-14 focus:outline-none focus:border-cyan-500/50 text-sm" placeholder="Message..." onkeypress="if(event.key === 'Enter') envoyerMessage()">
+                            <button onclick="envoyerMessage()" class="absolute right-2 top-2 bottom-2 px-3 bg-cyan-600 rounded-lg shadow-lg">
+                                <i data-lucide="send-horizontal" class="w-4 h-4 text-white"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        window.addEventListener('load', () => { 
+            lucide.createIcons();
+            checkAuth(); 
+        });
+
+        let userEmail = localStorage.getItem('fitbuddy_email');
+        const N8N_URL = "https://greedily-submarine-prance.ngrok-free.dev";
+        const DEFAULT_IMAGE = "default-item.svg";
 
         // Rétablissement de la liste complète des 24 rayons
         const RAYONS = ["Frais", "Boulangerie & Viennoiserie", "Fruits & Légumes frais", "Boucherie & Volaille", "Poissonnerie", "Pâtes Riz & féculents", "Conserves de Légumes & Plats Cuisinés", "Conserves de Poisson", "Huiles Vinaigres Epices & Sauces", "Apéritif", "Petit-déjeuner", "Biscuits & Gâteaux", "Confiserie & Chocolat", "Confitures Miels & Pâtes à tartiner", "Aide à la pâtisserie", "Lait & Oeufs", "Produits laitiers", "Surgelés", "Boissons", "Hygiène", "Entretien de la maison", "Animalerie", "Loisirs", "Autres"];
