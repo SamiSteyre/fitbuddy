@@ -91,7 +91,8 @@
         let userEmail = localStorage.getItem('fitbuddy_email');
         const N8N_URL = "https://greedily-submarine-prance.ngrok-free.dev";
         const DEFAULT_IMAGE = "default-item.svg";
-        const RAYONS = ["Boulangerie & Viennoiserie", "Fruits & Légumes frais", "Boucherie & Volaille", "Poissonnerie", "Pâtes Riz & féculents", "Conserves de Légumes & Plats Cuisinés", "Conserves de Poisson", "Huiles Vinaigres Epices & Sauces", "Apéritif", "Petit-déjeuner", "Biscuits & Gâteaux", "Confiserie & Chocolat", "Confitures Miels & Pâtes à tartiner", "Aide à la pâtisserie", "Lait & Oeufs", "Produits laitiers", "Surgelés", "Boissons", "Hygiène", "Entretien de la maison", "Animalerie", "Loisirs", "Autres"];
+        // Liste de base pour les boutons de filtrage
+        const RAYONS_BASE = ["Boulangerie & Viennoiserie", "Fruits & Légumes frais", "Boucherie & Volaille", "Poissonnerie", "Pâtes Riz & féculents", "Conserves de Légumes & Plats Cuisinés", "Conserves de Poisson", "Huiles Vinaigres Epices & Sauces", "Apéritif", "Petit-déjeuner", "Biscuits & Gâteaux", "Confiserie & Chocolat", "Confitures Miels & Pâtes à tartiner", "Aide à la pâtisserie", "Lait & Oeufs", "Produits laitiers", "Surgelés", "Boissons", "Hygiène", "Entretien de la maison", "Animalerie", "Loisirs", "Autres"];
 
         let currentList = [];
         let isListening = false;
@@ -143,18 +144,13 @@
             icon.classList.add('text-cyan-400');
         }
 
-        // --- SHOPPING LOGIC CORRIGÉE ---
+        // --- SHOPPING LOGIC MISE À JOUR ---
         function switchToShopping(data) {
             console.log("Traitement Shopping Data:", data);
             let itemsArray = [];
 
-            // Gérer si data est un objet avec une clé 'items' qui est elle-même un objet ou un tableau
             if (data && data.items) {
-                if (Array.isArray(data.items)) {
-                    itemsArray = data.items;
-                } else if (typeof data.items === 'object') {
-                    itemsArray = Object.values(data.items);
-                }
+                itemsArray = Array.isArray(data.items) ? data.items : Object.values(data.items);
             } else if (Array.isArray(data)) {
                 itemsArray = data;
             } else if (data && typeof data === 'object') {
@@ -162,11 +158,12 @@
             }
 
             currentList = itemsArray.map((i, idx) => ({
-                id: i.id || i.pageId || `idx-${idx}`,
+                id: i.id || i.pageId || `idx-${idx}-${Date.now()}`,
                 nom: i.nom || i.item || "Produit",
                 quantite: i.quantite || i.quantity || "1",
                 unite: i.unite || i.unit || "",
-                rayon: i.rayon || i.category || "Autres",
+                // Normalisation : on remplace le Œ spécial par Oe pour la correspondance
+                rayon: (i.rayon || i.category || "Autres").replace("Œ", "Oe"),
                 isPurchased: false
             }));
             
@@ -175,29 +172,36 @@
 
         function renderShopping(filterRayonName = "Tous les rayons") {
             const chat = document.getElementById('chat');
+            
+            // On construit dynamiquement la liste des boutons de rayons basés sur ce qui est REELLEMENT dans la liste
+            const rayonsReels = [...new Set(currentList.map(i => i.rayon))].sort();
+            const boutonsRayons = ["Tous les rayons", ...rayonsReels];
+
             chat.innerHTML = `
                 <div class="sticky top-0 left-0 w-full bg-[#050505] border-b border-white/10 z-[60] shadow-2xl">
                     <div class="p-3 overflow-x-auto no-scrollbar flex gap-2 backdrop-blur-md bg-black/40">
-                        <button onclick="renderShopping('Tous les rayons')" class="rayon-btn whitespace-nowrap px-4 py-1.5 rounded-full border ${filterRayonName === 'Tous les rayons' ? 'bg-cyan-500 text-black border-cyan-500' : 'border-cyan-500/30'} text-[9px] font-black uppercase">Tous</button>
-                        ${RAYONS.map(r => `<button onclick="renderShopping('${r}')" class="rayon-btn whitespace-nowrap px-4 py-1.5 rounded-full border ${filterRayonName === r ? 'bg-cyan-500 text-black border-cyan-500' : 'border-cyan-500/30'} text-[9px] font-black uppercase">${r}</button>`).join('')}
+                        ${boutonsRayons.map(r => `
+                            <button onclick="renderShopping('${r}')" class="rayon-btn whitespace-nowrap px-4 py-1.5 rounded-full border ${filterRayonName === r ? 'bg-cyan-500 text-black border-cyan-500' : 'border-cyan-500/30'} text-[9px] font-black uppercase">
+                                ${r}
+                            </button>
+                        `).join('')}
                     </div>
                 </div>
                 <div id="shopping-content" class="p-4 pb-24 space-y-8"></div>
             `;
             
             const content = document.getElementById('shopping-content');
-            if (filterRayonName === "Tous les rayons") {
-                RAYONS.forEach(r => {
-                    const rItems = currentList.filter(i => i.rayon === r && !i.isPurchased);
-                    if (rItems.length > 0) appendCategory(content, r, rItems);
-                });
-            } else {
-                const rItems = currentList.filter(i => i.rayon === filterRayonName && !i.isPurchased);
-                appendCategory(content, filterRayonName, rItems);
-            }
+            const targetRayons = filterRayonName === "Tous les rayons" ? rayonsReels : [filterRayonName];
+
+            targetRayons.forEach(r => {
+                const rItems = currentList.filter(i => i.rayon === r && !i.isPurchased);
+                if (rItems.length > 0) appendCategory(content, r, rItems);
+            });
 
             const purchased = currentList.filter(i => i.isPurchased);
-            if (purchased.length > 0) appendCategory(content, "PANIER", purchased, true);
+            if (purchased.length > 0 && filterRayonName === "Tous les rayons") {
+                appendCategory(content, "PANIER", purchased, true);
+            }
         }
 
         function appendCategory(container, title, items, isPurchasedSection = false) {
@@ -265,7 +269,6 @@
                     try { dataPayload = JSON.parse(dataPayload); } catch(e) {}
                 }
 
-                // Si l'action est imbriquée dans le data
                 if (dataPayload && dataPayload.action) {
                     action = dataPayload.action;
                 }
