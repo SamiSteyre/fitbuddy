@@ -249,51 +249,52 @@
         }
 
         async function envoyerMessage() {
-            const input = document.getElementById('userInput');
-            const message = input.value.trim();
-            if (!message || !userEmail) return;
-            
-            document.getElementById('chat').innerHTML += `<div class="message-user m-4 p-4 max-w-[90%]"><p class="text-xs text-white">${message}</p></div>`;
-            input.value = '';
-            document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
+    const input = document.getElementById('userInput');
+    const message = input.value.trim();
+    if (!message || !userEmail) return;
+    
+    document.getElementById('chat').innerHTML += `<div class="message-user m-4 p-4 max-w-[90%]"><p class="text-xs text-white">${message}</p></div>`;
+    input.value = '';
+    document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
 
-            try {
-                const response = await fetch(`${N8N_URL}/webhook/chat-agent`, { 
-                    method: 'POST', 
-                    headers: { 'Content-Type': 'application/json' }, 
-                    body: JSON.stringify({ message: message, email: userEmail }) 
-                });
-                const responseData = await response.json();
-                const result = Array.isArray(responseData) ? responseData[0] : responseData;
-                
-                let outputText = result.output || "";
-                let action = result.action;
-                let dataPayload = result.data;
+    try {
+        const response = await fetch(`${N8N_URL}/webhook/chat-agent`, { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ message: message, email: userEmail }) 
+        });
+        const responseData = await response.json();
+        const result = Array.isArray(responseData) ? responseData[0] : responseData;
+        
+        let outputText = result.output || "";
+        let action = result.action;
+        
+        // --- LA CORRECTION EST ICI ---
+        // Si result.data n'existe pas, on prend result directement (cas de ton workflow)
+        let dataPayload = result.data || result; 
 
-                if (typeof dataPayload === 'string') {
-                    try { dataPayload = JSON.parse(dataPayload); } catch(e) {}
-                }
-
-                if (dataPayload && dataPayload.action) {
-                    action = dataPayload.action;
-                }
-
-                if (outputText) { 
-                    document.getElementById('chat').innerHTML += `<div class="message-agent m-4 p-4 max-w-[90%] bg-cyan-500/5"><p class="text-xs text-gray-200">${outputText}</p></div>`; 
-                }
-                
-                if (action === "switchToShopping") {
-                    switchToShopping(dataPayload);
-                }
-                
-                if (result.audio_base64 && result.audio_base64 !== "empty") { 
-                    new Audio("data:audio/mp3;base64," + result.audio_base64).play(); 
-                }
-                document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
-            } catch (e) {
-                console.error("Erreur n8n:", e);
-            }
+        if (dataPayload && dataPayload.action) {
+            action = dataPayload.action;
         }
+
+        if (outputText) { 
+            document.getElementById('chat').innerHTML += `<div class="message-agent m-4 p-4 max-w-[90%] bg-cyan-500/5"><p class="text-xs text-gray-200">${outputText}</p></div>`; 
+        }
+        
+        // On vérifie si l'action est celle attendue
+        if (action === "switchToShopping" || action === "shopping-list") {
+            console.log("Données reçues pour affichage :", dataPayload);
+            switchToShopping(dataPayload);
+        }
+        
+        if (result.audio_base64 && result.audio_base64 !== "empty") { 
+            new Audio("data:audio/mp3;base64," + result.audio_base64).play(); 
+        }
+        document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
+    } catch (e) {
+        console.error("Erreur n8n:", e);
+    }
+}
     </script>
 </body>
 </html>
