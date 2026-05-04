@@ -141,26 +141,18 @@
             }
         }
 
-        // --- VERSION CORRIGÉE : GÈRE LES TABLEAUX DIRECTS OU LES OBJETS NICHÉS ---
         function switchToShopping(data) {
-            console.log("Analyse des items pour affichage...");
+            console.log("Extraction des items...", data);
             let itemsArray = [];
 
-            // Cas 1 : data est déjà le tableau d'items (envoyé par Tyler dans result.data)
             if (Array.isArray(data)) {
                 itemsArray = data;
-            } 
-            // Cas 2 : data est l'objet complet avec une clé items (envoyé par le subworkflow)
-            else if (data && data.items && Array.isArray(data.items)) {
-                itemsArray = data.items;
-            }
-            // Cas 3 : data est un objet contenant une clé data qui est le tableau
-            else if (data && data.data && Array.isArray(data.data)) {
-                itemsArray = data.data;
+            } else if (data && typeof data === 'object') {
+                itemsArray = data.items || data.data || [];
             }
 
-            if (itemsArray.length === 0) {
-                console.warn("Aucun item trouvé dans les données reçues.");
+            if (!Array.isArray(itemsArray) || itemsArray.length === 0) {
+                console.warn("Liste vide ou format non reconnu.");
                 return;
             }
 
@@ -173,21 +165,31 @@
                 isPurchased: false
             }));
             
-            console.log("Liste prête, lancement du rendu :", currentList.length, "items.");
             renderShopping();
         }
 
         function renderShopping() {
             const chat = document.getElementById('chat');
             chat.innerHTML = `<div id="shopping-content" class="p-4 pb-24 space-y-8"></div>`;
-            
             const content = document.getElementById('shopping-content');
 
+            // 1. Rayons connus
             RAYONS.forEach(rayon => {
                 const items = currentList.filter(i => i.rayon === rayon && !i.isPurchased);
                 if (items.length > 0) appendCategory(content, rayon, items);
             });
 
+            // 2. Catch-all pour éviter les disparitions
+            const rayonsInconnus = [...new Set(currentList
+                .filter(i => !i.isPurchased && !RAYONS.includes(i.rayon))
+                .map(i => i.rayon))];
+            
+            rayonsInconnus.forEach(rayon => {
+                const items = currentList.filter(i => i.rayon === rayon);
+                appendCategory(content, rayon || "Autres", items);
+            });
+
+            // 3. Panier
             const purchased = currentList.filter(i => i.isPurchased);
             if (purchased.length > 0) {
                 appendCategory(content, "PANIER", purchased, true);
@@ -210,7 +212,7 @@
                 card.className = `relative aspect-[4/5] rounded-xl overflow-hidden border border-white/10 glass transition-all active:scale-95 ${isPurchasedSection ? 'purchased' : ''}`;
                 
                 const searchTerm = encodeURIComponent(item.nom + ",healthy,food");
-                const imageUrl = `https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400&h=500`; // Image générique food pour tester
+                const imageUrl = `https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400&h=500`;
 
                 card.innerHTML = `
                     <img src="${imageUrl}" 
@@ -227,7 +229,6 @@
                 
                 grid.appendChild(card);
             });
-            
             container.appendChild(section);
         }
 
@@ -257,7 +258,6 @@
             }
         }
 
-        // --- VERSION CORRIGÉE : CAPTURE TOUTES LES ACTIONS ET STRUCTURES ---
         async function envoyerMessage() {
             const input = document.getElementById('userInput');
             const message = input.value.trim();
@@ -276,13 +276,12 @@
                 const responseData = await response.json();
                 const result = Array.isArray(responseData) ? responseData[0] : responseData;
                 
-                console.log("RÉPONSE N8N REÇUE :", result);
+                console.log("RÉPONSE N8N :", result);
 
                 let outputText = result.output || "";
                 let action = result.action;
                 let dataPayload = result.data;
 
-                // Si Tyler envoie l'action à l'intérieur de data
                 if (dataPayload && dataPayload.action) {
                     action = dataPayload.action;
                 }
@@ -291,9 +290,9 @@
                     document.getElementById('chat').innerHTML += `<div class="message-agent m-4 p-4 max-w-[90%] bg-cyan-500/5"><p class="text-xs text-gray-200">${outputText}</p></div>`; 
                 }
                 
-                // On déclenche l'affichage pour switchToShopping OU shopping-list
-                if (action === "switchToShopping" || action === "shopping-list") {
-                    console.log("DÉCLENCHEMENT INTERFACE SHOPPING");
+                const normalizedAction = action ? action.trim() : "";
+                if (normalizedAction === "switchToShopping" || normalizedAction === "shopping-list") {
+                    console.log("DÉCLENCHEMENT SHOPPING");
                     switchToShopping(dataPayload || result);
                 }
                 
@@ -302,7 +301,7 @@
                 }
                 document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
             } catch (e) {
-                console.error("ERREUR RÉSEAU N8N :", e);
+                console.error("ERREUR RÉSEAU :", e);
             }
         }
     </script>
