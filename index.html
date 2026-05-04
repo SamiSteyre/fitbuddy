@@ -200,30 +200,48 @@
             }
         }
 
-        function appendCategory(container, title, items, isPurchasedSection = false) {
-            const section = document.createElement('div');
-            section.innerHTML = `<h2 class="text-[10px] font-black text-cyan-400/50 uppercase mb-4 pl-1 border-l-2 border-cyan-400/30">${title}</h2><div class="grid grid-cols-3 gap-2 md:gap-4"></div>`;
-            const grid = section.querySelector('.grid');
-            
-            items.forEach(item => {
-                const card = document.createElement('div');
-                card.onclick = () => togglePurchase(item.id);
-                card.className = `relative aspect-[4/5] rounded-xl overflow-hidden border border-white/10 glass ${isPurchasedSection ? 'purchased' : ''}`;
-                
-                const imgName = encodeURIComponent(item.nom);
-                
-                card.innerHTML = `
-                    <img src="https://loremflickr.com/400/500/food,${imgName}" 
-                         class="absolute inset-0 w-full h-full object-cover opacity-50" 
-                         onerror="this.onerror=null;this.src='${DEFAULT_IMAGE}';">
-                    <div class="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent p-2 flex flex-col justify-end">
-                        <h3 class="text-[9px] font-black uppercase text-white line-clamp-2">${item.nom}</h3>
-                        <span class="text-[8px] text-cyan-400 font-bold">${item.quantite} ${item.unite}</span>
-                    </div>`;
-                grid.appendChild(card);
-            });
-            container.appendChild(section);
-        }
+   function appendCategory(container, title, items, isPurchasedSection = false) {
+    const section = document.createElement('div');
+    section.innerHTML = `
+        <h2 class="text-[10px] font-black text-cyan-400/50 uppercase mb-4 pl-1 border-l-2 border-cyan-400/30">
+            ${title}
+        </h2>
+        <div class="grid grid-cols-3 gap-2 md:gap-4"></div>
+    `;
+    const grid = section.querySelector('.grid');
+    
+    items.forEach(item => {
+        const card = document.createElement('div');
+        card.onclick = () => togglePurchase(item.id);
+        
+        // On réduit l'opacité globale si l'article est déjà acheté
+        card.className = `relative aspect-[4/5] rounded-xl overflow-hidden border border-white/10 glass transition-all active:scale-95 ${isPurchasedSection ? 'purchased' : ''}`;
+        
+        // On force le mot-clé 'grocery' pour plus de pertinence automatique
+        const searchTerm = encodeURIComponent(item.nom + " grocery");
+        const imageUrl = `https://loremflickr.com/400/500/${searchTerm}/all`;
+
+        card.innerHTML = `
+            <!-- Image avec opacité de base plus haute (60%) -->
+            <img src="${imageUrl}" 
+                 class="absolute inset-0 w-full h-full object-cover opacity-60" 
+                 onerror="this.onerror=null;this.src='${DEFAULT_IMAGE}';">
+
+            <!-- Overlay dégradé beaucoup plus léger (40% de noir en bas, transparent en haut) -->
+            <div class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent p-2 flex flex-col justify-end">
+                <h3 class="text-[9px] font-black uppercase text-white line-clamp-2 leading-tight drop-shadow-sm">
+                    ${item.nom}
+                </h3>
+                <span class="text-[8px] text-cyan-400 font-bold bg-black/20 px-1 rounded-sm w-fit mt-1">
+                    ${item.quantite} ${item.unite}
+                </span>
+            </div>`;
+        
+        grid.appendChild(card);
+    });
+    
+    container.appendChild(section);
+}
 
         async function togglePurchase(id) {
             const item = currentList.find(i => i.id === id);
