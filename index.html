@@ -230,12 +230,17 @@
                 
                 // --- LOGIQUE OPTION B : Chemin relatif ---
                 // Nettoie le nom : "Lait Écrémé" -> "lait-ecreme"
-                const cleanName = item.nom
-                    .toLowerCase()
-                    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Enlève les accents
-                    .replace(/[^a-z0-9]/g, '-')                     // Remplace spécial par tiret
-                    .replace(/-+/g, '-')                            // Évite les doubles tirets
-                    .replace(/^-|-$/g, '');                         // Nettoie début/fin
+           // --- LOGIQUE DE NETTOYAGE CORRIGÉE ---
+const cleanName = item.nom
+    .toLowerCase()
+    .replace(/œ/g, 'oe')              // Remplace spécifiquement le œ
+    .replace(/æ/g, 'ae')              // Remplace spécifiquement le æ
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Enlève les accents (é -> e)
+    .replace(/[^a-z0-9]/g, '-')       // Remplace tout le reste (espaces, apostrophes) par des tirets
+    .replace(/-+/g, '-')              // Évite les doubles tirets (ex: --)
+    .replace(/^-|-$/g, '');           // Nettoie les tirets aux extrémités
+
+const imageUrl = `images/produits/${cleanName}.jpg`;
 
                 const imageUrl = `images/produits/${cleanName}.jpg`;
 
