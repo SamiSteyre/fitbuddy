@@ -153,20 +153,36 @@
                 .replace(/\(.*\)/g, '')
                 .trim().split(' ').slice(0, 2).join(' ');
         }
+async function fetchPixabayImage(imgElement, query) {
+    try {
+        const url = `https://pixabay.com/api/?key=${PIXABAY_KEY}&q=${encodeURIComponent(query)}&image_type=photo&category=food&per_page=3&safesearch=true`;
+        
+        console.log(`Tentative Pixabay pour "${query}"...`);
+        
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Erreur HTTP : ${response.status}`);
+        
+        const data = await response.json();
 
-        async function fetchPixabayImage(imgElement, query) {
-            try {
-                const url = `https://pixabay.com/api/?key=${PIXABAY_KEY}&q=${encodeURIComponent(query)}&image_type=photo&category=food&per_page=3&safesearch=true`;
-                const response = await fetch(url);
-                const data = await response.json();
-                if (data.hits && data.hits.length > 0) {
-                    imgElement.src = data.hits[0].webformatURL;
-                    imgElement.style.opacity = "1";
-                }
-            } catch (e) {
-                console.warn("Pixabay error:", e);
-            }
+        if (data.hits && data.hits.length > 0) {
+            const newUrl = data.hits[0].webformatURL;
+            console.log(`Image trouvée pour "${query}" : ${newUrl}`);
+            
+            // On change la source ET on force l'opacité
+            imgElement.src = newUrl;
+            imgElement.onload = () => {
+                imgElement.style.opacity = "1";
+            };
+        } else {
+            console.warn(`Aucun résultat Pixabay pour "${query}". Utilisation du fallback.`);
+            // Optionnel : Essayer un mot-clé plus simple si échec
+            imgElement.src = `https://loremflickr.com/400/500/${query.split(' ')[0]},food`;
+            imgElement.style.opacity = "1";
         }
+    } catch (e) {
+        console.error(`Erreur critique Pixabay pour "${query}" :`, e);
+    }
+}
         // --------------------------------
 
         function switchToShopping(data) {
