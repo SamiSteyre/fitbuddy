@@ -284,57 +284,40 @@
 
 
 
-        function switchToShopping(data) {
+ function switchToShopping(data) {
+    console.log("Extraction des items...", data);
+    
+    // CHANGEMENT DE LA VIDÉO
+    const videoElement = document.getElementById('agentVideo');
+    if (videoElement) {
+        videoElement.src = "agent-courses.mp4"; // Nouvelle source
+        videoElement.load(); // Recharge le nouvel élément source
+        videoElement.play(); // Relance la lecture
+    }
 
-            console.log("Extraction des items...", data);
+    let itemsArray = [];
+    if (Array.isArray(data)) {
+        itemsArray = data;
+    } else if (data && typeof data === 'object') {
+        itemsArray = data.items || data.data || [];
+    }
 
-            let itemsArray = [];
+    if (!Array.isArray(itemsArray) || itemsArray.length === 0) {
+        console.warn("Liste vide ou format non reconnu.");
+        return;
+    }
 
-
-
-            if (Array.isArray(data)) {
-
-                itemsArray = data;
-
-            } else if (data && typeof data === 'object') {
-
-                itemsArray = data.items || data.data || [];
-
-            }
-
-
-
-            if (!Array.isArray(itemsArray) || itemsArray.length === 0) {
-
-                console.warn("Liste vide ou format non reconnu.");
-
-                return;
-
-            }
-
-
-
-            currentList = itemsArray.map((i, idx) => ({
-
-                id: i.id || i.pageId || `idx-${idx}`,
-
-                nom: (i.nom || i.item || i.produit || "Produit").trim(),
-
-                quantite: i.quantite || i.quantity || "1",
-
-                unite: i.unite || i.unit || "",
-
-                rayon: (i.rayon || i.category || "Autres").trim(),
-
-                isPurchased: false
-
-            }));
-
-            
-
-            renderShopping();
-
-        }
+    currentList = itemsArray.map((i, idx) => ({
+        id: i.id || i.pageId || `idx-${idx}`,
+        nom: (i.nom || i.item || i.produit || "Produit").trim(),
+        quantite: i.quantite || i.quantity || "1",
+        unite: i.unite || i.unit || "",
+        rayon: (i.rayon || i.category || "Autres").trim(),
+        isPurchased: false
+    }));
+    
+    renderShopping();
+}
 
 
 
