@@ -213,7 +213,7 @@
             }
         }
 
-      function appendCategory(container, title, items, isPurchasedSection = false) {
+function appendCategory(container, title, items, isPurchasedSection = false) {
     const section = document.createElement('div');
     section.innerHTML = `
         <h2 class="text-[10px] font-black text-cyan-400/50 uppercase mb-4 pl-1 border-l-2 border-cyan-400/30">
@@ -223,42 +223,40 @@
     `;
     const grid = section.querySelector('.grid');
     
-  items.forEach(item => {
-    const card = document.createElement('div');
-    card.onclick = () => togglePurchase(item.id);
-    card.className = `relative aspect-[4/5] rounded-xl overflow-hidden border border-white/10 glass transition-all active:scale-95 ${isPurchasedSection ? 'purchased' : ''}`;
-    
-    // 1. On nettoie le nom pour le fichier
-    const cleanName = item.nom
-        .toLowerCase()
-        .replace(/[œŒ]/g, 'oe')
-        .replace(/[æÆ]/g, 'ae')
-        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^a-z0-9]/g, '-')
-        .replace(/-+/g, '-')
-        .replace(/^-|-$/g, '');
+    items.forEach(item => {
+        const card = document.createElement('div');
+        card.onclick = () => togglePurchase(item.id);
+        card.className = `relative aspect-[4/5] rounded-xl overflow-hidden border border-white/10 glass transition-all active:scale-95 ${isPurchasedSection ? 'purchased' : ''}`;
+        
+        // 1. Nettoyage du nom pour le fichier
+        const cleanName = item.nom
+            .toLowerCase()
+            .replace(/[œŒ]/g, 'oe')
+            .replace(/[æÆ]/g, 'ae')
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-z0-9]/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/^-|-$/g, '');
 
-    // 2. ON DÉCLARE imageUrl UNE SEULE FOIS ICI
-    const imageUrl = `images/produits/${cleanName}.jpg`;
+        const imageUrl = `images/produits/${cleanName}.jpg`;
 
-    // 3. (Optionnel) Debug pour voir ce qu'il cherche vraiment
-    console.log("Recherche de :", imageUrl);
+        console.log("Tentative d'affichage de :", imageUrl);
 
-    card.innerHTML = `
-        <img src="${imageUrl}" 
-                class="absolute inset-0 w-full h-full object-cover" 
-                onerror="this.onerror=null; this.src='${DEFAULT_IMAGE}';">
-        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent p-2 flex flex-col justify-end">
-            <h3 class="text-[10px] font-black uppercase text-white leading-tight drop-shadow-lg" style="text-shadow: 0 2px 4px rgba(0,0,0,0.8);">
-                ${item.nom}
-            </h3>
-            <span class="text-[8px] text-cyan-400 font-bold mt-1 drop-shadow-md">
-                ${item.quantite} ${item.unite}
-            </span>
-        </div>`;
-    
-    grid.appendChild(card);
-});
+        card.innerHTML = `
+            <img src="${imageUrl}" 
+                 class="absolute inset-0 w-full h-full object-cover" 
+                 onerror="this.onerror=null; this.src='${DEFAULT_IMAGE}';">
+            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent p-2 flex flex-col justify-end">
+                <h3 class="text-[10px] font-black uppercase text-white leading-tight drop-shadow-lg" style="text-shadow: 0 2px 4px rgba(0,0,0,0.8);">
+                    ${item.nom}
+                </h3>
+                <span class="text-[8px] text-cyan-400 font-bold mt-1 drop-shadow-md">
+                    ${item.quantite} ${item.unite}
+                </span>
+            </div>`;
+        
+        grid.appendChild(card);
+    }); // <--- C'était ici que ça coinçait !
     container.appendChild(section);
 }
 
