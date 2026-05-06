@@ -386,74 +386,48 @@ function switchToShopping(data) {
 
 
 
-        function appendCategory(container, title, items, isPurchasedSection = false) {
-
+       function appendCategory(container, title, items, isPurchasedSection = false) {
             const section = document.createElement('div');
-
             section.innerHTML = `
-
                 <h2 class="text-[10px] font-black text-cyan-400/50 uppercase mb-4 pl-1 border-l-2 border-cyan-400/30">
-
                     ${title}
-
                 </h2>
-
                 <div class="grid grid-cols-3 gap-2 md:gap-4"></div>
-
             `;
-
             const grid = section.querySelector('.grid');
-
             
-
             items.forEach(item => {
-
                 const card = document.createElement('div');
-
                 card.onclick = () => togglePurchase(item.id);
-
                 card.className = `relative aspect-[4/5] rounded-xl overflow-hidden border border-white/10 glass transition-all active:scale-95 ${isPurchasedSection ? 'purchased' : ''}`;
-
                 
+                // --- LOGIQUE OPTION B : Chemin relatif ---
+                // Nettoie le nom : "Lait Écrémé" -> "lait-ecreme"
+                const cleanName = item.nom
+                    .toLowerCase()
+                    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Enlève les accents
+                    .replace(/[^a-z0-9]/g, '-')                     // Remplace spécial par tiret
+                    .replace(/-+/g, '-')                            // Évite les doubles tirets
+                    .replace(/^-|-$/g, '');                         // Nettoie début/fin
 
-                const searchTerm = encodeURIComponent(item.nom + ",healthy,food");
-
-                const imageUrl = `https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400&h=500`;
-
-
+                const imageUrl = `images/produits/${cleanName}.jpg`;
 
                 card.innerHTML = `
-
                     <img src="${imageUrl}" 
-
                          class="absolute inset-0 w-full h-full object-cover" 
-
-                         onerror="this.onerror=null;this.src='${DEFAULT_IMAGE}';">
-
-                    <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent p-2 flex flex-col justify-end">
-
+                         onerror="this.onerror=null; this.src='${DEFAULT_IMAGE}';">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent p-2 flex flex-col justify-end">
                         <h3 class="text-[10px] font-black uppercase text-white leading-tight drop-shadow-lg" style="text-shadow: 0 2px 4px rgba(0,0,0,0.8);">
-
                             ${item.nom}
-
                         </h3>
-
                         <span class="text-[8px] text-cyan-400 font-bold mt-1 drop-shadow-md">
-
                             ${item.quantite} ${item.unite}
-
                         </span>
-
                     </div>`;
-
                 
-
                 grid.appendChild(card);
-
             });
-
             container.appendChild(section);
-
         }
 
 
