@@ -223,41 +223,42 @@
     `;
     const grid = section.querySelector('.grid');
     
-    items.forEach(item => {
-        const card = document.createElement('div');
-        card.onclick = () => togglePurchase(item.id);
-        card.className = `relative aspect-[4/5] rounded-xl overflow-hidden border border-white/10 glass transition-all active:scale-95 ${isPurchasedSection ? 'purchased' : ''}`;
-        
-        // --- NETTOYAGE ULTRA-ROBUSTE ---
-        const cleanName = item.nom
-            .toLowerCase()
-            .replace(/[œŒ]/g, 'oe')  // Gère œ et Œ
-            .replace(/[æÆ]/g, 'ae')  // Gère æ et Æ
-            .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Enlève les accents
-            .replace(/[^a-z0-9]/g, '-') // Remplace tout le reste par des tirets
-            .replace(/-+/g, '-')       // Nettoie les doubles tirets
-            .replace(/^-|-$/g, '');    // Nettoie début/fin
+  items.forEach(item => {
+    const card = document.createElement('div');
+    card.onclick = () => togglePurchase(item.id);
+    card.className = `relative aspect-[4/5] rounded-xl overflow-hidden border border-white/10 glass transition-all active:scale-95 ${isPurchasedSection ? 'purchased' : ''}`;
+    
+    // 1. On nettoie le nom pour le fichier
+    const cleanName = item.nom
+        .toLowerCase()
+        .replace(/[œŒ]/g, 'oe')
+        .replace(/[æÆ]/g, 'ae')
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
 
-        const imageUrl = `images/produits/${cleanName}.jpg`;
+    // 2. ON DÉCLARE imageUrl UNE SEULE FOIS ICI
+    const imageUrl = `images/produits/${cleanName}.jpg`;
 
-        // LIGNE DE DIAGNOSTIC : Affiche le nom cherché dans la console (F12)
-        console.log(`Produit: ${item.nom} -> Fichier cherché: ${imageUrl}`);
+    // 3. (Optionnel) Debug pour voir ce qu'il cherche vraiment
+    console.log("Recherche de :", imageUrl);
 
-        card.innerHTML = `
-            <img src="${imageUrl}" 
-                 class="absolute inset-0 w-full h-full object-cover" 
-                 onerror="this.onerror=null; this.src='${DEFAULT_IMAGE}';">
-            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent p-2 flex flex-col justify-end">
-                <h3 class="text-[10px] font-black uppercase text-white leading-tight drop-shadow-lg" style="text-shadow: 0 2px 4px rgba(0,0,0,0.8);">
-                    ${item.nom}
-                </h3>
-                <span class="text-[8px] text-cyan-400 font-bold mt-1 drop-shadow-md">
-                    ${item.quantite} ${item.unite}
-                </span>
-            </div>`;
-        
-        grid.appendChild(card);
-    });
+    card.innerHTML = `
+        <img src="${imageUrl}" 
+                class="absolute inset-0 w-full h-full object-cover" 
+                onerror="this.onerror=null; this.src='${DEFAULT_IMAGE}';">
+        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent p-2 flex flex-col justify-end">
+            <h3 class="text-[10px] font-black uppercase text-white leading-tight drop-shadow-lg" style="text-shadow: 0 2px 4px rgba(0,0,0,0.8);">
+                ${item.nom}
+            </h3>
+            <span class="text-[8px] text-cyan-400 font-bold mt-1 drop-shadow-md">
+                ${item.quantite} ${item.unite}
+            </span>
+        </div>`;
+    
+    grid.appendChild(card);
+}););
     container.appendChild(section);
 }
 
