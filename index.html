@@ -26,7 +26,7 @@
         #chat::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
         .video-container { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #000; }
         .purchased { opacity: 0.35; filter: grayscale(1); transform: scale(0.95); transition: all 0.3s ease; }
-        
+
         @keyframes pulse-red {
             0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
             70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
@@ -82,48 +82,14 @@
 
     <script>
         window.addEventListener('load', () => { 
-            if (typeof lucide !== 'undefined') {
-                lucide.createIcons();
-            }
+            lucide.createIcons();
             checkAuth(); 
         });
 
         let userEmail = localStorage.getItem('fitbuddy_email');
         const N8N_URL = "https://greedily-submarine-prance.ngrok-free.dev";
-
-        // --- DICTIONNAIRE COMPLET DES PRODUITS (LUCIDE) ---
-        const PRODUCT_ICONS = {
-            "pain": "croissant", "baguette": "croissant", "brioche": "croissant", "croissant": "croissant",
-            "pomme": "apple", "poire": "apple", "banane": "banana", "fraise": "strawberry", "cerise": "cherry", 
-            "citron": "citrus", "orange": "citrus", "carotte": "carrot", "tomate": "carrot", "salade": "leaf", 
-            "oignon": "leaf", "ail": "leaf", "avocat": "leaf", "poulet": "drumstick", "dinde": "drumstick", 
-            "boeuf": "beef", "steak": "beef", "hache": "beef", "porc": "beef", "jambon": "beef", 
-            "poisson": "fish", "saumon": "fish", "thon": "fish", "pates": "wheat", "riz": "wheat", 
-            "semoule": "wheat", "conserve": "container", "boite": "container", "soupe": "soup", 
-            "huile": "flask-conical", "vinaigre": "flask-conical", "ketchup": "flask-conical", "sauce": "flask-conical",
-            "cafe": "coffee", "the": "coffee", "avoine": "wheat", "whey": "dumbbell", "shaker": "dumbbell",
-            "chocolat": "candy", "bonbon": "candy", "biscuit": "cookie", "gateau": "cake", "cookie": "cookie",
-            "lait": "egg", "oeuf": "egg", "yaourt": "cheese", "fromage": "cheese", "beurre": "cheese",
-            "eau": "glass-water", "jus": "cup-soda", "soda": "cup-soda", "vin": "wine", "biere": "beer",
-            "savon": "bath", "douche": "shower-head", "shampooing": "shower-head", "lessive": "washing-machine",
-            "chien": "dog", "chat": "cat",
-            // FALLBACK PAR RAYONS
-            "Boulangerie & Viennoiserie": "croissant",
-            "Fruits & Légumes frais": "apple",
-            "Boucherie & Volaille": "beef",
-            "Poissonnerie": "fish",
-            "Pâtes Riz & féculents": "wheat",
-            "Lait & Oeufs": "egg",
-            "Produits laitiers": "cheese",
-            "Surgelés": "snowflake",
-            "Boissons": "cup-soda",
-            "Hygiène": "shower-head",
-            "Entretien de la maison": "washing-machine",
-            "Animalerie": "dog",
-            "Autres": "shopping-basket"
-        };
-
-        const RAYONS = ["Boulangerie & Viennoiserie", "Fruits & Légumes frais", "Boucherie & Volaille", "Poissonnerie", "Pâtes Riz & féculents", "Conserves de Légumes & Plats Cuisinés", "Conserves de Poisson", "Huiles Vinaigres Epices & Sauces", "Apéritif", "Petit-déjeuner", "Biscuits & Gâteaux", "Confiserie & Chocolat", "Confitures Miels & Pâtes à tartiner", "Aide à la pâtisserie", "Lait & Oeufs", "Produits laitiers", "Surgelés", "Boissons", "Hygiène", "Entretien de la maison", "Animalerie", "Loisirs", "Autres"];
+        const DEFAULT_IMAGE = "default-item.svg";
+        const RAYONS = ["Frais", "Boulangerie & Viennoiserie", "Fruits & Légumes frais", "Boucherie & Volaille", "Poissonnerie", "Pâtes Riz & féculents", "Conserves de Légumes & Plats Cuisinés", "Conserves de Poisson", "Huiles Vinaigres Epices & Sauces", "Apéritif", "Petit-déjeuner", "Biscuits & Gâteaux", "Confiserie & Chocolat", "Confitures Miels & Pâtes à tartiner", "Aide à la pâtisserie", "Lait & Oeufs", "Produits laitiers", "Surgelés", "Boissons", "Hygiène", "Entretien de la maison", "Animalerie", "Loisirs", "Autres"];
 
         let currentList = [];
         let isListening = false;
@@ -175,23 +141,33 @@
             }
         }
 
-        // --- FONCTION DE MAPPING ---
-        function getIcon(productName, categoryName) {
-            const name = productName.toLowerCase();
-            // On cherche le mot-clé le plus long en premier pour la précision
-            const keys = Object.keys(PRODUCT_ICONS).sort((a, b) => b.length - a.length);
-            for (let key of keys) {
-                if (name.includes(key)) return PRODUCT_ICONS[key];
-            }
-            return PRODUCT_ICONS[categoryName] || PRODUCT_ICONS["Autres"];
-        }
-
+        // --- VERSION CORRIGÉE : GÈRE LES TABLEAUX DIRECTS OU LES OBJETS NICHÉS ---
         function switchToShopping(data) {
+            console.log("Analyse des items pour affichage...");
+            console.log("Extraction des items...", data);
             let itemsArray = [];
-            if (Array.isArray(data)) itemsArray = data;
-            else if (data && typeof data === 'object') itemsArray = data.items || data.data || [];
-            
-            if (!Array.isArray(itemsArray) || itemsArray.length === 0) return;
+
+            // Cas 1 : data est déjà le tableau d'items (envoyé par Tyler dans result.data)
+            if (Array.isArray(data)) {
+                itemsArray = data;
+            } 
+            // Cas 2 : data est l'objet complet avec une clé items (envoyé par le subworkflow)
+            else if (data && data.items && Array.isArray(data.items)) {
+                itemsArray = data.items;
+            }
+            // Cas 3 : data est un objet contenant une clé data qui est le tableau
+            else if (data && data.data && Array.isArray(data.data)) {
+                itemsArray = data.data;
+            } else if (data && typeof data === 'object') {
+                itemsArray = data.items || data.data || [];
+            }
+
+            if (itemsArray.length === 0) {
+                console.warn("Aucun item trouvé dans les données reçues.");
+            if (!Array.isArray(itemsArray) || itemsArray.length === 0) {
+                console.warn("Liste vide ou format non reconnu.");
+                return;
+            }
 
             currentList = itemsArray.map((i, idx) => ({
                 id: i.id || i.pageId || `idx-${idx}`,
@@ -201,19 +177,24 @@
                 rayon: (i.rayon || i.category || "Autres").trim(),
                 isPurchased: false
             }));
+
+            console.log("Liste prête, lancement du rendu :", currentList.length, "items.");
             renderShopping();
         }
 
         function renderShopping() {
             const chat = document.getElementById('chat');
             chat.innerHTML = `<div id="shopping-content" class="p-4 pb-24 space-y-8"></div>`;
+            
             const content = document.getElementById('shopping-content');
 
+            // 1. Rayons connus
             RAYONS.forEach(rayon => {
                 const items = currentList.filter(i => i.rayon === rayon && !i.isPurchased);
                 if (items.length > 0) appendCategory(content, rayon, items);
             });
 
+            // 2. Catch-all pour éviter les disparitions
             const rayonsInconnus = [...new Set(currentList
                 .filter(i => !i.isPurchased && !RAYONS.includes(i.rayon))
                 .map(i => i.rayon))];
@@ -223,78 +204,129 @@
                 appendCategory(content, rayon || "Autres", items);
             });
 
+            // 3. Panier
             const purchased = currentList.filter(i => i.isPurchased);
-            if (purchased.length > 0) appendCategory(content, "PANIER", purchased, true);
+            if (purchased.length > 0) {
+                appendCategory(content, "PANIER", purchased, true);
+            }
         }
 
         function appendCategory(container, title, items, isPurchasedSection = false) {
             const section = document.createElement('div');
             section.innerHTML = `
-                <h2 class="text-[10px] font-black text-cyan-400/50 uppercase mb-4 pl-1 border-l-2 border-cyan-400/30">${title}</h2>
+                <h2 class="text-[10px] font-black text-cyan-400/50 uppercase mb-4 pl-1 border-l-2 border-cyan-400/30">
+                    ${title}
+                </h2>
                 <div class="grid grid-cols-3 gap-2 md:gap-4"></div>
             `;
             const grid = section.querySelector('.grid');
-            
+
             items.forEach(item => {
                 const card = document.createElement('div');
                 card.onclick = () => togglePurchase(item.id);
-                card.className = `relative aspect-[4/5] rounded-xl overflow-hidden border border-white/10 glass flex flex-col items-center justify-center transition-all active:scale-95 ${isPurchasedSection ? 'purchased' : ''}`;
-                
-                const iconName = getIcon(item.nom, item.rayon);
+                card.className = `relative aspect-[4/5] rounded-xl overflow-hidden border border-white/10 glass transition-all active:scale-95 ${isPurchasedSection ? 'purchased' : ''}`;
+
+                const searchTerm = encodeURIComponent(item.nom + ",healthy,food");
+                const imageUrl = `https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400&h=500`; // Image générique food pour tester
+                const imageUrl = `https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400&h=500`;
 
                 card.innerHTML = `
-                    <div class="flex-1 flex items-center justify-center text-cyan-400/20">
-                        <i data-lucide="${iconName}" class="w-10 h-10"></i>
-                    </div>
-                    <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent p-2 flex flex-col justify-end">
-                        <h3 class="text-[10px] font-black uppercase text-white leading-tight">${item.nom}</h3>
-                        <span class="text-[8px] text-cyan-400 font-bold mt-1">${item.quantite} ${item.unite}</span>
+                    <img src="${imageUrl}" 
+                         class="absolute inset-0 w-full h-full object-cover" 
+                         onerror="this.onerror=null;this.src='${DEFAULT_IMAGE}';">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent p-2 flex flex-col justify-end">
+                        <h3 class="text-[10px] font-black uppercase text-white leading-tight drop-shadow-lg" style="text-shadow: 0 2px 4px rgba(0,0,0,0.8);">
+                            ${item.nom}
+                        </h3>
+                        <span class="text-[8px] text-cyan-400 font-bold mt-1 drop-shadow-md">
+                            ${item.quantite} ${item.unite}
+                        </span>
                     </div>`;
+
                 grid.appendChild(card);
             });
+            
             container.appendChild(section);
-            if (typeof lucide !== 'undefined') lucide.createIcons();
         }
 
         async function togglePurchase(id) {
             const item = currentList.find(i => i.id === id);
             if (!item) return;
+
             item.isPurchased = !item.isPurchased;
             renderShopping();
+
             try {
                 await fetch(`${N8N_URL}/webhook/shopping-action`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: item.isPurchased ? "delete" : "add", pageId: item.id, produit: item.nom, quantite: item.quantite, rayon: item.rayon, unite: item.unite, email: userEmail })
+                    body: JSON.stringify({ 
+                        action: item.isPurchased ? "delete" : "add", 
+                        pageId: item.id, 
+                        produit: item.nom, 
+                        quantite: item.quantite,
+                        rayon: item.rayon,
+                        unite: item.unite,
+                        email: userEmail 
+                    })
                 });
-            } catch (e) { console.error("Erreur synchro:", e); }
+            } catch (e) {
+                console.error("Erreur synchro:", e);
+            }
         }
 
+        // --- VERSION CORRIGÉE : CAPTURE TOUTES LES ACTIONS ET STRUCTURES ---
         async function envoyerMessage() {
             const input = document.getElementById('userInput');
             const message = input.value.trim();
             if (!message || !userEmail) return;
+
             document.getElementById('chat').innerHTML += `<div class="message-user m-4 p-4 max-w-[90%]"><p class="text-xs text-white">${message}</p></div>`;
             input.value = '';
             document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
+
             try {
-                const response = await fetch(`${N8N_URL}/webhook/chat-agent`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: message, email: userEmail }) });
+                const response = await fetch(`${N8N_URL}/webhook/chat-agent`, { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ message: message, email: userEmail }) 
+                });
                 const responseData = await response.json();
                 const result = Array.isArray(responseData) ? responseData[0] : responseData;
+
+                console.log("RÉPONSE N8N REÇUE :", result);
+                console.log("RÉPONSE N8N :", result);
+
                 let outputText = result.output || "";
                 let action = result.action;
                 let dataPayload = result.data;
-                if (dataPayload && dataPayload.action) action = dataPayload.action;
+
+                // Si Tyler envoie l'action à l'intérieur de data
+                if (dataPayload && dataPayload.action) {
+                    action = dataPayload.action;
+                }
+
                 if (outputText) { 
                     document.getElementById('chat').innerHTML += `<div class="message-agent m-4 p-4 max-w-[90%] bg-cyan-500/5"><p class="text-xs text-gray-200">${outputText}</p></div>`; 
                 }
+
+                // On déclenche l'affichage pour switchToShopping OU shopping-list
+                if (action === "switchToShopping" || action === "shopping-list") {
+                    console.log("DÉCLENCHEMENT INTERFACE SHOPPING");
                 const normalizedAction = action ? action.trim() : "";
                 if (normalizedAction === "switchToShopping" || normalizedAction === "shopping-list") {
+                    console.log("DÉCLENCHEMENT SHOPPING");
                     switchToShopping(dataPayload || result);
                 }
-                if (result.audio_base64 && result.audio_base64 !== "empty") { new Audio("data:audio/mp3;base64," + result.audio_base64).play(); }
+
+                if (result.audio_base64 && result.audio_base64 !== "empty") { 
+                    new Audio("data:audio/mp3;base64," + result.audio_base64).play(); 
+                }
                 document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
-            } catch (e) { console.error("ERREUR RÉSEAU :", e); }
+            } catch (e) {
+                console.error("ERREUR RÉSEAU N8N :", e);
+                console.error("ERREUR RÉSEAU :", e);
+            }
         }
     </script>
 </body>
