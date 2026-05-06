@@ -283,19 +283,28 @@
         }
 
 
-
- function switchToShopping(data) {
+function switchToShopping(data) {
     console.log("Extraction des items...", data);
-    
-    // CHANGEMENT DE LA VIDÉO
-    const videoElement = document.getElementById('agentVideo');
-    if (videoElement) {
-        videoElement.src = "agent-courses.mp4"; // Nouvelle source
-        videoElement.load(); // Recharge le nouvel élément source
-        videoElement.play(); // Relance la lecture
+
+    // --- MISE À JOUR DE LA VIDÉO ---
+    const video = document.getElementById('agentVideo');
+    if (video) {
+        console.log("Tentative de changement vers : agent-courses.mp4");
+        
+        // On retire l'ancienne balise <source> pour éviter les conflits
+        video.innerHTML = ""; 
+        
+        // On définit la nouvelle source directement sur l'élément vidéo
+        video.src = "agent-courses.mp4";
+        
+        // On force le rechargement et la lecture
+        video.load();
+        video.play().catch(e => console.error("Erreur lecture vidéo :", e));
     }
 
+    // --- LE RESTE DE TA LOGIQUE (LISTE DE COURSES) ---
     let itemsArray = [];
+
     if (Array.isArray(data)) {
         itemsArray = data;
     } else if (data && typeof data === 'object') {
