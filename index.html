@@ -19,6 +19,7 @@
             height: 100dvh; 
             overflow: hidden;
             position: fixed;
+            color: #e5e5e5; /* Couleur de texte par défaut */
         }
 
         /* Utilisation du GRID pour forcer le footer en bas */
@@ -67,7 +68,7 @@
                 </video>
             </div>
 
-            <div id="chat" class="flex-1 p-4 space-y-4">
+            <div id="chat" class="flex-1 p-4 space-y-4 bg-black">
                 <div class="msg-agent p-4 max-w-[90%]">
                     <p class="text-[8px] text-cyan-400 uppercase font-black mb-1">System</p>
                     <p id="system-status" class="text-xs text-gray-300">Prêt.</p>
@@ -81,8 +82,8 @@
                     <i id="micIcon" data-lucide="mic" class="w-5 h-5 text-cyan-400"></i>
                 </button>
                 <div class="relative flex-1">
-                    <input type="text" id="userInput" class="w-full bg-white/5 border border-white/10 rounded-2xl p-3.5 pr-12 focus:outline-none focus:border-cyan-500 text-sm" placeholder="Message..." onkeypress="if(event.key === 'Enter') envoyerMessage()">
-                    <button onclick="envoyerMessage()" class="absolute right-2 top-2 bottom-2 px-3 bg-cyan-600 rounded-xl">
+                    <input type="text" id="userInput" class="w-full text-white bg-white/5 border border-white/10 rounded-2xl p-3.5 pr-12 focus:outline-none focus:border-cyan-500 text-sm" placeholder="Message..." onkeypress="if(event.key === 'Enter') envoyerMessage()">
+                    <button onclick="envoyerMessage()" class="absolute right-2 top-2 bottom-2 px-3 bg-cyan-600 rounded-xl active:scale-95">
                         <i data-lucide="send-horizontal" class="w-4 h-4 text-white"></i>
                     </button>
                 </div>
@@ -91,7 +92,7 @@
     </div>
 
     <script>
-        // --- LOGIQUE JS ---
+        // --- LOGIQUE JS (Inchangée) ---
         let userEmail = localStorage.getItem('fitbuddy_email');
         const N8N_URL = "https://greedily-submarine-prance.ngrok-free.dev";
         const DEFAULT_IMAGE = "default-item.svg";
