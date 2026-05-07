@@ -116,13 +116,14 @@
             lucide.createIcons();
             
             // Re-insertion de la logique PWA (App installable)
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('sw.js?v=5').catch(err => console.log("SW Error:", err));
-            }
-            
-            checkAuth(); 
-        });
-
+          if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        // Le ./ est crucial pour GitHub Pages
+        navigator.serviceWorker.register('./sw.js?v=8')
+            .then(reg => console.log('SW prêt sur le scope :', reg.scope))
+            .catch(err => console.error('Echec SW:', err));
+    });
+}
         function checkAuth() {
             if (!userEmail) {
                 userEmail = prompt("E-mail :");
