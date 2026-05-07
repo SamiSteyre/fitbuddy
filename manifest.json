@@ -1,15 +1,16 @@
 {
   "name": "FitBuddy AI",
   "short_name": "FitBuddy",
-  "description": "Ton coach nutritionnel IA",
-  "start_url": "./index.html",
-  "scope": "./",
+  "description": "Coach nutritionnel IA",
+  "start_url": "/NOM_DU_REPO/",
+  "scope": "/NOM_DU_REPO/",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",
   "orientation": "portrait",
   "icons": [
- 
+    {
+    
     {
       "src": "icon-512.png",
       "sizes": "512x512",
