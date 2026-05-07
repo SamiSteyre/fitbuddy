@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <link rel="manifest" href="manifest.json">
+    
     <title>FitBuddy AI</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
@@ -111,6 +114,12 @@
 
         window.addEventListener('load', () => { 
             lucide.createIcons();
+            
+            // Re-insertion de la logique PWA (App installable)
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('sw.js?v=5').catch(err => console.log("SW Error:", err));
+            }
+            
             checkAuth(); 
         });
 
@@ -135,25 +144,23 @@
 
         function toggleMic() { if (!recognition) return; (isListening) ? recognition.stop() : recognition.start(); }
 
-        // --- FONCTION MACROS CORRIGÉE (LOGIQUE SÉCURISÉE) ---
+        // --- MACROS & JOURNAL ALIMENTAIRE ---
         function switchToMacros(data) {
-            // Détection du bloc de données (depuis la racine ou depuis .data)
             const d = (data.data) ? data.data : data;
+            console.log("--- DEBUG MACROS DATA ---", d);
+
             const chat = document.getElementById('chat');
 
-            // Extraction robuste de la liste des aliments
-            let rawAliments = d.aliments || [];
+            // Lecture de la liste aliments (Objet Notion -> Tableau)
             let listeAliments = [];
-            
-            if (Array.isArray(rawAliments)) {
-                listeAliments = rawAliments;
-            } else if (typeof rawAliments === 'object' && rawAliments !== null) {
-                // Transforme l'objet {0: "Whey", 1: "Whey"} en tableau ["Whey", "Whey"]
-                listeAliments = Object.values(rawAliments);
+            if (d.aliments) {
+                if (Array.isArray(d.aliments)) {
+                    listeAliments = d.aliments;
+                } else if (typeof d.aliments === 'object') {
+                    listeAliments = Object.values(d.aliments);
+                }
             }
-            
-            // On nettoie la liste (seulement les textes valides)
-            listeAliments = listeAliments.filter(a => a && typeof a === 'string' && a.trim() !== "");
+            console.log("--- DEBUG LISTE FINALE ---", listeAliments);
 
             const water = d.water || { current: 0, goal: 2000, unit: 'ML', remaining: 2000 };
             const calories = d.calories || { current: 0, goal: 2000, unit: 'KCAL', remaining: 2000 };
@@ -204,10 +211,10 @@
                     </div>
 
                     ${listeAliments.length > 0 ? `
-                    <div class="bg-white/5 p-4 rounded-2xl border border-white/10 mt-4">
+                    <div class="bg-white/5 p-4 rounded-2xl border border-white/10 mt-2 shadow-lg">
                         <span class="text-[9px] font-black text-cyan-400 tracking-widest uppercase mb-3 block text-center">Journal Alimentaire</span>
                         <div class="flex flex-wrap justify-center gap-2">
-                            ${listeAliments.map(a => `<span class="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[10px] text-gray-300 font-medium">${a}</span>`).join('')}
+                            ${listeAliments.map(a => `<span class="px-3 py-1 bg-white/10 border border-white/20 rounded-full text-[10px] text-gray-200 font-medium">${String(a).trim()}</span>`).join('')}
                         </div>
                     </div>` : ''}
                 </div>`;
@@ -216,7 +223,7 @@
             lucide.createIcons();
         }
 
-        // --- FONCTIONS SHOPPING & ENVOI ---
+        // --- SHOPPING ---
         function switchToShopping(data) {
             const video = document.getElementById('agentVideo');
             if (video) { video.innerHTML = ""; video.src = "agent-courses.mp4"; video.load(); video.play(); }
@@ -254,7 +261,7 @@
                 const card = document.createElement('div');
                 card.onclick = () => togglePurchase(item.id);
                 card.className = `relative aspect-[4/5] rounded-xl overflow-hidden bg-black border border-white/10 ${isPurchased ? 'purchased' : ''}`;
-                const clean = item.nom.toLowerCase().replace(/[œŒ]/g, 'oe').normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+                const clean = item.nom.toLowerCase().replace(/\u0153/g, 'oe').replace(/\u0152/g, 'oe').normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
                 card.innerHTML = `<img src="images/produits/${clean}.jpg" class="absolute inset-0 w-full h-full object-cover" onerror="this.src='default-item.svg';">
                     <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent p-2 flex flex-col justify-end">
                         <p class="text-[9px] font-bold text-white leading-tight">${item.nom}</p>
@@ -285,6 +292,8 @@
                 const res = await fetch(`${N8N_URL}/webhook/chat-agent`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ message: msg, email: userEmail })});
                 const responseData = await res.json();
                 const r = Array.isArray(responseData) ? responseData[0] : responseData;
+                console.log("--- DEBUG REÇU N8N ---", r);
+
                 if (r.output) { chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl">${r.output}</div>`; }
                 let actionStr = (r.action || (r.data && r.data.action) || "").toLowerCase();
                 if (actionStr.includes("macro") || actionStr.includes("dashboard") || actionStr.includes("switchtomacros")) { switchToMacros(r); } 
