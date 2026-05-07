@@ -21,6 +21,7 @@
             padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);
         }
 
+        /* Bulles violettes */
         .msg-user { 
             background: linear-gradient(135deg, #6b21a8, #4c1d95) !important; 
             border-radius: 18px 18px 2px 18px !important; 
@@ -32,13 +33,14 @@
             border-radius: 18px 18px 18px 2px; align-self: flex-start; color: #e5e5e5;
         }
 
+        /* Styles Macros Dashboard */
         .macro-ring {
-            position: relative; width: 85px; height: 85px; border-radius: 50%;
+            position: relative; width: 90px; height: 90px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
             background: radial-gradient(#0a0a0a 55%, transparent 56%);
         }
-        .macro-value { position: absolute; font-weight: 900; font-size: 0.9rem; }
-        .water-progress { height: 10px; border-radius: 5px; background: rgba(255,255,255,0.05); overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
+        .macro-value { position: absolute; font-weight: 900; font-size: 1rem; }
+        .water-progress { height: 12px; border-radius: 6px; background: rgba(255,255,255,0.05); overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
         .water-bar { height: 100%; background: linear-gradient(90deg, #22d3ee, #0891b2); transition: width 1s ease-in-out; }
         
         #chat::-webkit-scrollbar { width: 0; }
@@ -51,6 +53,7 @@
         }
         .mic-active { animation: pulse-red 1.5s infinite; background: rgba(239, 68, 68, 0.4) !important; }
 
+        /* Correction Force Paysage */
         @media (orientation: landscape) {
             #main-content { flex-direction: row !important; }
             #video-box { width: 45% !important; height: 100% !important; border-bottom: none !important; border-right: 1px solid rgba(255,255,255,0.1); }
@@ -63,8 +66,8 @@
     <div id="app-container">
         <header class="flex-none h-14 border-b border-white/10 flex justify-between items-center px-4 bg-black">
             <div class="flex items-center gap-2">
-                <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <h1 class="text-xs font-bold uppercase text-cyan-400">FitBuddy</h1>
+                <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_#22c55e]"></div>
+                <h1 class="text-xs font-bold uppercase text-cyan-400 tracking-tighter">FitBuddy</h1>
             </div>
             <i data-lucide="dumbbell" class="text-purple-500 w-5 h-5"></i>
         </header>
@@ -78,9 +81,9 @@
 
             <div id="chat-box" class="flex-1 flex flex-col overflow-hidden">
                 <div id="chat" class="flex-1 overflow-y-auto p-4 space-y-4 flex flex-col bg-black">
-                    <div class="msg-agent p-4 max-w-[90%]">
-                        <p class="text-[8px] text-cyan-400 font-black mb-1">SYSTEM</p>
-                        <p id="system-status" class="text-xs text-gray-400">Prêt.</p>
+                    <div class="msg-agent p-4 max-w-[90%] shadow-lg">
+                        <p class="text-[8px] text-cyan-400 font-black mb-1 uppercase tracking-widest">System</p>
+                        <p id="system-status" class="text-xs text-gray-400">En attente de connexion...</p>
                     </div>
                 </div>
             </div>
@@ -135,20 +138,17 @@
 
         function toggleMic() { if (!recognition) return; (isListening) ? recognition.stop() : recognition.start(); }
 
-        // --- FONCTION MACROS (SÉCURISÉE) ---
+        // --- FONCTION MACROS (DESIGN RESTAURÉ) ---
         function switchToMacros(data) {
-            console.log("Switching to Macros. Payload reçu:", data);
-            
-            // On cherche les données soit dans .data, soit à la racine
+            console.log("switchToMacros - Data:", data);
             const d = (data.calories || data.water) ? data : (data.data || data);
             const chat = document.getElementById('chat');
 
-            // Valeurs par défaut pour éviter le crash si n8n oublie un champ
-            const water = d.water || { current: 0, goal: 2000, unit: 'ml' };
-            const calories = d.calories || { current: 0, goal: 2000, unit: 'kcal' };
-            const proteins = d.proteins || { current: 0, goal: 150, unit: 'g' };
-            const carbs = d.carbs || { current: 0, goal: 200, unit: 'g' };
-            const lipids = d.lipids || { current: 0, goal: 70, unit: 'g' };
+            const water = d.water || { current: 0, goal: 2000, unit: 'ml', remaining: 2000 };
+            const calories = d.calories || { current: 0, goal: 2000, unit: 'kcal', remaining: 2000 };
+            const proteins = d.proteins || { current: 0, goal: 150, unit: 'g', remaining: 150 };
+            const carbs = d.carbs || { current: 0, goal: 200, unit: 'g', remaining: 200 };
+            const lipids = d.lipids || { current: 0, goal: 70, unit: 'g', remaining: 70 };
 
             const pWater = Math.min((water.current / water.goal) * 100, 100);
             const rings = [
@@ -159,24 +159,36 @@
             ];
 
             let html = `
-                <div class="p-2 space-y-5 animate-in fade-in duration-500">
-                    <div class="bg-white/5 p-4 rounded-2xl border border-white/10">
+                <div class="p-2 space-y-6 animate-in fade-in duration-500">
+                    <div class="bg-white/5 p-4 rounded-2xl border border-white/10 shadow-inner">
                         <div class="flex justify-between items-end mb-2">
-                            <span class="text-[9px] font-black text-cyan-400 uppercase tracking-widest">Hydratation</span>
-                            <span class="text-[8px] text-white/30">${water.current}/${water.goal}${water.unit}</span>
+                            <div class="flex items-center gap-2 text-cyan-400 font-bold text-[10px] tracking-widest">
+                                <i data-lucide="droplets" class="w-3 h-3"></i> NIVEAU D'HYDRATATION
+                            </div>
+                            <span class="text-[8px] text-white/40 uppercase">Restant : ${water.remaining}${water.unit}</span>
                         </div>
-                        <div class="water-progress mb-2"><div class="water-bar" style="width: ${pWater}%"></div></div>
+                        <div class="water-progress mb-2">
+                            <div class="water-bar" style="width: ${pWater}%"></div>
+                        </div>
+                        <div class="flex justify-between items-baseline">
+                            <div class="text-2xl font-black text-white font-mono">${water.current}<span class="text-[10px] ml-1 font-normal text-cyan-400">${water.unit}</span></div>
+                            <div class="text-[8px] text-white/30 uppercase tracking-tighter">Objectif : ${water.goal}${water.unit}</div>
+                        </div>
                     </div>
-                    <div class="grid grid-cols-2 gap-3">
+
+                    <div class="grid grid-cols-2 gap-4">
                         ${rings.map(m => {
                             const pct = Math.min((m.val.current / m.val.goal) * 100, 100);
                             return `
-                            <div class="flex flex-col items-center gap-2 p-3 bg-white/[0.03] rounded-2xl border border-white/5">
-                                <span class="text-[8px] font-bold text-gray-400 uppercase">${m.label}</span>
+                            <div class="flex flex-col items-center gap-3 p-3 bg-white/[0.03] rounded-2xl border border-white/5">
+                                <span class="text-[9px] font-black text-cyan-400 tracking-widest uppercase">${m.label}</span>
                                 <div class="macro-ring" style="background: conic-gradient(${m.color} ${pct * 3.6}deg, rgba(255,255,255,0.05) 0deg); -webkit-mask: radial-gradient(transparent 55%, black 56%);">
                                     <span class="macro-value" style="color: ${m.color}">${Math.round(pct)}%</span>
                                 </div>
-                                <span class="text-[8px] text-white/50">${m.val.current}${m.val.unit}</span>
+                                <div class="text-center">
+                                    <div class="text-[8px] text-white/40 uppercase tracking-tighter mb-1">Conso : ${m.val.current}${m.val.unit} / ${m.val.goal}${m.val.unit}</div>
+                                    <div class="text-[9px] font-bold text-cyan-400 uppercase tracking-tight">Restant : ${m.val.remaining}${m.val.unit}</div>
+                                </div>
                             </div>`;
                         }).join('')}
                     </div>
@@ -186,18 +198,11 @@
             lucide.createIcons();
         }
 
-        // --- FONCTION SHOPPING (SÉCURISÉE) ---
+        // --- FONCTION SHOPPING ---
         function switchToShopping(data) {
-            console.log("Switching to Shopping. Payload reçu:", data);
             const video = document.getElementById('agentVideo');
             if (video) { video.innerHTML = ""; video.src = "agent-courses.mp4"; video.load(); video.play(); }
-            
             let items = (Array.isArray(data)) ? data : (data.items || data.data || []);
-            // Si c'est un objet qui contient une liste sous un autre nom
-            if (!Array.isArray(items) && typeof data === 'object') {
-                items = data.items || data.data || data.list || [];
-            }
-
             currentList = items.map((i, idx) => ({
                 id: i.id || i.pageId || `idx-${idx}`,
                 nom: (i.nom || i.item || i.produit || "Produit").trim(),
@@ -263,35 +268,22 @@
             try {
                 const res = await fetch(`${N8N_URL}/webhook/chat-agent`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ message: msg, email: userEmail })});
                 const responseData = await res.json();
-                
-                // On récupère le premier objet si n8n envoie un tableau
                 const r = Array.isArray(responseData) ? responseData[0] : responseData;
-                console.log("Réponse N8N reçue:", r);
-
+                
                 if (r.output) {
                     chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl">${r.output}</div>`;
                 }
 
-                // --- DÉTECTION DE L'ACTION (PLUS FLEXIBLE) ---
-                let actionStr = "";
-                if (r.action) actionStr = r.action;
-                else if (r.data && r.data.action) actionStr = r.data.action;
-                
-                actionStr = actionStr.toLowerCase();
-
-                if (actionStr.includes("macro") || actionStr.includes("dashboard")) {
+                let actionStr = (r.action || (r.data && r.data.action) || "").toLowerCase();
+                if (actionStr.includes("macro") || actionStr.includes("dashboard") || actionStr.includes("switchtomacros")) {
                     switchToMacros(r);
                 } else if (actionStr.includes("shopping") || actionStr.includes("course")) {
                     switchToShopping(r);
                 }
                 
-                if (r.audio_base64 && r.audio_base64 !== "empty") {
-                    new Audio("data:audio/mp3;base64," + r.audio_base64).play();
-                }
+                if (r.audio_base64 && r.audio_base64 !== "empty") { new Audio("data:audio/mp3;base64," + r.audio_base64).play(); }
                 chat.scrollTop = chat.scrollHeight;
-            } catch(e) {
-                console.error("Erreur lors de l'envoi/réception:", e);
-            }
+            } catch(e) { console.error("Error:", e); }
         }
     </script>
 </body>
