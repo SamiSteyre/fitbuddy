@@ -21,7 +21,6 @@
             padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);
         }
 
-        /* Bulles violettes dégradées */
         .msg-user { 
             background: linear-gradient(135deg, #6b21a8, #4c1d95) !important; 
             border-radius: 18px 18px 2px 18px !important; 
@@ -33,14 +32,12 @@
             border-radius: 18px 18px 18px 2px; align-self: flex-start; color: #e5e5e5;
         }
 
-        /* --- STYLES MACROS DASHBOARD --- */
         .macro-ring {
             position: relative; width: 90px; height: 90px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            background: radial-gradient(#0a0a0a 55%, transparent 56%);
         }
-        /* Valeur au centre : plus grosse (1.25rem) et couleur dynamique via JS */
-        .macro-value { position: absolute; font-weight: 900; font-size: 1.25rem; }
+        /* Style pour le texte au centre : écrit en GROS */
+        .macro-value { position: relative; z-index: 2; font-weight: 900; font-size: 1.25rem; }
         
         .water-progress { height: 12px; border-radius: 6px; background: rgba(255,255,255,0.05); overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
         .water-bar { height: 100%; background: linear-gradient(90deg, #22d3ee, #0891b2); transition: width 1s ease-in-out; }
@@ -55,7 +52,6 @@
         }
         .mic-active { animation: pulse-red 1.5s infinite; background: rgba(239, 68, 68, 0.4) !important; }
 
-        /* Correction Mode Paysage */
         @media (orientation: landscape) {
             #main-content { flex-direction: row !important; }
             #video-box { width: 45% !important; height: 100% !important; border-bottom: none !important; border-right: 1px solid rgba(255,255,255,0.1); }
@@ -140,9 +136,7 @@
 
         function toggleMic() { if (!recognition) return; (isListening) ? recognition.stop() : recognition.start(); }
 
-        // --- FONCTION MACROS ---
         function switchToMacros(data) {
-            console.log("switchToMacros - Data:", data);
             const d = (data.calories || data.water) ? data : (data.data || data);
             const chat = document.getElementById('chat');
 
@@ -184,9 +178,12 @@
                             return `
                             <div class="flex flex-col items-center gap-3 p-3 bg-white/[0.03] rounded-2xl border border-white/5">
                                 <span class="text-[9px] font-black text-cyan-400 tracking-widest uppercase">${m.label}</span>
-                                <div class="macro-ring" style="background: conic-gradient(${m.color} ${pct * 3.6}deg, rgba(255,255,255,0.05) 0deg); -webkit-mask: radial-gradient(transparent 55%, black 56%);">
+                                
+                                <div class="macro-ring">
+                                    <div class="absolute inset-0 rounded-full" style="background: conic-gradient(${m.color} ${pct * 3.6}deg, rgba(255,255,255,0.05) 0deg); -webkit-mask: radial-gradient(transparent 55%, black 56%); mask: radial-gradient(transparent 55%, black 56%);"></div>
                                     <span class="macro-value" style="color: ${m.color}">${Math.round(pct)}%</span>
                                 </div>
+
                                 <div class="text-center">
                                     <div class="text-[8px] text-white/40 uppercase tracking-tighter mb-1">CONSO : ${m.val.current}/${m.val.goal}${m.val.unit}</div>
                                     <div class="text-[9px] font-bold text-cyan-400 uppercase tracking-tight">RESTANT : ${m.val.remaining}${m.val.unit}</div>
@@ -200,7 +197,6 @@
             lucide.createIcons();
         }
 
-        // --- FONCTION SHOPPING ---
         function switchToShopping(data) {
             const video = document.getElementById('agentVideo');
             if (video) { video.innerHTML = ""; video.src = "agent-courses.mp4"; video.load(); video.play(); }
@@ -225,7 +221,6 @@
             });
             const itemsInconnus = currentList.filter(i => !i.isPurchased && !RAYONS.some(r => r.toLowerCase() === i.rayon.toLowerCase()));
             if(itemsInconnus.length > 0) appendCategory(content, "AUTRES", itemsInconnus);
-
             const purchased = currentList.filter(i => i.isPurchased);
             if (purchased.length > 0) appendCategory(content, "PANIER", purchased, true);
             chat.scrollTop = 0;
@@ -266,23 +261,14 @@
             chat.innerHTML += `<div class="msg-user p-4 max-w-[80%] text-xs shadow-lg animate-in slide-in-from-right-4 font-semibold">${msg}</div>`;
             input.value = '';
             chat.scrollTop = chat.scrollHeight;
-            
             try {
                 const res = await fetch(`${N8N_URL}/webhook/chat-agent`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ message: msg, email: userEmail })});
                 const responseData = await res.json();
                 const r = Array.isArray(responseData) ? responseData[0] : responseData;
-                
-                if (r.output) {
-                    chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl">${r.output}</div>`;
-                }
-
+                if (r.output) { chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl">${r.output}</div>`; }
                 let actionStr = (r.action || (r.data && r.data.action) || "").toLowerCase();
-                if (actionStr.includes("macro") || actionStr.includes("dashboard") || actionStr.includes("switchtomacros")) {
-                    switchToMacros(r);
-                } else if (actionStr.includes("shopping") || actionStr.includes("course")) {
-                    switchToShopping(r);
-                }
-                
+                if (actionStr.includes("macro") || actionStr.includes("dashboard") || actionStr.includes("switchtomacros")) { switchToMacros(r); } 
+                else if (actionStr.includes("shopping") || actionStr.includes("course")) { switchToShopping(r); }
                 if (r.audio_base64 && r.audio_base64 !== "empty") { new Audio("data:audio/mp3;base64," + r.audio_base64).play(); }
                 chat.scrollTop = chat.scrollHeight;
             } catch(e) { console.error("Error:", e); }
