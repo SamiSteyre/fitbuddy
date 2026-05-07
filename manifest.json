@@ -1,18 +1,15 @@
 {
   "name": "FitBuddy AI",
   "short_name": "FitBuddy",
-  "description": "Coach nutritionnel IA",
-  "start_url": "/fitbuddy/",
-  "scope": "/fitbuddy/",
+  "description": "Ton coach vocal intelligent",
+  "start_url": "/index.html",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#000000",
-  "orientation": "portrait",
+  "background_color": "#050505",
+  "theme_color": "#050505",
+"scope" :".",
   "icons": [
     {
-    
-    {
-      "src": "icon-512.png",
+      "src": "icone.png",
       "sizes": "512x512",
       "type": "image/png"
     }
