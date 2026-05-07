@@ -145,13 +145,23 @@
         function toggleMic() { if (!recognition) return; (isListening) ? recognition.stop() : recognition.start(); }
 
         // --- MACROS & JOURNAL ALIMENTAIRE ---
+       // --- MACROS & JOURNAL ALIMENTAIRE ---
         function switchToMacros(data) {
+            // Changement de la vidéo pour agent-eat
+            const video = document.getElementById('agentVideo');
+            if (video) { 
+                video.innerHTML = ""; 
+                video.src = "agent-eat.mp4"; 
+                video.load(); 
+                video.play(); 
+            }
+
             const d = (data.data) ? data.data : data;
             console.log("--- DEBUG MACROS DATA ---", d);
 
             const chat = document.getElementById('chat');
-
-            // Lecture de la liste aliments (Objet Notion -> Tableau)
+            
+            // ... reste de la fonction inchangé ...
             let listeAliments = [];
             if (d.aliments) {
                 if (Array.isArray(d.aliments)) {
