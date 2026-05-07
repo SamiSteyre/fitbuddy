@@ -32,12 +32,14 @@
             border-radius: 18px 18px 18px 2px; align-self: flex-start; color: #e5e5e5;
         }
 
+        /* --- STYLES MACROS DASHBOARD --- */
         .macro-ring {
             position: relative; width: 90px; height: 90px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
+            /* On retire le radial-gradient d'ici pour éviter les conflits */
         }
-        /* Style pour le texte au centre : écrit en GROS */
-        .macro-value { position: relative; z-index: 2; font-weight: 900; font-size: 1.25rem; }
+        /* Style du texte au centre : écrit en GROS */
+        .macro-value { position: relative; z-index: 10; font-weight: 900; font-size: 1.4rem; }
         
         .water-progress { height: 12px; border-radius: 6px; background: rgba(255,255,255,0.05); overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
         .water-bar { height: 100%; background: linear-gradient(90deg, #22d3ee, #0891b2); transition: width 1s ease-in-out; }
@@ -178,12 +180,10 @@
                             return `
                             <div class="flex flex-col items-center gap-3 p-3 bg-white/[0.03] rounded-2xl border border-white/5">
                                 <span class="text-[9px] font-black text-cyan-400 tracking-widest uppercase">${m.label}</span>
-                                
                                 <div class="macro-ring">
-                                    <div class="absolute inset-0 rounded-full" style="background: conic-gradient(${m.color} ${pct * 3.6}deg, rgba(255,255,255,0.05) 0deg); -webkit-mask: radial-gradient(transparent 55%, black 56%); mask: radial-gradient(transparent 55%, black 56%);"></div>
+                                    <div class="absolute inset-0 rounded-full" style="background: conic-gradient(${m.color} ${pct * 3.6}deg, rgba(255,255,255,0.05) 0deg); -webkit-mask: radial-gradient(transparent 58%, black 59%); mask: radial-gradient(transparent 58%, black 59%);"></div>
                                     <span class="macro-value" style="color: ${m.color}">${Math.round(pct)}%</span>
                                 </div>
-
                                 <div class="text-center">
                                     <div class="text-[8px] text-white/40 uppercase tracking-tighter mb-1">CONSO : ${m.val.current}/${m.val.goal}${m.val.unit}</div>
                                     <div class="text-[9px] font-bold text-cyan-400 uppercase tracking-tight">RESTANT : ${m.val.remaining}${m.val.unit}</div>
@@ -197,6 +197,7 @@
             lucide.createIcons();
         }
 
+        // --- FONCTION SHOPPING ---
         function switchToShopping(data) {
             const video = document.getElementById('agentVideo');
             if (video) { video.innerHTML = ""; video.src = "agent-courses.mp4"; video.load(); video.play(); }
