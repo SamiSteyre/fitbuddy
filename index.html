@@ -21,7 +21,6 @@
             padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);
         }
 
-        /* Bulles violettes dégradées */
         .msg-user { 
             background: linear-gradient(135deg, #6b21a8, #4c1d95) !important; 
             border-radius: 18px 18px 2px 18px !important; 
@@ -33,7 +32,6 @@
             border-radius: 18px 18px 18px 2px; align-self: flex-start; color: #e5e5e5;
         }
 
-        /* --- STYLES MACROS DASHBOARD --- */
         .macro-ring {
             position: relative; width: 90px; height: 90px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
@@ -137,28 +135,31 @@
 
         function toggleMic() { if (!recognition) return; (isListening) ? recognition.stop() : recognition.start(); }
 
-        // --- FONCTION MACROS CORRIGÉE POUR L'OBJET ALIMENTS ---
+        // --- FONCTION MACROS CORRIGÉE (LOGIQUE SÉCURISÉE) ---
         function switchToMacros(data) {
-            const d = (data.calories || data.water) ? data : (data.data || data);
+            // Détection du bloc de données (depuis la racine ou depuis .data)
+            const d = (data.data) ? data.data : data;
             const chat = document.getElementById('chat');
+
+            // Extraction robuste de la liste des aliments
+            let rawAliments = d.aliments || [];
+            let listeAliments = [];
+            
+            if (Array.isArray(rawAliments)) {
+                listeAliments = rawAliments;
+            } else if (typeof rawAliments === 'object' && rawAliments !== null) {
+                // Transforme l'objet {0: "Whey", 1: "Whey"} en tableau ["Whey", "Whey"]
+                listeAliments = Object.values(rawAliments);
+            }
+            
+            // On nettoie la liste (seulement les textes valides)
+            listeAliments = listeAliments.filter(a => a && typeof a === 'string' && a.trim() !== "");
 
             const water = d.water || { current: 0, goal: 2000, unit: 'ML', remaining: 2000 };
             const calories = d.calories || { current: 0, goal: 2000, unit: 'KCAL', remaining: 2000 };
             const proteins = d.proteins || { current: 0, goal: 150, unit: 'G', remaining: 150 };
             const carbs = d.carbs || { current: 0, goal: 200, unit: 'G', remaining: 200 };
             const lipids = d.lipids || { current: 0, goal: 70, unit: 'G', remaining: 70 };
-
-            // CORRECTION ICI : On transforme l'objet {0: "Whey", 1: "Whey"} en tableau ["Whey", "Whey"]
-            let listeAliments = [];
-            if (d.aliments) {
-                if (Array.isArray(d.aliments)) {
-                    listeAliments = d.aliments;
-                } else if (typeof d.aliments === 'object') {
-                    listeAliments = Object.values(d.aliments);
-                } else if (typeof d.aliments === 'string') {
-                    listeAliments = d.aliments.split(',');
-                }
-            }
 
             const pWater = Math.min((water.current / water.goal) * 100, 100);
             const rings = [
@@ -177,9 +178,7 @@
                             </div>
                             <span class="text-[8px] text-white/40 uppercase font-bold">RESTANT : ${water.remaining}${water.unit}</span>
                         </div>
-                        <div class="water-progress mb-2">
-                            <div class="water-bar" style="width: ${pWater}%"></div>
-                        </div>
+                        <div class="water-progress mb-2"><div class="water-bar" style="width: ${pWater}%"></div></div>
                         <div class="flex justify-between items-baseline">
                             <div class="text-2xl font-black text-white font-mono">${water.current}<span class="text-[10px] ml-1 font-normal text-cyan-400">${water.unit}</span></div>
                             <div class="text-[8px] text-white/30 uppercase font-bold">OBJECTIF : ${water.goal}${water.unit}</div>
@@ -208,7 +207,7 @@
                     <div class="bg-white/5 p-4 rounded-2xl border border-white/10 mt-4">
                         <span class="text-[9px] font-black text-cyan-400 tracking-widest uppercase mb-3 block text-center">Journal Alimentaire</span>
                         <div class="flex flex-wrap justify-center gap-2">
-                            ${listeAliments.map(a => `<span class="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[10px] text-gray-300 font-medium">${a.trim()}</span>`).join('')}
+                            ${listeAliments.map(a => `<span class="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[10px] text-gray-300 font-medium">${a}</span>`).join('')}
                         </div>
                     </div>` : ''}
                 </div>`;
@@ -217,7 +216,7 @@
             lucide.createIcons();
         }
 
-        // --- FONCTION SHOPPING ---
+        // --- FONCTIONS SHOPPING & ENVOI ---
         function switchToShopping(data) {
             const video = document.getElementById('agentVideo');
             if (video) { video.innerHTML = ""; video.src = "agent-courses.mp4"; video.load(); video.play(); }
