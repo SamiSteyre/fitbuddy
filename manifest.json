@@ -3,7 +3,7 @@
   "name": "FitBuddy AI",
   "short_name": "FitBuddy",
  "start_url": "/fitbuddy/",
-  "scope": "/fitbuddy/",
+  "scope": ".",
   "display": "standalone",
   "background_color": "#050505",
   "theme_color": "#050505",
