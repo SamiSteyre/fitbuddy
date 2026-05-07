@@ -136,4 +136,128 @@
 
         if (recognition) {
             recognition.lang = 'fr-FR';
-            recognition.onstart = () => { isListening = true; document.getElementById('mic
+            recognition.onstart = () => { isListening = true; document.getElementById('micBtn').classList.add('mic-active'); };
+            recognition.onresult = (e) => { document.getElementById('userInput').value = e.results[0][0].transcript; setTimeout(envoyerMessage, 400); };
+            recognition.onend = () => { isListening = false; document.getElementById('micBtn').classList.remove('mic-active'); };
+        }
+
+        function toggleMic() { if (!recognition) return; (isListening) ? recognition.stop() : recognition.start(); }
+
+        // --- FONCTION MACROS ---
+        function switchToMacros(data) {
+            const d = data.data || data;
+            const chat = document.getElementById('chat');
+            const pWater = Math.min((d.water.current / d.water.goal) * 100, 100);
+            const rings = [
+                { label: 'CALORIES', val: d.calories, color: '#f97316' },
+                { label: 'PROTÉINES', val: d.proteins, color: '#3b82f6' },
+                { label: 'GLUCIDES', val: d.carbs, color: '#22c55e' },
+                { label: 'LIPIDES', val: d.lipids, color: '#ef4444' }
+            ];
+
+            let html = `
+                <div class="p-2 space-y-5 animate-in fade-in duration-500">
+                    <div class="bg-white/5 p-4 rounded-2xl border border-white/10">
+                        <div class="flex justify-between items-end mb-2">
+                            <span class="text-[9px] font-black text-cyan-400 uppercase tracking-widest">Hydratation</span>
+                            <span class="text-[8px] text-white/30">${d.water.current}/${d.water.goal}${d.water.unit}</span>
+                        </div>
+                        <div class="water-progress mb-2"><div class="water-bar" style="width: ${pWater}%"></div></div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        ${rings.map(m => {
+                            const pct = Math.min((m.val.current / m.val.goal) * 100, 100);
+                            return `
+                            <div class="flex flex-col items-center gap-2 p-3 bg-white/[0.03] rounded-2xl border border-white/5">
+                                <span class="text-[8px] font-bold text-gray-400 uppercase">${m.label}</span>
+                                <div class="macro-ring" style="background: conic-gradient(${m.color} ${pct * 3.6}deg, rgba(255,255,255,0.05) 0deg); -webkit-mask: radial-gradient(transparent 55%, black 56%);">
+                                    <span class="macro-value" style="color: ${m.color}">${Math.round(pct)}%</span>
+                                </div>
+                                <span class="text-[8px] text-white/50">${m.val.current}${m.val.unit}</span>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>`;
+            chat.innerHTML = html;
+            chat.scrollTop = 0;
+            lucide.createIcons();
+        }
+
+        // --- FONCTION SHOPPING ---
+        function switchToShopping(data) {
+            const video = document.getElementById('agentVideo');
+            if (video) { video.innerHTML = ""; video.src = "agent-courses.mp4"; video.load(); video.play(); }
+            let items = (Array.isArray(data)) ? data : (data.items || data.data || []);
+            currentList = items.map((i, idx) => ({
+                id: i.id || i.pageId || `idx-${idx}`,
+                nom: (i.nom || i.item || "Produit").trim(),
+                quantite: i.quantite || "1", unite: i.unite || "",
+                rayon: (i.rayon || i.category || "Autres").trim(),
+                isPurchased: false
+            }));
+            renderShopping();
+        }
+
+        function renderShopping() {
+            const chat = document.getElementById('chat');
+            chat.innerHTML = `<div id="shopping-content" class="space-y-6 pb-10"></div>`;
+            const content = document.getElementById('shopping-content');
+            RAYONS.forEach(r => {
+                const items = currentList.filter(i => i.rayon.toLowerCase() === r.toLowerCase() && !i.isPurchased);
+                if (items.length > 0) appendCategory(content, r, items);
+            });
+            const purchased = currentList.filter(i => i.isPurchased);
+            if (purchased.length > 0) appendCategory(content, "PANIER", purchased, true);
+            chat.scrollTop = 0;
+        }
+
+        function appendCategory(container, title, items, isPurchased = false) {
+            const section = document.createElement('div');
+            section.innerHTML = `<h2 class="text-[9px] font-black text-cyan-400/40 uppercase mb-3 pl-1 border-l-2 border-cyan-400/20">${title}</h2><div class="grid grid-cols-3 gap-2"></div>`;
+            const grid = section.querySelector('.grid');
+            items.forEach(item => {
+                const card = document.createElement('div');
+                card.onclick = () => togglePurchase(item.id);
+                card.className = `relative aspect-[4/5] rounded-xl overflow-hidden bg-black border border-white/10 ${isPurchased ? 'purchased' : ''}`;
+                const clean = item.nom.toLowerCase().replace(/[œŒ]/g, 'oe').normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+                card.innerHTML = `<img src="images/produits/${clean}.jpg" class="absolute inset-0 w-full h-full object-cover" onerror="this.src='${DEFAULT_IMAGE}';">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent p-2 flex flex-col justify-end">
+                        <p class="text-[9px] font-bold text-white leading-tight">${item.nom}</p>
+                        <p class="text-[8px] text-cyan-400">${item.quantite} ${item.unite}</p>
+                    </div>`;
+                grid.appendChild(card);
+            });
+            container.appendChild(section);
+        }
+
+        async function togglePurchase(id) {
+            const item = currentList.find(i => i.id === id);
+            if (!item) return;
+            item.isPurchased = !item.isPurchased;
+            renderShopping();
+            try { await fetch(`${N8N_URL}/webhook/shopping-action`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: item.isPurchased ? "delete" : "add", pageId: item.id, produit: item.nom, email: userEmail })}); } catch(e){}
+        }
+
+        async function envoyerMessage() {
+            const input = document.getElementById('userInput');
+            const msg = input.value.trim();
+            if (!msg || !userEmail) return;
+            const chat = document.getElementById('chat');
+            chat.innerHTML += `<div class="msg-user p-4 max-w-[80%] text-xs shadow-lg animate-in slide-in-from-right-4 font-semibold">${msg}</div>`;
+            input.value = '';
+            chat.scrollTop = chat.scrollHeight;
+            try {
+                const res = await fetch(`${N8N_URL}/webhook/chat-agent`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ message: msg, email: userEmail })});
+                const data = await res.json();
+                const r = Array.isArray(data) ? data[0] : data;
+                if (r.output) chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl">${r.output}</div>`;
+                const action = (r.action || (r.data && r.data.action) || "").toLowerCase();
+                if (action.includes("macros") || action.includes("dashboard")) switchToMacros(r.data || r);
+                else if (action.includes("shopping") || action.includes("courses")) switchToShopping(r.data || r);
+                if (r.audio_base64 && r.audio_base64 !== "empty") new Audio("data:audio/mp3;base64," + r.audio_base64).play();
+                chat.scrollTop = chat.scrollHeight;
+            } catch(e){}
+        }
+    </script>
+</body>
+</html>
