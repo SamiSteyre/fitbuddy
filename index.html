@@ -1,4 +1,150 @@
-// --- MACROS & JOURNAL ALIMENTAIRE ---
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <link rel="manifest" href="manifest.json">
+    
+    <title>FitBuddy AI</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        html, body { 
+            background-color: #000; margin: 0; padding: 0; 
+            height: 100dvh; width: 100vw; overflow: hidden; position: fixed; 
+        }
+
+        #app-container {
+            height: 100dvh; display: flex; flex-direction: column; background-color: #000;
+            padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        .msg-user { 
+            background: linear-gradient(135deg, #6b21a8, #4c1d95) !important; 
+            border-radius: 18px 18px 2px 18px !important; 
+            align-self: flex-end; margin-left: auto; color: white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5); font-weight: 500;
+        }
+        .msg-agent { 
+            background: #161616; border: 1px solid #22d3ee; 
+            border-radius: 18px 18px 18px 2px; align-self: flex-start; color: #e5e5e5;
+        }
+
+        .macro-ring {
+            position: relative; width: 90px; height: 90px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .macro-value { position: relative; z-index: 10; font-weight: 900; font-size: 1.4rem; }
+        
+        .water-progress { height: 12px; border-radius: 6px; background: rgba(255,255,255,0.05); overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
+        .water-bar { height: 100%; background: linear-gradient(90deg, #22d3ee, #0891b2); transition: width 1s ease-in-out; }
+        
+        #chat::-webkit-scrollbar { width: 0; }
+        .purchased { opacity: 0.25; filter: grayscale(1); transform: scale(0.96); }
+
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        .mic-active { animation: pulse-red 1.5s infinite; background: rgba(239, 68, 68, 0.4) !important; }
+
+        @media (orientation: landscape) {
+            #main-content { flex-direction: row !important; }
+            #video-box { width: 45% !important; height: 100% !important; border-bottom: none !important; border-right: 1px solid rgba(255,255,255,0.1); }
+            #chat-box { width: 55% !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app-container">
+        <header class="flex-none h-14 border-b border-white/10 flex justify-between items-center px-4 bg-black">
+            <div class="flex items-center gap-2">
+                <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_#22c55e]"></div>
+                <h1 class="text-xs font-bold uppercase text-cyan-400 tracking-tighter">FitBuddy</h1>
+            </div>
+            <i data-lucide="dumbbell" class="text-purple-500 w-5 h-5"></i>
+        </header>
+
+        <main id="main-content" class="flex-1 flex flex-col overflow-hidden">
+            <div id="video-box" class="flex-none h-[30dvh] bg-black relative border-b border-white/10">
+                <video id="agentVideo" class="w-full h-full object-contain" autoplay loop muted playsinline>
+                    <source src="agent-avatar.mp4" type="video/mp4">
+                </video>
+            </div>
+
+            <div id="chat-box" class="flex-1 flex flex-col overflow-hidden">
+                <div id="chat" class="flex-1 overflow-y-auto p-4 space-y-4 flex flex-col bg-black">
+                    <div class="msg-agent p-4 max-w-[90%] shadow-lg">
+                        <p class="text-[8px] text-cyan-400 font-black mb-1 uppercase tracking-widest">System</p>
+                        <p id="system-status" class="text-xs text-gray-400">Prêt.</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="flex-none p-3 bg-black border-t border-white/10">
+            <div class="flex items-center gap-2 max-w-4xl mx-auto">
+                <button id="micBtn" onclick="toggleMic()" class="flex-none w-12 h-12 bg-white/5 border border-white/20 rounded-xl flex items-center justify-center transition-all">
+                    <i id="micIcon" data-lucide="mic" class="w-5 h-5 text-cyan-400"></i>
+                </button>
+                <div class="relative flex-1">
+                    <input type="text" id="userInput" class="w-full bg-white/5 border border-white/10 rounded-2xl p-3.5 pr-12 focus:outline-none focus:border-cyan-500 text-sm text-white" placeholder="Message..." onkeypress="if(event.key === 'Enter') envoyerMessage()">
+                    <button onclick="envoyerMessage()" class="absolute right-2 top-2 bottom-2 px-3 bg-cyan-600 rounded-xl shadow-lg">
+                        <i data-lucide="send-horizontal" class="w-4 h-4 text-white"></i>
+                    </button>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        let userEmail = localStorage.getItem('fitbuddy_email');
+        const N8N_URL = "https://greedily-submarine-prance.ngrok-free.dev";
+        const RAYONS = ["Frais", "Boulangerie & Viennoiserie", "Fruits & Légumes frais", "Boucherie & Volaille", "Poissonnerie", "Pâtes Riz & féculents", "Conserves de Légumes & Plats Cuisinés", "Conserves de Poisson", "Huiles Vinaigres Epices & Sauces", "Apéritif", "Petit-déjeuner", "Biscuits & Gâteaux", "Confiserie & Chocolat", "Confitures Miels & Pâtes à tartiner", "Aide à la pâtisserie", "Lait & Oeufs", "Produits laitiers", "Surgelés", "Boissons", "Hygiène", "Entretien de la maison", "Animalerie", "Loisirs", "Autres"];
+
+        let currentList = [];
+        let isListening = false;
+
+        window.addEventListener('load', () => { 
+            lucide.createIcons();
+            
+            // Re-insertion de la logique PWA (App installable)
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('sw.js?v=5').catch(err => console.log("SW Error:", err));
+            }
+            
+            checkAuth(); 
+        });
+
+        function checkAuth() {
+            if (!userEmail) {
+                userEmail = prompt("E-mail :");
+                if (userEmail && userEmail.includes("@")) { localStorage.setItem('fitbuddy_email', userEmail); } 
+                else { location.reload(); }
+            }
+            if(document.getElementById('system-status')) document.getElementById('system-status').innerText = `Connecté : ${userEmail}`;
+        }
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = (SpeechRecognition) ? new SpeechRecognition() : null;
+
+        if (recognition) {
+            recognition.lang = 'fr-FR';
+            recognition.onstart = () => { isListening = true; document.getElementById('micBtn').classList.add('mic-active'); };
+            recognition.onresult = (e) => { document.getElementById('userInput').value = e.results[0][0].transcript; setTimeout(envoyerMessage, 400); };
+            recognition.onend = () => { isListening = false; document.getElementById('micBtn').classList.remove('mic-active'); };
+        }
+
+        function toggleMic() { if (!recognition) return; (isListening) ? recognition.stop() : recognition.start(); }
+
+    // --- MACROS & JOURNAL ALIMENTAIRE ---
         function switchToMacros(data) {
             // 1. Mise à jour de la vidéo (Logique isolée pour garantir l'exécution)
             try {
@@ -87,3 +233,85 @@
             chat.scrollTop = 0;
             lucide.createIcons();
         }
+        // --- SHOPPING ---
+        function switchToShopping(data) {
+            const video = document.getElementById('agentVideo');
+            if (video) { video.innerHTML = ""; video.src = "agent-courses.mp4"; video.load(); video.play(); }
+            let items = (Array.isArray(data)) ? data : (data.items || data.data || []);
+            currentList = items.map((i, idx) => ({
+                id: i.id || i.pageId || `idx-${idx}`,
+                nom: (i.nom || i.item || "Produit").trim(),
+                quantite: i.quantite || "1", unite: i.unite || "",
+                rayon: (i.rayon || i.category || "Autres").trim(),
+                isPurchased: false
+            }));
+            renderShopping();
+        }
+
+        function renderShopping() {
+            const chat = document.getElementById('chat');
+            chat.innerHTML = `<div id="shopping-content" class="space-y-6 pb-10"></div>`;
+            const content = document.getElementById('shopping-content');
+            RAYONS.forEach(r => {
+                const items = currentList.filter(i => i.rayon.toLowerCase() === r.toLowerCase() && !i.isPurchased);
+                if (items.length > 0) appendCategory(content, r, items);
+            });
+            const itemsInconnus = currentList.filter(i => !i.isPurchased && !RAYONS.some(r => r.toLowerCase() === i.rayon.toLowerCase()));
+            if(itemsInconnus.length > 0) appendCategory(content, "AUTRES", itemsInconnus);
+            const purchased = currentList.filter(i => i.isPurchased);
+            if (purchased.length > 0) appendCategory(content, "PANIER", purchased, true);
+            chat.scrollTop = 0;
+        }
+
+        function appendCategory(container, title, items, isPurchased = false) {
+            const section = document.createElement('div');
+            section.innerHTML = `<h2 class="text-[9px] font-black text-cyan-400/40 uppercase mb-3 pl-1 border-l-2 border-cyan-400/20">${title}</h2><div class="grid grid-cols-3 gap-2"></div>`;
+            const grid = section.querySelector('.grid');
+            items.forEach(item => {
+                const card = document.createElement('div');
+                card.onclick = () => togglePurchase(item.id);
+                card.className = `relative aspect-[4/5] rounded-xl overflow-hidden bg-black border border-white/10 ${isPurchased ? 'purchased' : ''}`;
+                const clean = item.nom.toLowerCase().replace(/\u0153/g, 'oe').replace(/\u0152/g, 'oe').normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+                card.innerHTML = `<img src="images/produits/${clean}.jpg" class="absolute inset-0 w-full h-full object-cover" onerror="this.src='default-item.svg';">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent p-2 flex flex-col justify-end">
+                        <p class="text-[9px] font-bold text-white leading-tight">${item.nom}</p>
+                        <p class="text-[8px] text-cyan-400">${item.quantite} ${item.unite}</p>
+                    </div>`;
+                grid.appendChild(card);
+            });
+            container.appendChild(section);
+        }
+
+        async function togglePurchase(id) {
+            const item = currentList.find(i => i.id === id);
+            if (!item) return;
+            item.isPurchased = !item.isPurchased;
+            renderShopping();
+            try { await fetch(`${N8N_URL}/webhook/shopping-action`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: item.isPurchased ? "delete" : "add", pageId: item.id, produit: item.nom, email: userEmail })}); } catch(e){}
+        }
+
+        async function envoyerMessage() {
+            const input = document.getElementById('userInput');
+            const msg = input.value.trim();
+            if (!msg || !userEmail) return;
+            const chat = document.getElementById('chat');
+            chat.innerHTML += `<div class="msg-user p-4 max-w-[80%] text-xs shadow-lg animate-in slide-in-from-right-4 font-semibold">${msg}</div>`;
+            input.value = '';
+            chat.scrollTop = chat.scrollHeight;
+            try {
+                const res = await fetch(`${N8N_URL}/webhook/chat-agent`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ message: msg, email: userEmail })});
+                const responseData = await res.json();
+                const r = Array.isArray(responseData) ? responseData[0] : responseData;
+                console.log("--- DEBUG REÇU N8N ---", r);
+
+                if (r.output) { chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl">${r.output}</div>`; }
+                let actionStr = (r.action || (r.data && r.data.action) || "").toLowerCase();
+                if (actionStr.includes("macro") || actionStr.includes("dashboard") || actionStr.includes("switchtomacros")) { switchToMacros(r); } 
+                else if (actionStr.includes("shopping") || actionStr.includes("course")) { switchToShopping(r); }
+                if (r.audio_base64 && r.audio_base64 !== "empty") { new Audio("data:audio/mp3;base64," + r.audio_base64).play(); }
+                chat.scrollTop = chat.scrollHeight;
+            } catch(e) { console.error("Error:", e); }
+        }
+    </script>
+</body>
+</html>
