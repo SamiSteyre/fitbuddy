@@ -36,9 +36,7 @@
         .macro-ring {
             position: relative; width: 90px; height: 90px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            /* On retire le radial-gradient d'ici pour éviter les conflits */
         }
-        /* Style du texte au centre : écrit en GROS */
         .macro-value { position: relative; z-index: 10; font-weight: 900; font-size: 1.4rem; }
         
         .water-progress { height: 12px; border-radius: 6px; background: rgba(255,255,255,0.05); overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
@@ -138,7 +136,9 @@
 
         function toggleMic() { if (!recognition) return; (isListening) ? recognition.stop() : recognition.start(); }
 
+        // --- FONCTION MACROS (MODIFIÉE POUR LA LISTE D'ALIMENTS) ---
         function switchToMacros(data) {
+            console.log("switchToMacros - Data reçue:", data);
             const d = (data.calories || data.water) ? data : (data.data || data);
             const chat = document.getElementById('chat');
 
@@ -147,6 +147,9 @@
             const proteins = d.proteins || { current: 0, goal: 150, unit: 'G', remaining: 150 };
             const carbs = d.carbs || { current: 0, goal: 200, unit: 'G', remaining: 200 };
             const lipids = d.lipids || { current: 0, goal: 70, unit: 'G', remaining: 70 };
+            
+            // Récupération de la liste des aliments consommés
+            const aliments = d.aliments || []; 
 
             const pWater = Math.min((water.current / water.goal) * 100, 100);
             const rings = [
@@ -155,6 +158,19 @@
                 { label: 'GLUCIDES', val: carbs, color: '#22c55e' },
                 { label: 'LIPIDES', val: lipids, color: '#ef4444' }
             ];
+
+            let alimentsHtml = "";
+            if (aliments.length > 0) {
+                alimentsHtml = `
+                    <div class="bg-white/5 p-4 rounded-2xl border border-white/10 mt-4">
+                        <span class="text-[9px] font-black text-cyan-400 tracking-widest uppercase mb-3 block">Journal Alimentaire</span>
+                        <div class="flex flex-wrap gap-2">
+                            ${(Array.isArray(aliments) ? aliments : aliments.split(',')).map(a => 
+                                `<span class="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[10px] text-gray-300 font-medium">${a.trim()}</span>`
+                            ).join('')}
+                        </div>
+                    </div>`;
+            }
 
             let html = `
                 <div class="p-2 space-y-6 animate-in fade-in duration-500">
@@ -191,6 +207,8 @@
                             </div>`;
                         }).join('')}
                     </div>
+
+                    ${alimentsHtml}
                 </div>`;
             chat.innerHTML = html;
             chat.scrollTop = 0;
