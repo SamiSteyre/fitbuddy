@@ -10,7 +10,9 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
   );
 });
-
+self.addEventListener('fetch', function(event) {
+    // Ce code permet juste à l'app d'être considérée comme "installable"
+});
 self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request).then((response) => {
