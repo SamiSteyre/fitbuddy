@@ -125,11 +125,24 @@
     <script>
         let userEmail = localStorage.getItem('fitbuddy_email');
         const N8N_URL = "https://greedily-submarine-prance.ngrok-free.dev";
-        const RAYONS = ["Frais", "Boulangerie & Viennoiserie", "Fruits & Légumes frais", "Boucherie & Volaille", "Poissonnerie", "Pâtes Riz & féculents", "Conserves de Légumes & Plats Cuisinés", "Conserves de Poisson", "Huiles Vinaigres Epices & Sauces", "Apéritif", "Petit-déjeuner", "Biscuits & Gâteaux", "Confiserie & Chocolat", "Confitures Miels & Pâtes à tartiner", "Aide à la pâtisserie", "Lait & Oeufs", "Produits laitiers", "Surgelés", "Boissons", "Hygiène", "Entretien de la maison", "Animalerie", "Loisirs", "Autres"];
+        const RAYONS = ["Boulangerie & Viennoiserie", "Fruits & Légumes frais", "Boucherie & Volaille", "Poissonnerie", "Pâtes Riz & féculents", "Conserves de Légumes & Plats Cuisinés", "Conserves de Poisson", "Huiles Vinaigres Epices & Sauces", "Apéritif", "Petit-déjeuner", "Biscuits & Gâteaux", "Confiserie & Chocolat", "Confitures Miels & Pâtes à tartiner", "Aide à la pâtisserie", "Lait & Oeufs", "Produits laitiers", "Surgelés", "Boissons", "Hygiène", "Entretien de la maison", "Animalerie", "Loisirs", "Autres"];
 
         let currentList = [];
         let isListening = false;
+// 2. AJOUTE LA FONCTION ICI (EN DEHORS DE TOUT BLOC { })
+    function triggerQuickAction(type) {
+        const input = document.getElementById('userInput');
+        if (!input) return;
 
+        if (type === 'courses') {
+            input.value = "Affiche ma liste de courses";
+        } else if (type === 'macros') {
+            input.value = "Affiche mes macros du jour";
+        }
+
+        // On appelle ta fonction d'envoi existante
+        envoyerMessage();
+    }
         window.addEventListener('load', () => { 
             lucide.createIcons();
             
