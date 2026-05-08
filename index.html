@@ -330,16 +330,17 @@
                 chat.scrollTop = chat.scrollHeight;
             } catch(e) { console.error("Error:", e); }
         }
-        async function triggerQuickAction(actionType) {
-    const status = document.getElementById('system-status');
-    if(status) status.innerText = `Chargement des données : ${actionType}...`;
-
-    // On définit le message à envoyer selon le bouton cliqué
-    const prompt = actionType === 'courses' ? "Affiche ma liste de courses" : "Affiche mes macros du jour";
+    // Fonction pour déclencher les workflows via les boutons du header
+async function triggerQuickAction(type) {
+    const input = document.getElementById('userInput');
     
-    // On utilise ta fonction existante pour envoyer le message
-    // Mais on injecte le texte directement
-    document.getElementById('userInput').value = prompt;
+    if (type === 'courses') {
+        input.value = "Affiche ma liste de courses";
+    } else if (type === 'macros') {
+        input.value = "Affiche mon dashboard de macros";
+    }
+
+    // On déclenche l'envoi vers n8n
     envoyerMessage();
 }
     </script>
