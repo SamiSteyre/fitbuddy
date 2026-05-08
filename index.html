@@ -64,21 +64,29 @@
 <body>
 
     <div id="app-container">
-     <header class="flex-none h-14 border-b border-white/10 flex justify-between items-center px-4 bg-black">
+   <header class="flex-none h-14 border-b border-white/10 flex justify-between items-center px-4 bg-black">
+    <!-- Côté Gauche : Logo & Status -->
     <div class="flex items-center gap-2">
         <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_#22c55e]"></div>
         <h1 class="text-xs font-bold uppercase text-cyan-400 tracking-tighter">FitBuddy</h1>
     </div>
-    
-    <!-- Nouveaux boutons de raccourcis -->
+
+    <!-- Côté Droit : Boutons d'actions + Icône Fitness -->
     <div class="flex items-center gap-3">
+        <!-- Bouton Shopping -->
         <button onclick="triggerQuickAction('courses')" class="p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg active:scale-90 transition-transform">
             <i data-lucide="shopping-cart" class="w-4 h-4 text-amber-500"></i>
         </button>
+        
+        <!-- Bouton Macros -->
         <button onclick="triggerQuickAction('macros')" class="p-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg active:scale-90 transition-transform">
             <i data-lucide="pie-chart" class="w-4 h-4 text-emerald-500"></i>
         </button>
-        <i data-lucide="dumbbell" class="text-purple-500 w-5 h-5 ml-1"></i>
+
+        <!-- Séparateur discret -->
+        <div class="w-[1px] h-4 bg-white/10 mx-1"></div>
+
+        <i data-lucide="dumbbell" class="text-purple-500 w-5 h-5"></i>
     </div>
 </header>
 
