@@ -330,6 +330,18 @@
                 chat.scrollTop = chat.scrollHeight;
             } catch(e) { console.error("Error:", e); }
         }
+        async function triggerQuickAction(actionType) {
+    const status = document.getElementById('system-status');
+    if(status) status.innerText = `Chargement des données : ${actionType}...`;
+
+    // On définit le message à envoyer selon le bouton cliqué
+    const prompt = actionType === 'courses' ? "Affiche ma liste de courses" : "Affiche mes macros du jour";
+    
+    // On utilise ta fonction existante pour envoyer le message
+    // Mais on injecte le texte directement
+    document.getElementById('userInput').value = prompt;
+    envoyerMessage();
+}
     </script>
 </body>
 </html>
