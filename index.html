@@ -67,17 +67,18 @@
         }
         .mic-active i { color: #ef4444 !important; }
 
-        /* --- STYLE MINIATURE HEADER --- */
+        /* --- STYLES MINIATURE HEADER --- */
         .video-mini-active {
             width: 40px !important;
             height: 40px !important;
             min-width: 40px !important;
+            min-height: 40px !important;
+            flex-shrink: 0 !important; /* Empêche l'écrasement */
             border-radius: 50% !important;
             border: 2px solid #22d3ee !important;
             overflow: hidden !important;
             box-shadow: 0 0 10px rgba(34, 211, 238, 0.4);
             background: #000;
-            margin-left: 8px; /* Décalage par rapport au bloc FitBuddy */
         }
         .video-mini-active video {
             object-fit: cover !important;
@@ -110,19 +111,17 @@
 
 <div id="app-container">
     <header class="flex-none h-14 border-b border-white/10 flex justify-between items-center px-4 bg-black relative">
-        <div class="flex items-center">
-            <div class="flex items-center gap-3">
-                <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_#22c55e]"></div>
-                <div class="flex flex-col cursor-pointer" onclick="toggleUserDropdown()">
-                    <h1 class="text-[10px] font-bold uppercase text-cyan-400 tracking-tighter leading-none">FitBuddy</h1>
-                    <span id="current-user-name" class="text-[11px] text-white font-medium flex items-center gap-1">
-                        Identification... <i data-lucide="chevron-down" class="w-3 h-3 text-white/40"></i>
-                    </span>
-                </div>
-            </div>
-            
-            <!-- SLOT POUR LA VIDÉO MINIATURE À DROITE -->
+        <div class="flex items-center gap-3">
+            <!-- SLOT POUR LA VIDÉO MINIATURE (Pousse le texte vers la droite) -->
             <div id="mini-video-slot" class="flex items-center"></div>
+
+            <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_#22c55e]"></div>
+            <div class="flex flex-col cursor-pointer" onclick="toggleUserDropdown()">
+                <h1 class="text-[10px] font-bold uppercase text-cyan-400 tracking-tighter leading-none">FitBuddy</h1>
+                <span id="current-user-name" class="text-[11px] text-white font-medium flex items-center gap-1">
+                    Identification... <i data-lucide="chevron-down" class="w-3 h-3 text-white/40"></i>
+                </span>
+            </div>
         </div>
 
         <div id="user-dropdown" class="overflow-hidden">
@@ -257,7 +256,7 @@
 
     function toggleMic() { if (!recognition) return; (isListening) ? recognition.stop() : recognition.start(); }
 
-    // DÉPLACEMENT ET MINIATURE
+    // LOGIQUE DE DÉPLACEMENT VERS LE HEADER
     function moveToHeader(videoSrc) {
         const vBox = document.getElementById('video-box');
         const miniSlot = document.getElementById('mini-video-slot');
@@ -266,7 +265,7 @@
         if(vBox && miniSlot && !vBox.classList.contains('video-mini-active')) {
             vBox.classList.add('video-mini-active');
             vBox.classList.remove('flex-none', 'h-[30dvh]', 'border-b');
-            miniSlot.appendChild(vBox); // Décalage naturel grâce au Flexbox
+            miniSlot.appendChild(vBox); // Déplace la vidéo dans le header
         }
 
         if (video && videoSrc && !video.src.includes(videoSrc)) {
@@ -276,11 +275,21 @@
         }
     }
 
+    function forceScrollTop() {
+        const chat = document.getElementById('chat');
+        if (chat) {
+            // Un délai de 100ms assure que le DOM est prêt
+            setTimeout(() => {
+                chat.scrollTo({ top: 0, behavior: 'instant' });
+            }, 100);
+        }
+    }
+
     function switchToMacros(data) {
         moveToHeader("agent-eat.mp4");
-        const chat = document.getElementById('chat');
-
+        
         const d = (data.data) ? data.data : data;
+        const chat = document.getElementById('chat');
         let listeAliments = [];
         if (d.aliments) {
             if (Array.isArray(d.aliments)) { listeAliments = d.aliments; } 
@@ -338,12 +347,9 @@
                 </div>
             </div>` : ''}
         </div>`;
-        
         chat.innerHTML = html; 
         lucide.createIcons();
-        
-        // FIX SCROLL TO TOP
-        requestAnimationFrame(() => { chat.scrollTop = 0; });
+        forceScrollTop();
     }
 
     async function toggleAliment(id, name) {
@@ -361,10 +367,7 @@
         let items = (Array.isArray(data)) ? data : (data.items || data.data || []);
         currentList = items.map((i, idx) => ({ id: i.id || i.pageId || i.idNotion || `idx-${idx}`, nom: (i.nom || i.item || "Produit").trim(), quantite: i.quantite || "1", unite: i.unite || "", rayon: (i.rayon || i.category || "Autres").trim(), isPurchased: false }));
         renderShopping();
-        
-        // FIX SCROLL TO TOP
-        const chat = document.getElementById('chat');
-        requestAnimationFrame(() => { chat.scrollTop = 0; });
+        forceScrollTop();
     }
 
     function renderShopping() {
