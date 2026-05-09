@@ -144,9 +144,9 @@
     </div>
 
     <script>
+        // --- INITIALISATION MÉMOIRE ---
         let userEmail = localStorage.getItem('fitbuddy_email');
-        // On récupère aussi le nom stocké s'il existe
-        let userName = localStorage.getItem('fitbuddy_user_name');
+        let storedName = localStorage.getItem('fitbuddy_user_name');
 
         const N8N_URL = "https://greedily-submarine-prance.ngrok-free.dev";
         const RAYONS = ["Frais", "Boulangerie & Viennoiserie", "Fruits & Légumes frais", "Boucherie & Volaille", "Poissonnerie", "Pâtes Riz & féculents", "Conserves de Légumes & Plats Cuisinés", "Conserves de Poisson", "Huiles Vinaigres Epices & Sauces", "Apéritif", "Petit-déjeuner", "Biscuits & Gâteaux", "Confiserie & Chocolat", "Confitures Miels & Pâtes à tartiner", "Aide à la pâtisserie", "Lait & Oeufs", "Produits laitiers", "Surgelés", "Boissons", "Hygiène", "Entretien de la maison", "Animalerie", "Loisirs", "Autres"];
@@ -155,7 +155,14 @@
         let isListening = false;
 
         window.addEventListener('load', () => { 
+            console.log("Page chargée. Email:", userEmail, "Nom stocké:", storedName);
             lucide.createIcons();
+            
+            // Si on a un nom en mémoire, on l'affiche AVANT TOUT
+            if (storedName) {
+                updateUserNameUI(storedName);
+            }
+
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('sw.js?v=5').catch(err => console.log("SW Error:", err));
             }
@@ -171,16 +178,12 @@
             }
             if(document.getElementById('system-status')) document.getElementById('system-status').innerText = `Connecté : ${userEmail}`;
             
-            // SI on a déjà un nom en mémoire, on l'affiche tout de suite pour éviter le clignotement
-            if (userName) {
-                updateUserNameUI(userName);
-            }
-            
-            // On lance quand même l'identification serveur pour mettre à jour si besoin
+            // Appel à n8n pour vérifier l'identité réelle liée à l'email
             await identifyUser();
         }
 
         async function identifyUser() {
+            console.log("Appel identification n8n...");
             try {
                 const res = await fetch(`${N8N_URL}/webhook/identification`, {
                     method: 'POST',
@@ -189,22 +192,28 @@
                 });
                 const data = await res.json();
                 
-                // Si le serveur renvoie un nom différent ou nouveau, on met à jour
+                // Si n8n renvoie un nom, on met à jour la mémoire ET l'affichage
                 if (data.name) { 
+                    console.log("Nom reçu de n8n:", data.name);
                     localStorage.setItem('fitbuddy_user_name', data.name);
                     updateUserNameUI(data.name); 
-                } 
-                else if (!localStorage.getItem('fitbuddy_user_name')) { 
-                    updateUserNameUI("Utilisateur"); 
+                } else {
+                    console.log("n8n n'a pas renvoyé de nom.");
+                    if (!localStorage.getItem('fitbuddy_user_name')) updateUserNameUI("Utilisateur");
                 }
             } catch (e) { 
-                if (!localStorage.getItem('fitbuddy_user_name')) updateUserNameUI("Utilisateur"); 
+                console.error("Erreur identification serveur:", e);
+                // En cas d'erreur, on garde le nom déjà présent ou on met "Utilisateur"
+                if (!localStorage.getItem('fitbuddy_user_name')) updateUserNameUI("Invité"); 
             }
         }
 
         function updateUserNameUI(name) {
-            document.getElementById('current-user-name').innerHTML = `${name} <i data-lucide="chevron-down" class="w-3 h-3 text-white/40"></i>`;
-            lucide.createIcons();
+            const el = document.getElementById('current-user-name');
+            if (el) {
+                el.innerHTML = `${name} <i data-lucide="chevron-down" class="w-3 h-3 text-white/40"></i>`;
+                lucide.createIcons();
+            }
         }
 
         function toggleUserDropdown() {
@@ -213,27 +222,28 @@
         }
 
         async function selectUser(name) {
-            // Sauvegarde immédiate dans la mémoire du navigateur
+            console.log("Utilisateur sélectionné manuellement:", name);
+            // On sauvegarde tout de suite
             localStorage.setItem('fitbuddy_user_name', name);
-            toggleUserDropdown();
             updateUserNameUI(name);
+            toggleUserDropdown();
             
+            // On prévient l'agent
             try {
                 await fetch(`${N8N_URL}/webhook/chat-agent`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ 
-                        message: `[SYSTEM] L'utilisateur actif est maintenant ${name}`, 
+                        message: `[SYSTEM] Utilisateur actif : ${name}`, 
                         email: userEmail,
                         userName: name 
                     })
                 });
-            } catch(e) {}
+            } catch(e) { console.error("Erreur signal agent:", e); }
         }
 
         function logout() {
-            localStorage.removeItem('fitbuddy_email');
-            localStorage.removeItem('fitbuddy_user_name'); // On vide aussi le nom
+            localStorage.clear();
             location.reload();
         }
 
@@ -243,7 +253,7 @@
             }
         });
 
-        // --- Fonctions inchangées ---
+        // --- FONCTIONS AGENT (MACROS, SHOPPING, MESSAGES) ---
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         let recognition = (SpeechRecognition) ? new SpeechRecognition() : null;
@@ -263,9 +273,9 @@
                 if (videoElement && !videoElement.src.includes("agent-eat.mp4")) {
                     videoElement.src = "agent-eat.mp4";
                     videoElement.load();
-                    videoElement.play().catch(e => console.log("Auto-play blocked or failed:", e));
+                    videoElement.play().catch(e => console.log("Auto-play blocked:", e));
                 }
-            } catch (videoError) { console.error("Erreur switch vidéo:", videoError); }
+            } catch (vE) {}
 
             const d = (data.data) ? data.data : data;
             const chat = document.getElementById('chat');
@@ -392,7 +402,7 @@
             input.value = '';
             chat.scrollTop = chat.scrollHeight;
             try {
-                const res = await fetch(`${N8N_URL}/webhook/chat-agent`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ message: msg, email: userEmail })});
+                const res = await fetch(`${N8N_URL}/webhook/chat-agent`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ message: msg, email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') })});
                 const responseData = await res.json();
                 const r = Array.isArray(responseData) ? responseData[0] : responseData;
                 if (r.output) { chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl">${r.output}</div>`; }
