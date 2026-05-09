@@ -44,7 +44,7 @@
                 </button>
             </div>
 
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2">
                 <button onclick="triggerQuickAction('courses')" class="p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg active:scale-90 transition-transform">
                     <i data-lucide="shopping-cart" class="w-4 h-4 text-amber-500"></i>
                 </button>
@@ -53,7 +53,6 @@
                     <i data-lucide="pie-chart" class="w-4 h-4 text-emerald-500"></i>
                 </button>
 
-                <!-- Bouton Entraînement -->
                 <button onclick="switchToTraining()" class="p-2 bg-purple-500/10 border border-purple-500/30 rounded-lg active:scale-90 transition-transform">
                     <i data-lucide="dumbbell" class="w-4 h-4 text-purple-500"></i>
                 </button>
@@ -121,13 +120,9 @@
 
         function switchToMacros(data) {
             const d = data.data || data;
-            console.log("--- VERSION SCRIPT : 2.0 (MODERNE) ---");
-            console.log("--- DONNÉES REÇUES ---", d);
-
             const chat = document.getElementById('chat');
             let listeAliments = Array.isArray(d.aliments) ? d.aliments : [];
             listeAliments.reverse();
-
             const water = d.water || { current: 0, goal: 2000, unit: 'mL', remaining: 2000 };
             const rings = [
                 { label: 'CALORIES', val: d.calories || { current: 0, goal: 2400, remaining: 2400, unit: 'kcal' }, color: '#f97316' },
@@ -135,44 +130,12 @@
                 { label: 'GLUCIDES', val: d.carbs || { current: 0, goal: 165, remaining: 165, unit: 'g' }, color: '#22c55e' },
                 { label: 'LIPIDES', val: d.lipids || { current: 0, goal: 95, remaining: 85, unit: 'g' }, color: '#ef4444' }
             ];
-
             let html = `<div class="p-2 space-y-6 animate-in fade-in duration-500">
-                <div class="bg-white/5 p-4 rounded-2xl border border-white/10">
-                    <div class="flex justify-between items-end mb-2">
-                        <div class="text-cyan-400 font-bold text-[10px]">HYDRATATION</div>
-                        <span class="text-[8px] text-white/40 uppercase">RESTANT : ${water.remaining}${water.unit}</span>
-                    </div>
-                    <div class="water-progress mb-2"><div class="water-bar" style="width: ${Math.min((water.current/water.goal)*100, 100)}%"></div></div>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    ${rings.map(m => {
-                        const pct = Math.min((m.val.current / m.val.goal) * 100, 100);
-                        return `<div class="flex flex-col items-center gap-3 p-3 bg-white/[0.03] rounded-2xl border border-white/5">
-                            <span class="text-[9px] font-black text-cyan-400 uppercase">${m.label}</span>
-                            <div class="macro-ring">
-                                <div class="absolute inset-0 rounded-full" style="background: conic-gradient(${m.color} ${pct * 3.6}deg, rgba(255,255,255,0.05) 0deg); -webkit-mask: radial-gradient(transparent 58%, black 59%); mask: radial-gradient(transparent 58%, black 59%);"></div>
-                                <span class="macro-value" style="color: ${m.color}">${Math.round(pct)}%</span>
-                            </div>
-                            <div class="text-[8px] text-white/40 uppercase">RESTANT : ${m.val.remaining}${m.val.unit}</div>
-                        </div>`;
-                    }).join('')}
-                </div>
-                <div class="bg-white/5 p-4 rounded-2xl border border-white/10">
-                    <span class="text-[9px] font-black text-cyan-400 uppercase mb-3 block text-center">Journal Alimentaire</span>
-                    <div id="journal-container" class="flex flex-wrap justify-center gap-2">
-                        ${listeAliments.map((a, idx) => {
-                            const isObj = (typeof a === 'object' && a !== null);
-                            const nom = isObj ? (a.nom || "Aliment") : a;
-                            const id = isObj ? (a.id || `idx-${idx}`) : `idx-${idx}`;
-                            if(!isObj) console.warn("Attention : n8n a envoyé du texte pur pour :", a);
-                            return `<span id="food-${id}" onclick="toggleAliment('${id}', '${nom.replace(/'/g, "\\'")}', ${a.calories || 0}, ${a.proteines || 0}, ${a.glucides || 0}, ${a.lipides || 0})" class="px-3 py-1 bg-white/10 border border-white/20 rounded-full text-[10px] text-gray-200 font-medium cursor-pointer">${nom}</span>`;
-                        }).join('')}
-                    </div>
-                </div>
+                <div class="bg-white/5 p-4 rounded-2xl border border-white/10"><div class="flex justify-between items-end mb-2"><div class="text-cyan-400 font-bold text-[10px]">HYDRATATION</div><span class="text-[8px] text-white/40 uppercase">RESTANT : ${water.remaining}${water.unit}</span></div><div class="water-progress mb-2"><div class="water-bar" style="width: ${Math.min((water.current/water.goal)*100, 100)}%"></div></div></div>
+                <div class="grid grid-cols-2 gap-4">${rings.map(m => { const pct = Math.min((m.val.current / m.val.goal) * 100, 100); return `<div class="flex flex-col items-center gap-3 p-3 bg-white/[0.03] rounded-2xl border border-white/5"><span class="text-[9px] font-black text-cyan-400 uppercase">${m.label}</span><div class="macro-ring"><div class="absolute inset-0 rounded-full" style="background: conic-gradient(${m.color} ${pct * 3.6}deg, rgba(255,255,255,0.05) 0deg); -webkit-mask: radial-gradient(transparent 58%, black 59%); mask: radial-gradient(transparent 58%, black 59%);"></div><span class="macro-value" style="color: ${m.color}">${Math.round(pct)}%</span></div><div class="text-[8px] text-white/40 uppercase">RESTANT : ${m.val.remaining}${m.val.unit}</div></div>`; }).join('')}</div>
+                <div class="bg-white/5 p-4 rounded-2xl border border-white/10"><span class="text-[9px] font-black text-cyan-400 uppercase mb-3 block text-center">Journal Alimentaire</span><div id="journal-container" class="flex flex-wrap justify-center gap-2">${listeAliments.map((a, idx) => { const isObj = (typeof a === 'object' && a !== null); const nom = isObj ? (a.nom || "Aliment") : a; const id = isObj ? (a.id || `idx-${idx}`) : `idx-${idx}`; return `<span id="food-${id}" onclick="toggleAliment('${id}', '${nom.replace(/'/g, "\\'")}', ${a.calories || 0}, ${a.proteines || 0}, ${a.glucides || 0}, ${a.lipides || 0})" class="px-3 py-1 bg-white/10 border border-white/20 rounded-full text-[10px] text-gray-200 font-medium cursor-pointer">${nom}</span>`; }).join('')}</div></div>
             </div>`;
-            chat.innerHTML = html;
-            chat.scrollTop = 0;
-            lucide.createIcons();
+            chat.innerHTML = html; chat.scrollTop = 0; lucide.createIcons();
         }
 
         async function toggleAliment(id, name, c, p, g, l) {
@@ -188,8 +151,7 @@
             if (!msg) return;
             const chat = document.getElementById('chat');
             chat.innerHTML += `<div class="msg-user p-4 max-w-[80%] text-xs shadow-lg font-semibold">${msg}</div>`;
-            input.value = '';
-            chat.scrollTop = chat.scrollHeight;
+            input.value = ''; chat.scrollTop = chat.scrollHeight;
             try {
                 const res = await fetch(`${N8N_URL}/webhook/chat-agent`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ message: msg, email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') }) });
                 const data = await res.json();
@@ -204,8 +166,8 @@
         function triggerQuickAction(type) { document.getElementById('userInput').value = (type === 'courses') ? "Courses" : "Afficher mon bilan macro"; envoyerMessage(); }
 
         async function switchToTraining() {
-            console.log("--- SWITCH TO TRAINING : ACTIVÉ ---");
-            // Emplacement pour la logique d'affichage du programme d'entraînement
+            console.log("--- SWITCH TO TRAINING ---");
+            // Logique future pour l'entraînement
         }
     </script>
 </body>
