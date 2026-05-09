@@ -67,28 +67,32 @@
         }
         .mic-active i { color: #ef4444 !important; }
 
-        /* --- STYLES VIDÉO --- */
-        #video-box { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-        
-        /* Classe appliquée lors du switch */
-        .video-mini {
-            width: 40px !important;
-            height: 40px !important;
+        /* --- STYLES MINIATURE HEADER --- */
+        .video-mini-active {
+            width: 38px !important;
+            height: 38px !important;
+            min-width: 38px !important;
             border-radius: 50% !important;
-            border: 2px solid #22d3ee !important;
+            border: 1.5px solid #22d3ee !important;
             overflow: hidden !important;
-            flex-shrink: 0;
-            box-shadow: 0 0 10px rgba(34, 211, 238, 0.3);
+            box-shadow: 0 0 10px rgba(34, 211, 238, 0.4);
+            background: #000;
         }
-        
-        .video-mini video {
+        .video-mini-active video {
             object-fit: cover !important;
             object-position: top !important;
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        /* Transition pour le retrait du flux principal */
+        #video-box.hidden-main {
+            display: none !important;
         }
 
         @media (orientation: landscape) {
             #main-content { flex-direction: row !important; }
-            #video-box:not(.video-mini) { width: 45% !important; height: 100% !important; border-bottom: none !important; border-right: 1px solid rgba(255,255,255,0.1); }
+            #video-box { width: 45% !important; height: 100% !important; border-bottom: none !important; border-right: 1px solid rgba(255,255,255,0.1); }
             #chat-box { width: 55% !important; }
         }
 
@@ -111,7 +115,7 @@
 <div id="app-container">
     <header class="flex-none h-14 border-b border-white/10 flex justify-between items-center px-4 bg-black relative">
         <div class="flex items-center gap-3">
-            <div id="header-status-dot" class="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_#22c55e]"></div>
+            <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_#22c55e]"></div>
             <div class="flex flex-col cursor-pointer" onclick="toggleUserDropdown()">
                 <h1 class="text-[10px] font-bold uppercase text-cyan-400 tracking-tighter leading-none">FitBuddy</h1>
                 <span id="current-user-name" class="text-[11px] text-white font-medium flex items-center gap-1">
@@ -119,8 +123,8 @@
                 </span>
             </div>
             
-            <!-- SLOT POUR LA VIDÉO MINIATURE (À droite du bloc FitBuddy) -->
-            <div id="header-video-slot" class="flex items-center ml-1"></div>
+            <!-- CONTENEUR POUR LA VIDÉO MINIATURE À DROITE DU NOM -->
+            <div id="mini-video-slot" class="flex items-center"></div>
         </div>
 
         <div id="user-dropdown" class="overflow-hidden">
@@ -145,7 +149,6 @@
     </header>
 
     <main id="main-content" class="flex-1 flex flex-col overflow-hidden">
-        <!-- Emplacement original de la vidéo -->
         <div id="video-box" class="flex-none h-[30dvh] bg-black relative border-b border-white/10">
             <video id="agentVideo" class="w-full h-full object-contain" autoplay loop muted playsinline>
                 <source src="agent-avatar.mp4" type="video/mp4">
@@ -256,19 +259,16 @@
 
     function toggleMic() { if (!recognition) return; (isListening) ? recognition.stop() : recognition.start(); }
 
-    // LOGIQUE DE DÉPLACEMENT DE LA VIDÉO
-    function applyHeaderMode(videoSrc) {
+    // LOGIQUE DE DÉPLACEMENT VERS LE HEADER SANS SUPERPOSITION
+    function moveToHeader(videoSrc) {
         const vBox = document.getElementById('video-box');
-        const hSlot = document.getElementById('header-video-slot');
+        const miniSlot = document.getElementById('mini-video-slot');
         const video = document.getElementById('agentVideo');
 
-        if(vBox && hSlot) {
-            // Retrait des styles "Plein écran"
-            vBox.classList.remove('h-[30dvh]', 'flex-none', 'border-b');
-            // Ajout du style miniature
-            vBox.classList.add('video-mini');
-            // DÉPLACEMENT PHYSIQUE vers le header
-            hSlot.appendChild(vBox);
+        if(vBox && miniSlot && !vBox.classList.contains('video-mini-active')) {
+            vBox.classList.add('video-mini-active');
+            vBox.classList.remove('flex-none', 'h-[30dvh]', 'border-b');
+            miniSlot.appendChild(vBox); // Se place physiquement à droite du texte
         }
 
         if (video && videoSrc && !video.src.includes(videoSrc)) {
@@ -279,9 +279,11 @@
     }
 
     function switchToMacros(data) {
-        applyHeaderMode("agent-eat.mp4");
-        const d = (data.data) ? data.data : data;
+        moveToHeader("agent-eat.mp4");
         const chat = document.getElementById('chat');
+        chat.scrollTop = 0; // Remonter au top
+
+        const d = (data.data) ? data.data : data;
         let listeAliments = [];
         if (d.aliments) {
             if (Array.isArray(d.aliments)) { listeAliments = d.aliments; } 
@@ -339,7 +341,7 @@
                 </div>
             </div>` : ''}
         </div>`;
-        chat.innerHTML = html; chat.scrollTop = 0; lucide.createIcons();
+        chat.innerHTML = html; lucide.createIcons();
     }
 
     async function toggleAliment(id, name) {
@@ -353,7 +355,10 @@
     }
 
     function switchToShopping(data) {
-        applyHeaderMode("agent-courses.mp4");
+        moveToHeader("agent-courses.mp4");
+        const chat = document.getElementById('chat');
+        chat.scrollTop = 0; // Remonter au top
+
         let items = (Array.isArray(data)) ? data : (data.items || data.data || []);
         currentList = items.map((i, idx) => ({ id: i.id || i.pageId || i.idNotion || `idx-${idx}`, nom: (i.nom || i.item || "Produit").trim(), quantite: i.quantite || "1", unite: i.unite || "", rayon: (i.rayon || i.category || "Autres").trim(), isPurchased: false }));
         renderShopping();
@@ -371,7 +376,6 @@
         if(itemsInconnus.length > 0) appendCategory(content, "AUTRES", itemsInconnus);
         const purchased = currentList.filter(i => i.isPurchased);
         if (purchased.length > 0) appendCategory(content, "PANIER", purchased, true);
-        chat.scrollTop = 0;
     }
 
     function appendCategory(container, title, items, isPurchased = false) {
