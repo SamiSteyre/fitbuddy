@@ -67,26 +67,9 @@
         }
         .mic-active i { color: #ef4444 !important; }
 
-        /* --- MODE CLASSIQUE --- */
-        #video-box {
-            position: relative;
-            width: 100%;
-            height: 30dvh;
-            background: #000;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-            z-index: 10;
-        }
-        #video-box video {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
-
-        /* --- MODE MINIATURE (HEADER GAUCHE) --- */
+        /* --- LOGIQUE MINIATURE (FIXED) --- */
         .video-header-mode {
             position: fixed !important;
-            /* On aligne sur le centre vertical du header (h-14) */
             top: calc(env(safe-area-inset-top) + 8px) !important;
             left: 12px !important;
             width: 38px !important;
@@ -94,19 +77,14 @@
             border-radius: 50% !important;
             z-index: 100 !important;
             border: 1.5px solid #22d3ee !important;
-            box-shadow: 0 0 10px rgba(34, 211, 238, 0.4) !important;
+            box-shadow: 0 0 15px rgba(34, 211, 238, 0.4) !important;
             overflow: hidden !important;
             background: #000 !important;
         }
+        /* Ajustement interne pour le cercle */
         .video-header-mode video {
             object-fit: cover !important;
-            object-position: top !important; /* Cale le haut de la vidéo */
-        }
-
-        /* Quand la vidéo devient fixe, on annule sa place dans le flux flex pour que le chat remonte */
-        #video-box.video-header-mode {
-            height: 0 !important;
-            border-bottom: none !important;
+            object-position: top !important;
         }
 
         @media (orientation: landscape) {
@@ -165,8 +143,9 @@
     </header>
 
     <main id="main-content" class="flex-1 flex flex-col overflow-hidden">
-        <div id="video-box" class="flex-none">
-            <video id="agentVideo" autoplay loop muted playsinline>
+        <!-- RETOUR À LA STRUCTURE ORIGINALE EXACTE -->
+        <div id="video-box" class="flex-none h-[30dvh] bg-black relative border-b border-white/10 transition-all duration-500">
+            <video id="agentVideo" class="w-full h-full object-contain" autoplay loop muted playsinline>
                 <source src="agent-avatar.mp4" type="video/mp4">
             </video>
         </div>
@@ -235,9 +214,7 @@
             if (data.name) { localStorage.setItem('fitbuddy_user_name', data.name); updateUserNameUI(data.name); } 
             else if (storedName) { updateUserNameUI(storedName); }
             else { updateUserNameUI("Utilisateur"); }
-        } catch (e) { 
-            if (storedName) updateUserNameUI(storedName); else updateUserNameUI("Invité"); 
-        }
+        } catch (e) { if (storedName) updateUserNameUI(storedName); else updateUserNameUI("Invité"); }
     }
 
     function updateUserNameUI(name) {
@@ -282,8 +259,12 @@
         const dot = document.getElementById('header-status-dot');
         const video = document.getElementById('agentVideo');
 
-        if(vBox) vBox.classList.add('video-header-mode');
-        if(dot) dot.style.opacity = '0'; // Cache le point vert sous la vidéo
+        if(vBox) {
+            // Supprimer les classes de hauteur originale pour laisser le CSS fixed agir
+            vBox.classList.remove('h-[30dvh]', 'flex-none', 'border-b');
+            vBox.classList.add('video-header-mode');
+        }
+        if(dot) dot.style.opacity = '0'; 
 
         if (video && videoSrc && !video.src.includes(videoSrc)) {
             video.src = videoSrc;
