@@ -67,16 +67,17 @@
         }
         .mic-active i { color: #ef4444 !important; }
 
-        /* --- STYLES MINIATURE HEADER --- */
+        /* --- STYLE MINIATURE HEADER --- */
         .video-mini-active {
-            width: 38px !important;
-            height: 38px !important;
-            min-width: 38px !important;
+            width: 40px !important;
+            height: 40px !important;
+            min-width: 40px !important;
             border-radius: 50% !important;
-            border: 1.5px solid #22d3ee !important;
+            border: 2px solid #22d3ee !important;
             overflow: hidden !important;
             box-shadow: 0 0 10px rgba(34, 211, 238, 0.4);
             background: #000;
+            margin-left: 8px; /* Décalage par rapport au bloc FitBuddy */
         }
         .video-mini-active video {
             object-fit: cover !important;
@@ -85,14 +86,9 @@
             height: 100% !important;
         }
 
-        /* Transition pour le retrait du flux principal */
-        #video-box.hidden-main {
-            display: none !important;
-        }
-
         @media (orientation: landscape) {
             #main-content { flex-direction: row !important; }
-            #video-box { width: 45% !important; height: 100% !important; border-bottom: none !important; border-right: 1px solid rgba(255,255,255,0.1); }
+            #video-box:not(.video-mini-active) { width: 45% !important; height: 100% !important; border-bottom: none !important; border-right: 1px solid rgba(255,255,255,0.1); }
             #chat-box { width: 55% !important; }
         }
 
@@ -114,16 +110,18 @@
 
 <div id="app-container">
     <header class="flex-none h-14 border-b border-white/10 flex justify-between items-center px-4 bg-black relative">
-        <div class="flex items-center gap-3">
-            <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_#22c55e]"></div>
-            <div class="flex flex-col cursor-pointer" onclick="toggleUserDropdown()">
-                <h1 class="text-[10px] font-bold uppercase text-cyan-400 tracking-tighter leading-none">FitBuddy</h1>
-                <span id="current-user-name" class="text-[11px] text-white font-medium flex items-center gap-1">
-                    Identification... <i data-lucide="chevron-down" class="w-3 h-3 text-white/40"></i>
-                </span>
+        <div class="flex items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_#22c55e]"></div>
+                <div class="flex flex-col cursor-pointer" onclick="toggleUserDropdown()">
+                    <h1 class="text-[10px] font-bold uppercase text-cyan-400 tracking-tighter leading-none">FitBuddy</h1>
+                    <span id="current-user-name" class="text-[11px] text-white font-medium flex items-center gap-1">
+                        Identification... <i data-lucide="chevron-down" class="w-3 h-3 text-white/40"></i>
+                    </span>
+                </div>
             </div>
             
-            <!-- CONTENEUR POUR LA VIDÉO MINIATURE À DROITE DU NOM -->
+            <!-- SLOT POUR LA VIDÉO MINIATURE À DROITE -->
             <div id="mini-video-slot" class="flex items-center"></div>
         </div>
 
@@ -259,7 +257,7 @@
 
     function toggleMic() { if (!recognition) return; (isListening) ? recognition.stop() : recognition.start(); }
 
-    // LOGIQUE DE DÉPLACEMENT VERS LE HEADER SANS SUPERPOSITION
+    // DÉPLACEMENT ET MINIATURE
     function moveToHeader(videoSrc) {
         const vBox = document.getElementById('video-box');
         const miniSlot = document.getElementById('mini-video-slot');
@@ -268,7 +266,7 @@
         if(vBox && miniSlot && !vBox.classList.contains('video-mini-active')) {
             vBox.classList.add('video-mini-active');
             vBox.classList.remove('flex-none', 'h-[30dvh]', 'border-b');
-            miniSlot.appendChild(vBox); // Se place physiquement à droite du texte
+            miniSlot.appendChild(vBox); // Décalage naturel grâce au Flexbox
         }
 
         if (video && videoSrc && !video.src.includes(videoSrc)) {
@@ -281,7 +279,6 @@
     function switchToMacros(data) {
         moveToHeader("agent-eat.mp4");
         const chat = document.getElementById('chat');
-        chat.scrollTop = 0; // Remonter au top
 
         const d = (data.data) ? data.data : data;
         let listeAliments = [];
@@ -341,7 +338,12 @@
                 </div>
             </div>` : ''}
         </div>`;
-        chat.innerHTML = html; lucide.createIcons();
+        
+        chat.innerHTML = html; 
+        lucide.createIcons();
+        
+        // FIX SCROLL TO TOP
+        requestAnimationFrame(() => { chat.scrollTop = 0; });
     }
 
     async function toggleAliment(id, name) {
@@ -356,12 +358,13 @@
 
     function switchToShopping(data) {
         moveToHeader("agent-courses.mp4");
-        const chat = document.getElementById('chat');
-        chat.scrollTop = 0; // Remonter au top
-
         let items = (Array.isArray(data)) ? data : (data.items || data.data || []);
         currentList = items.map((i, idx) => ({ id: i.id || i.pageId || i.idNotion || `idx-${idx}`, nom: (i.nom || i.item || "Produit").trim(), quantite: i.quantite || "1", unite: i.unite || "", rayon: (i.rayon || i.category || "Autres").trim(), isPurchased: false }));
         renderShopping();
+        
+        // FIX SCROLL TO TOP
+        const chat = document.getElementById('chat');
+        requestAnimationFrame(() => { chat.scrollTop = 0; });
     }
 
     function renderShopping() {
