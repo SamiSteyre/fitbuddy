@@ -47,7 +47,7 @@
         #chat::-webkit-scrollbar { width: 0; }
         .purchased { opacity: 0.25; filter: grayscale(1); transform: scale(0.96); }
 
-        /* Style pour les aliments supprimés du journal */
+        /* Style pour les aliments supprimés */
         .food-deleted { 
             opacity: 0.2; 
             text-decoration: line-through; 
@@ -272,7 +272,10 @@
                 if (Array.isArray(d.aliments)) { listeAliments = d.aliments; } 
                 else if (typeof d.aliments === 'object') { listeAliments = Object.values(d.aliments); }
             }
+            
+            // Inversion pour avoir le dernier aliment à gauche
             listeAliments.reverse();
+
             const water = d.water || { current: 0, goal: 2000, unit: 'ML', remaining: 2000 };
             const calories = d.calories || { current: 0, goal: 2000, unit: 'KCAL', remaining: 2000 };
             const proteins = d.proteins || { current: 0, goal: 150, unit: 'G', remaining: 150 };
@@ -317,9 +320,14 @@
                     <span class="text-[9px] font-black text-cyan-400 tracking-widest uppercase mb-3 block text-center">Journal Alimentaire</span>
                     <div id="journal-container" class="flex flex-wrap justify-center gap-2">
                         ${listeAliments.map((a, idx) => {
+                            // Extraction propre des données d'objet envoyées par n8n
                             const name = typeof a === 'object' ? a.nom : a;
                             const id = typeof a === 'object' ? (a.id || a.pageId) : `idx-${idx}`;
-                            const cals = a.calories || 0, prot = a.proteines || 0, gluc = a.glucides || 0, lipi = a.lipides || 0;
+                            const cals = a.calories || 0;
+                            const prot = a.proteines || 0;
+                            const gluc = a.glucides || 0;
+                            const lipi = a.lipides || 0;
+                            
                             return `<span 
                                 id="food-${id}"
                                 onclick="toggleAliment('${id}', '${name.replace(/'/g, "\\'")}', ${cals}, ${prot}, ${gluc}, ${lipi})"
@@ -339,7 +347,9 @@
             const el = document.getElementById(`food-${id}`);
             const container = document.getElementById('journal-container');
             if (!el || !container) return;
+            
             const isDeleting = !el.classList.contains('food-deleted');
+            
             if (isDeleting) {
                 el.classList.add('food-deleted');
                 container.appendChild(el); 
@@ -347,6 +357,7 @@
                 el.classList.remove('food-deleted');
                 container.prepend(el);
             }
+
             try {
                 await fetch(`${N8N_URL}/webhook/food-action`, {
                     method: 'POST',
@@ -363,7 +374,9 @@
                         userName: localStorage.getItem('fitbuddy_user_name')
                     })
                 });
-            } catch(e) {}
+            } catch(e) {
+                console.error("Erreur action journal:", e);
+            }
         }
 
         function switchToShopping(data) {
@@ -371,7 +384,7 @@
             if (video) { video.innerHTML = ""; video.src = "agent-courses.mp4"; video.load(); video.play(); }
             let items = (Array.isArray(data)) ? data : (data.items || data.data || []);
             currentList = items.map((i, idx) => ({
-                id: i.id || i.pageId || `idx-${idx}`,
+                id: i.id || i.pageId || i.idNotion || `idx-${idx}`,
                 nom: (i.nom || i.item || "Produit").trim(),
                 quantite: i.quantite || "1", unite: i.unite || "",
                 rayon: (i.rayon || i.category || "Autres").trim(),
