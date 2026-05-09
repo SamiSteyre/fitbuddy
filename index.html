@@ -60,7 +60,6 @@
             #chat-box { width: 55% !important; }
         }
 
-        /* Menu déroulant utilisateur */
         #user-dropdown {
             display: none;
             position: absolute;
@@ -79,7 +78,6 @@
 
     <div id="app-container">
     <header class="flex-none h-14 border-b border-white/10 flex justify-between items-center px-4 bg-black relative">
-    <!-- Côté Gauche : Logo & Identification -->
     <div class="flex items-center gap-3">
         <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_#22c55e]"></div>
         <div class="flex flex-col cursor-pointer" onclick="toggleUserDropdown()">
@@ -90,7 +88,6 @@
         </div>
     </div>
 
-    <!-- Menu Déroulant -->
     <div id="user-dropdown" class="overflow-hidden">
         <button onclick="selectUser('Djibril')" class="w-full text-left px-4 py-3 text-xs text-white hover:bg-white/5 border-b border-white/5 transition-colors">Djibril</button>
         <button onclick="selectUser('Maxime')" class="w-full text-left px-4 py-3 text-xs text-white hover:bg-white/5 border-b border-white/5 transition-colors">Maxime</button>
@@ -100,7 +97,6 @@
         </button>
     </div>
 
-    <!-- Côté Droit : Boutons d'actions -->
     <div class="flex items-center gap-3">
         <button onclick="triggerQuickAction('courses')" class="p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg active:scale-90 transition-transform">
             <i data-lucide="shopping-cart" class="w-4 h-4 text-amber-500"></i>
@@ -171,12 +167,8 @@
                 } else { location.reload(); }
             }
             if(document.getElementById('system-status')) document.getElementById('system-status').innerText = `Connecté : ${userEmail}`;
-            
-            // Workflow d'identification automatique au démarrage
             await identifyUser();
         }
-
-        // --- LOGIQUE IDENTIFICATION ---
 
         async function identifyUser() {
             try {
@@ -186,14 +178,9 @@
                     body: JSON.stringify({ email: userEmail })
                 });
                 const data = await res.json();
-                if (data.name) {
-                    updateUserNameUI(data.name);
-                } else {
-                    updateUserNameUI("Utilisateur");
-                }
-            } catch (e) {
-                updateUserNameUI("Utilisateur");
-            }
+                if (data.name) { updateUserNameUI(data.name); } 
+                else { updateUserNameUI("Utilisateur"); }
+            } catch (e) { updateUserNameUI("Utilisateur"); }
         }
 
         function updateUserNameUI(name) {
@@ -209,7 +196,6 @@
         async function selectUser(name) {
             toggleUserDropdown();
             updateUserNameUI(name);
-            // Prévenir l'agent du changement d'utilisateur
             try {
                 await fetch(`${N8N_URL}/webhook/chat-agent`, {
                     method: 'POST',
@@ -228,14 +214,11 @@
             location.reload();
         }
 
-        // Fermer le menu si on clique ailleurs
         window.addEventListener('click', (e) => {
             if (!e.target.closest('.cursor-pointer')) {
                 document.getElementById('user-dropdown').style.display = 'none';
             }
         });
-
-        // --- RESTE DU CODE (SANS MODIFICATION HORS DEMANDE) ---
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         let recognition = (SpeechRecognition) ? new SpeechRecognition() : null;
@@ -266,6 +249,9 @@
                 if (Array.isArray(d.aliments)) { listeAliments = d.aliments; } 
                 else if (typeof d.aliments === 'object') { listeAliments = Object.values(d.aliments); }
             }
+
+            // Inversion pour avoir le dernier aliment à gauche
+            listeAliments.reverse();
 
             const water = d.water || { current: 0, goal: 2000, unit: 'ML', remaining: 2000 };
             const calories = d.calories || { current: 0, goal: 2000, unit: 'KCAL', remaining: 2000 };
