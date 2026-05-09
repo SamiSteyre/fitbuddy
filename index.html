@@ -67,24 +67,28 @@
         }
         .mic-active i { color: #ef4444 !important; }
 
-        /* --- LOGIQUE MINIATURE (FIXED) --- */
+        /* --- ÉTAT VIDÉO MINIATURE --- */
         .video-header-mode {
             position: fixed !important;
-            top: calc(env(safe-area-inset-top) + 8px) !important;
-            left: 12px !important;
-            width: 38px !important;
-            height: 38px !important;
+            top: calc(env(safe-area-inset-top) + 6px) !important;
+            left: 8px !important;
+            width: 42px !important;
+            height: 42px !important;
+            min-width: 42px !important;
+            min-height: 42px !important;
+            aspect-ratio: 1 / 1 !important;
             border-radius: 50% !important;
             z-index: 100 !important;
-            border: 1.5px solid #22d3ee !important;
-            box-shadow: 0 0 15px rgba(34, 211, 238, 0.4) !important;
+            border: 2px solid #22d3ee !important;
+            box-shadow: 0 0 12px rgba(34, 211, 238, 0.5) !important;
             overflow: hidden !important;
             background: #000 !important;
         }
-        /* Ajustement interne pour le cercle */
         .video-header-mode video {
             object-fit: cover !important;
             object-position: top !important;
+            width: 100% !important;
+            height: 100% !important;
         }
 
         @media (orientation: landscape) {
@@ -112,6 +116,7 @@
 <div id="app-container">
     <header class="flex-none h-14 border-b border-white/10 flex justify-between items-center px-4 bg-black relative">
         <div class="flex items-center gap-3">
+            <!-- On garde le point vert, il sera simplement recouvert par la vidéo en mode header -->
             <div id="header-status-dot" class="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_#22c55e]"></div>
             <div class="flex flex-col cursor-pointer" onclick="toggleUserDropdown()">
                 <h1 class="text-[10px] font-bold uppercase text-cyan-400 tracking-tighter leading-none">FitBuddy</h1>
@@ -143,8 +148,8 @@
     </header>
 
     <main id="main-content" class="flex-1 flex flex-col overflow-hidden">
-        <!-- RETOUR À LA STRUCTURE ORIGINALE EXACTE -->
-        <div id="video-box" class="flex-none h-[30dvh] bg-black relative border-b border-white/10 transition-all duration-500">
+        <!-- Structure originale rétablie -->
+        <div id="video-box" class="flex-none h-[30dvh] bg-black relative border-b border-white/10">
             <video id="agentVideo" class="w-full h-full object-contain" autoplay loop muted playsinline>
                 <source src="agent-avatar.mp4" type="video/mp4">
             </video>
@@ -254,17 +259,12 @@
 
     function toggleMic() { if (!recognition) return; (isListening) ? recognition.stop() : recognition.start(); }
 
+    // Fonction de transition fluide
     function applyHeaderMode(videoSrc) {
         const vBox = document.getElementById('video-box');
-        const dot = document.getElementById('header-status-dot');
         const video = document.getElementById('agentVideo');
 
-        if(vBox) {
-            // Supprimer les classes de hauteur originale pour laisser le CSS fixed agir
-            vBox.classList.remove('h-[30dvh]', 'flex-none', 'border-b');
-            vBox.classList.add('video-header-mode');
-        }
-        if(dot) dot.style.opacity = '0'; 
+        if(vBox) vBox.classList.add('video-header-mode');
 
         if (video && videoSrc && !video.src.includes(videoSrc)) {
             video.src = videoSrc;
