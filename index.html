@@ -55,7 +55,6 @@
             background: rgba(255,255,255,0.05) !important;
         }
 
-        /* Animation Micro Rouge améliorée */
         @keyframes pulse-red {
             0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
             70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
@@ -87,28 +86,28 @@
             min-width: 150px;
         }
 
-        /* Style pour le mode vidéo flottante (Option 2) */
-        .video-floating {
+        /* Style pour l'incrustation dans le header (Option 2 optimisée) */
+        .video-header-mode {
             position: absolute !important;
-            top: 12px !important;
-            right: 12px !important;
-            width: 85px !important;
-            height: 85px !important;
+            top: -48px !important; /* Remonte dans le header (h-14 = 56px) */
+            left: 10px !important;
+            width: 40px !important;
+            height: 40px !important;
             border-radius: 50% !important;
-            border: 2px solid #22d3ee !important;
+            border: 1.5px solid #22d3ee !important;
             z-index: 50 !important;
             overflow: hidden !important;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.8) !important;
+            box-shadow: 0 0 15px rgba(34, 211, 238, 0.3) !important;
             background: #000 !important;
-            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.4s ease-in-out;
         }
-        .video-floating video {
+        .video-header-mode video {
             object-fit: cover !important;
-            object-position: top !important; /* Cale le haut de la vidéo au top du cercle */
+            object-position: top !important; /* Cale le haut de la vidéo au top */
             width: 100% !important;
             height: 100% !important;
         }
-        #main-content { position: relative; } /* Nécessaire pour le positionnement absolute de la vidéo */
+        #main-content { position: relative; } 
     </style>
 </head>
 <body>
@@ -116,6 +115,7 @@
 <div id="app-container">
     <header class="flex-none h-14 border-b border-white/10 flex justify-between items-center px-4 bg-black relative">
         <div class="flex items-center gap-3">
+            <!-- Le point vert sera masqué par la vidéo quand elle est active -->
             <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_#22c55e]"></div>
             <div class="flex flex-col cursor-pointer" onclick="toggleUserDropdown()">
                 <h1 class="text-[10px] font-bold uppercase text-cyan-400 tracking-tighter leading-none">FitBuddy</h1>
@@ -274,7 +274,6 @@
         }
     });
 
-    // Reconnaissance vocale
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = (SpeechRecognition) ? new SpeechRecognition() : null;
 
@@ -297,11 +296,11 @@
     function toggleMic() { if (!recognition) return; (isListening) ? recognition.stop() : recognition.start(); }
 
     function switchToMacros(data) {
-        // Appliquer le mode flottant
+        // Mise en place du mode header
         const vBox = document.getElementById('video-box');
         if(vBox) {
             vBox.classList.remove('flex-none', 'h-[30dvh]', 'border-b');
-            vBox.classList.add('video-floating');
+            vBox.classList.add('video-header-mode');
         }
 
         try {
@@ -392,9 +391,7 @@
         const el = document.getElementById(`food-${id}`);
         const container = document.getElementById('journal-container');
         if (!el || !container) return;
-        
         const isDeleting = !el.classList.contains('food-deleted');
-        
         if (isDeleting) {
             el.classList.add('food-deleted');
             container.appendChild(el); 
@@ -402,34 +399,24 @@
             el.classList.remove('food-deleted');
             container.prepend(el);
         }
-
         try {
             await fetch(`${N8N_URL}/webhook/food-action`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
                     action: isDeleting ? "delete" : "restore",
-                    alimentId: id,
-                    nom: name,
-                    calories: cals,
-                    proteines: prot,
-                    glucides: gluc,
-                    lipides: lipi,
-                    email: userEmail,
-                    userName: localStorage.getItem('fitbuddy_user_name')
+                    alimentId: id, nom: name, calories: cals, proteines: prot, glucides: gluc, lipides: lipi,
+                    email: userEmail, userName: localStorage.getItem('fitbuddy_user_name')
                 })
             });
-        } catch(e) {
-            console.error("Erreur action journal:", e);
-        }
+        } catch(e) {}
     }
 
     function switchToShopping(data) {
-        // Appliquer le mode flottant
         const vBox = document.getElementById('video-box');
         if(vBox) {
             vBox.classList.remove('flex-none', 'h-[30dvh]', 'border-b');
-            vBox.classList.add('video-floating');
+            vBox.classList.add('video-header-mode');
         }
 
         const video = document.getElementById('agentVideo');
@@ -497,42 +484,26 @@
         const msg = input.value.trim();
         if (!msg || !userEmail) return;
 
-        // Réinitialiser le mode vidéo si l'utilisateur parle (optionnel, pour revenir au mode standard)
-        // const vBox = document.getElementById('video-box');
-        // vBox.classList.remove('video-floating');
-        // vBox.classList.add('flex-none', 'h-[30dvh]', 'border-b');
-
         const chat = document.getElementById('chat');
         chat.innerHTML += `<div class="msg-user p-4 max-w-[80%] text-xs shadow-lg animate-in slide-in-from-right-4 font-semibold">${msg}</div>`;
         input.value = '';
         chat.scrollTop = chat.scrollHeight;
         try {
             const res = await fetch(`${N8N_URL}/webhook/chat-agent`, { 
-                method: 'POST', 
-                headers: {'Content-Type': 'application/json'}, 
-                body: JSON.stringify({ 
-                    message: msg, 
-                    email: userEmail, 
-                    userName: localStorage.getItem('fitbuddy_user_name') 
-                }) 
+                method: 'POST', headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify({ message: msg, email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') }) 
             });
             const responseData = await res.json();
             const r = Array.isArray(responseData) ? responseData[0] : responseData;
-            
-            if (r.output) { 
-                chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl">${r.output}</div>`; 
-            }
-            
-            if (r.audio_base64 && r.audio_base64 !== "empty") { 
-                new Audio("data:audio/mp3;base64," + r.audio_base64).play(); 
-            }
+            if (r.output) { chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl">${r.output}</div>`; }
+            if (r.audio_base64 && r.audio_base64 !== "empty") { new Audio("data:audio/mp3;base64," + r.audio_base64).play(); }
 
             let actionStr = (r.action || (r.data && r.data.action) || "").toLowerCase();
             if (actionStr.includes("macro") || actionStr.includes("dashboard") || actionStr.includes("switchtomacros")) { switchToMacros(r); } 
             else if (actionStr.includes("shopping") || actionStr.includes("course")) { switchToShopping(r); }
             
             chat.scrollTop = chat.scrollHeight;
-        } catch(e) { console.error("Error:", e); }
+        } catch(e) {}
     }
 
     function triggerQuickAction(type) {
@@ -542,9 +513,7 @@
         envoyerMessage();
     }
 
-    async function switchToTraining() {
-        console.log("--- SWITCH TO TRAINING ---");
-    }
+    async function switchToTraining() { console.log("Training non implémenté"); }
 </script>
 </body>
 </html>
