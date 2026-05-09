@@ -55,7 +55,7 @@
             background: rgba(255,255,255,0.05) !important;
         }
 
-        /* Animation Micro Rouge améliorée en provenance du second fichier */
+        /* Animation Micro Rouge améliorée */
         @keyframes pulse-red {
             0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
             70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
@@ -86,6 +86,29 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.8);
             min-width: 150px;
         }
+
+        /* Style pour le mode vidéo flottante (Option 2) */
+        .video-floating {
+            position: absolute !important;
+            top: 12px !important;
+            right: 12px !important;
+            width: 85px !important;
+            height: 85px !important;
+            border-radius: 50% !important;
+            border: 2px solid #22d3ee !important;
+            z-index: 50 !important;
+            overflow: hidden !important;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.8) !important;
+            background: #000 !important;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .video-floating video {
+            object-fit: cover !important;
+            object-position: top !important; /* Cale le haut de la vidéo au top du cercle */
+            width: 100% !important;
+            height: 100% !important;
+        }
+        #main-content { position: relative; } /* Nécessaire pour le positionnement absolute de la vidéo */
     </style>
 </head>
 <body>
@@ -251,7 +274,7 @@
         }
     });
 
-    // Reconnaissance vocale (Logique micro du second fichier)
+    // Reconnaissance vocale
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = (SpeechRecognition) ? new SpeechRecognition() : null;
 
@@ -274,6 +297,13 @@
     function toggleMic() { if (!recognition) return; (isListening) ? recognition.stop() : recognition.start(); }
 
     function switchToMacros(data) {
+        // Appliquer le mode flottant
+        const vBox = document.getElementById('video-box');
+        if(vBox) {
+            vBox.classList.remove('flex-none', 'h-[30dvh]', 'border-b');
+            vBox.classList.add('video-floating');
+        }
+
         try {
             const videoElement = document.getElementById('agentVideo');
             if (videoElement && !videoElement.src.includes("agent-eat.mp4")) {
@@ -395,8 +425,20 @@
     }
 
     function switchToShopping(data) {
+        // Appliquer le mode flottant
+        const vBox = document.getElementById('video-box');
+        if(vBox) {
+            vBox.classList.remove('flex-none', 'h-[30dvh]', 'border-b');
+            vBox.classList.add('video-floating');
+        }
+
         const video = document.getElementById('agentVideo');
-        if (video) { video.innerHTML = ""; video.src = "agent-courses.mp4"; video.load(); video.play(); }
+        if (video) { 
+            video.src = "agent-courses.mp4"; 
+            video.load(); 
+            video.play().catch(e => {}); 
+        }
+        
         let items = (Array.isArray(data)) ? data : (data.items || data.data || []);
         currentList = items.map((i, idx) => ({
             id: i.id || i.pageId || i.idNotion || `idx-${idx}`,
@@ -454,6 +496,12 @@
         const input = document.getElementById('userInput');
         const msg = input.value.trim();
         if (!msg || !userEmail) return;
+
+        // Réinitialiser le mode vidéo si l'utilisateur parle (optionnel, pour revenir au mode standard)
+        // const vBox = document.getElementById('video-box');
+        // vBox.classList.remove('video-floating');
+        // vBox.classList.add('flex-none', 'h-[30dvh]', 'border-b');
+
         const chat = document.getElementById('chat');
         chat.innerHTML += `<div class="msg-user p-4 max-w-[80%] text-xs shadow-lg animate-in slide-in-from-right-4 font-semibold">${msg}</div>`;
         input.value = '';
@@ -475,7 +523,6 @@
                 chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl">${r.output}</div>`; 
             }
             
-            // Logique de synthèse vocale (TTS)
             if (r.audio_base64 && r.audio_base64 !== "empty") { 
                 new Audio("data:audio/mp3;base64," + r.audio_base64).play(); 
             }
@@ -497,7 +544,6 @@
 
     async function switchToTraining() {
         console.log("--- SWITCH TO TRAINING ---");
-        // Logique d'entraînement à implémenter ici
     }
 </script>
 </body>
