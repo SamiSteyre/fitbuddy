@@ -145,6 +145,9 @@
 
     <script>
         let userEmail = localStorage.getItem('fitbuddy_email');
+        // On récupère aussi le nom stocké s'il existe
+        let userName = localStorage.getItem('fitbuddy_user_name');
+
         const N8N_URL = "https://greedily-submarine-prance.ngrok-free.dev";
         const RAYONS = ["Frais", "Boulangerie & Viennoiserie", "Fruits & Légumes frais", "Boucherie & Volaille", "Poissonnerie", "Pâtes Riz & féculents", "Conserves de Légumes & Plats Cuisinés", "Conserves de Poisson", "Huiles Vinaigres Epices & Sauces", "Apéritif", "Petit-déjeuner", "Biscuits & Gâteaux", "Confiserie & Chocolat", "Confitures Miels & Pâtes à tartiner", "Aide à la pâtisserie", "Lait & Oeufs", "Produits laitiers", "Surgelés", "Boissons", "Hygiène", "Entretien de la maison", "Animalerie", "Loisirs", "Autres"];
 
@@ -167,6 +170,13 @@
                 } else { location.reload(); }
             }
             if(document.getElementById('system-status')) document.getElementById('system-status').innerText = `Connecté : ${userEmail}`;
+            
+            // SI on a déjà un nom en mémoire, on l'affiche tout de suite pour éviter le clignotement
+            if (userName) {
+                updateUserNameUI(userName);
+            }
+            
+            // On lance quand même l'identification serveur pour mettre à jour si besoin
             await identifyUser();
         }
 
@@ -178,9 +188,18 @@
                     body: JSON.stringify({ email: userEmail })
                 });
                 const data = await res.json();
-                if (data.name) { updateUserNameUI(data.name); } 
-                else { updateUserNameUI("Utilisateur"); }
-            } catch (e) { updateUserNameUI("Utilisateur"); }
+                
+                // Si le serveur renvoie un nom différent ou nouveau, on met à jour
+                if (data.name) { 
+                    localStorage.setItem('fitbuddy_user_name', data.name);
+                    updateUserNameUI(data.name); 
+                } 
+                else if (!localStorage.getItem('fitbuddy_user_name')) { 
+                    updateUserNameUI("Utilisateur"); 
+                }
+            } catch (e) { 
+                if (!localStorage.getItem('fitbuddy_user_name')) updateUserNameUI("Utilisateur"); 
+            }
         }
 
         function updateUserNameUI(name) {
@@ -194,8 +213,11 @@
         }
 
         async function selectUser(name) {
+            // Sauvegarde immédiate dans la mémoire du navigateur
+            localStorage.setItem('fitbuddy_user_name', name);
             toggleUserDropdown();
             updateUserNameUI(name);
+            
             try {
                 await fetch(`${N8N_URL}/webhook/chat-agent`, {
                     method: 'POST',
@@ -211,6 +233,7 @@
 
         function logout() {
             localStorage.removeItem('fitbuddy_email');
+            localStorage.removeItem('fitbuddy_user_name'); // On vide aussi le nom
             location.reload();
         }
 
@@ -219,6 +242,8 @@
                 document.getElementById('user-dropdown').style.display = 'none';
             }
         });
+
+        // --- Fonctions inchangées ---
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         let recognition = (SpeechRecognition) ? new SpeechRecognition() : null;
@@ -249,16 +274,12 @@
                 if (Array.isArray(d.aliments)) { listeAliments = d.aliments; } 
                 else if (typeof d.aliments === 'object') { listeAliments = Object.values(d.aliments); }
             }
-
-            // Inversion pour avoir le dernier aliment à gauche
             listeAliments.reverse();
-
             const water = d.water || { current: 0, goal: 2000, unit: 'ML', remaining: 2000 };
             const calories = d.calories || { current: 0, goal: 2000, unit: 'KCAL', remaining: 2000 };
             const proteins = d.proteins || { current: 0, goal: 150, unit: 'G', remaining: 150 };
             const carbs = d.carbs || { current: 0, goal: 200, unit: 'G', remaining: 200 };
             const lipids = d.lipids || { current: 0, goal: 70, unit: 'G', remaining: 70 };
-
             const pWater = Math.min((water.current / water.goal) * 100, 100);
             const rings = [
                 { label: 'CALORIES', val: calories, color: '#f97316' },
@@ -266,7 +287,6 @@
                 { label: 'GLUCIDES', val: carbs, color: '#22c55e' },
                 { label: 'LIPIDES', val: lipids, color: '#ef4444' }
             ];
-
             let html = `<div class="p-2 space-y-6 animate-in fade-in duration-500">
                 <div class="bg-white/5 p-4 rounded-2xl border border-white/10">
                     <div class="flex justify-between items-end mb-2">
