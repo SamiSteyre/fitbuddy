@@ -264,6 +264,10 @@
             } catch (vE) {}
 
             const d = (data.data) ? data.data : data;
+            
+            // --- LOG DEBUG : RÉCEPTION DES DONNÉES ---
+            console.log("--- DEBUG REÇU DE N8N ---", d);
+
             const chat = document.getElementById('chat');
             let listeAliments = [];
             if (d.aliments) {
@@ -315,14 +319,16 @@
                     <span class="text-[9px] font-black text-cyan-400 tracking-widest uppercase mb-3 block text-center">Journal Alimentaire</span>
                     <div id="journal-container" class="flex flex-wrap justify-center gap-2">
                         ${listeAliments.map((a, idx) => {
-                            // Extraction propre de l'objet riche envoyé par n8n
                             const isObj = (typeof a === 'object' && a !== null);
                             const name = isObj ? (a.nom || "Aliment") : a;
-                            const id = isObj ? (a.id || a.pageId) : `idx-${idx}`;
+                            const id = isObj ? (a.id || a.pageId || a.idNotion) : `idx-${idx}`;
                             const cals = isObj ? (a.calories || 0) : 0;
                             const prot = isObj ? (a.proteines || 0) : 0;
                             const gluc = isObj ? (a.glucides || 0) : 0;
                             const lipi = isObj ? (a.lipides || 0) : 0;
+
+                            // --- LOG DEBUG : GÉNÉRATION DU BADGE ---
+                            console.log(`Badge généré - Nom: ${name} | ID: ${id}`);
 
                             return `<span 
                                 id="food-${id}"
@@ -354,21 +360,26 @@
                 container.prepend(el);
             }
 
+            const payload = {
+                action: isDeleting ? "delete" : "restore",
+                alimentId: id,
+                nom: name,
+                calories: cals,
+                proteines: prot,
+                glucides: gluc,
+                lipides: lipi,
+                email: userEmail,
+                userName: localStorage.getItem('fitbuddy_user_name')
+            };
+
+            // --- LOG DEBUG : ENVOI WEBHOOK ---
+            console.log("--- LOG ENVOI WEBHOOK FOOD-ACTION ---", payload);
+
             try {
                 await fetch(`${N8N_URL}/webhook/food-action`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        action: isDeleting ? "delete" : "restore",
-                        alimentId: id,
-                        nom: name,
-                        calories: cals,
-                        proteines: prot,
-                        glucides: gluc,
-                        lipides: lipi,
-                        email: userEmail,
-                        userName: localStorage.getItem('fitbuddy_user_name')
-                    })
+                    body: JSON.stringify(payload)
                 });
             } catch(e) {
                 console.error("Erreur action journal:", e);
