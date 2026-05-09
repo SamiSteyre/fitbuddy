@@ -47,7 +47,7 @@
         #chat::-webkit-scrollbar { width: 0; }
         .purchased { opacity: 0.25; filter: grayscale(1); transform: scale(0.96); }
 
-        /* Style pour les aliments supprimés */
+        /* Style pour les aliments supprimés du journal */
         .food-deleted { 
             opacity: 0.2; 
             text-decoration: line-through; 
@@ -153,6 +153,7 @@
     </div>
 
     <script>
+        // --- INITIALISATION MÉMOIRE ---
         let userEmail = localStorage.getItem('fitbuddy_email');
         let storedName = localStorage.getItem('fitbuddy_user_name');
 
@@ -318,9 +319,10 @@
                         ${listeAliments.map((a, idx) => {
                             const name = typeof a === 'object' ? a.nom : a;
                             const id = typeof a === 'object' ? (a.id || a.pageId) : `idx-${idx}`;
+                            const cals = a.calories || 0, prot = a.proteines || 0, gluc = a.glucides || 0, lipi = a.lipides || 0;
                             return `<span 
                                 id="food-${id}"
-                                onclick="toggleAliment('${id}', '${name.replace(/'/g, "\\'")}')"
+                                onclick="toggleAliment('${id}', '${name.replace(/'/g, "\\'")}', ${cals}, ${prot}, ${gluc}, ${lipi})"
                                 class="px-3 py-1 bg-white/10 border border-white/20 rounded-full text-[10px] text-gray-200 font-medium cursor-pointer transition-all active:scale-90">
                                 ${String(name).trim()}
                             </span>`;
@@ -333,7 +335,7 @@
             lucide.createIcons();
         }
 
-        async function toggleAliment(id, name) {
+        async function toggleAliment(id, name, cals, prot, gluc, lipi) {
             const el = document.getElementById(`food-${id}`);
             const container = document.getElementById('journal-container');
             if (!el || !container) return;
@@ -353,6 +355,10 @@
                         action: isDeleting ? "delete" : "restore",
                         alimentId: id,
                         nom: name,
+                        calories: cals,
+                        proteines: prot,
+                        glucides: gluc,
+                        lipides: lipi,
                         email: userEmail,
                         userName: localStorage.getItem('fitbuddy_user_name')
                     })
@@ -365,7 +371,7 @@
             if (video) { video.innerHTML = ""; video.src = "agent-courses.mp4"; video.load(); video.play(); }
             let items = (Array.isArray(data)) ? data : (data.items || data.data || []);
             currentList = items.map((i, idx) => ({
-                id: i.id || i.pageId || i.idNotion || `idx-${idx}`,
+                id: i.id || i.pageId || `idx-${idx}`,
                 nom: (i.nom || i.item || "Produit").trim(),
                 quantite: i.quantite || "1", unite: i.unite || "",
                 rayon: (i.rayon || i.category || "Autres").trim(),
