@@ -67,33 +67,28 @@
         }
         .mic-active i { color: #ef4444 !important; }
 
-        /* --- ÉTAT VIDÉO MINIATURE --- */
-        .video-header-mode {
-            position: fixed !important;
-            top: calc(env(safe-area-inset-top) + 6px) !important;
-            left: 8px !important;
-            width: 42px !important;
-            height: 42px !important;
-            min-width: 42px !important;
-            min-height: 42px !important;
-            aspect-ratio: 1 / 1 !important;
+        /* --- STYLES VIDÉO --- */
+        #video-box { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        
+        /* Classe appliquée lors du switch */
+        .video-mini {
+            width: 40px !important;
+            height: 40px !important;
             border-radius: 50% !important;
-            z-index: 100 !important;
             border: 2px solid #22d3ee !important;
-            box-shadow: 0 0 12px rgba(34, 211, 238, 0.5) !important;
             overflow: hidden !important;
-            background: #000 !important;
+            flex-shrink: 0;
+            box-shadow: 0 0 10px rgba(34, 211, 238, 0.3);
         }
-        .video-header-mode video {
+        
+        .video-mini video {
             object-fit: cover !important;
             object-position: top !important;
-            width: 100% !important;
-            height: 100% !important;
         }
 
         @media (orientation: landscape) {
             #main-content { flex-direction: row !important; }
-            #video-box:not(.video-header-mode) { width: 45% !important; height: 100% !important; border-bottom: none !important; border-right: 1px solid rgba(255,255,255,0.1); }
+            #video-box:not(.video-mini) { width: 45% !important; height: 100% !important; border-bottom: none !important; border-right: 1px solid rgba(255,255,255,0.1); }
             #chat-box { width: 55% !important; }
         }
 
@@ -116,7 +111,6 @@
 <div id="app-container">
     <header class="flex-none h-14 border-b border-white/10 flex justify-between items-center px-4 bg-black relative">
         <div class="flex items-center gap-3">
-            <!-- On garde le point vert, il sera simplement recouvert par la vidéo en mode header -->
             <div id="header-status-dot" class="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_#22c55e]"></div>
             <div class="flex flex-col cursor-pointer" onclick="toggleUserDropdown()">
                 <h1 class="text-[10px] font-bold uppercase text-cyan-400 tracking-tighter leading-none">FitBuddy</h1>
@@ -124,6 +118,9 @@
                     Identification... <i data-lucide="chevron-down" class="w-3 h-3 text-white/40"></i>
                 </span>
             </div>
+            
+            <!-- SLOT POUR LA VIDÉO MINIATURE (À droite du bloc FitBuddy) -->
+            <div id="header-video-slot" class="flex items-center ml-1"></div>
         </div>
 
         <div id="user-dropdown" class="overflow-hidden">
@@ -148,7 +145,7 @@
     </header>
 
     <main id="main-content" class="flex-1 flex flex-col overflow-hidden">
-        <!-- Structure originale rétablie -->
+        <!-- Emplacement original de la vidéo -->
         <div id="video-box" class="flex-none h-[30dvh] bg-black relative border-b border-white/10">
             <video id="agentVideo" class="w-full h-full object-contain" autoplay loop muted playsinline>
                 <source src="agent-avatar.mp4" type="video/mp4">
@@ -259,12 +256,20 @@
 
     function toggleMic() { if (!recognition) return; (isListening) ? recognition.stop() : recognition.start(); }
 
-    // Fonction de transition fluide
+    // LOGIQUE DE DÉPLACEMENT DE LA VIDÉO
     function applyHeaderMode(videoSrc) {
         const vBox = document.getElementById('video-box');
+        const hSlot = document.getElementById('header-video-slot');
         const video = document.getElementById('agentVideo');
 
-        if(vBox) vBox.classList.add('video-header-mode');
+        if(vBox && hSlot) {
+            // Retrait des styles "Plein écran"
+            vBox.classList.remove('h-[30dvh]', 'flex-none', 'border-b');
+            // Ajout du style miniature
+            vBox.classList.add('video-mini');
+            // DÉPLACEMENT PHYSIQUE vers le header
+            hSlot.appendChild(vBox);
+        }
 
         if (video && videoSrc && !video.src.includes(videoSrc)) {
             video.src = videoSrc;
