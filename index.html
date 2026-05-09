@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="manifest" href="manifest.json">
     <title>FitBuddy AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -20,8 +19,6 @@
         .water-bar { height: 100%; background: linear-gradient(90deg, #22d3ee, #0891b2); transition: width 1s ease-in-out; }
         #chat::-webkit-scrollbar { width: 0; }
         .food-deleted { opacity: 0.2; text-decoration: line-through; filter: grayscale(1); transform: scale(0.95); background: rgba(255,255,255,0.05) !important; }
-        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
-        .mic-active { animation: pulse-red 1.5s infinite; background: rgba(239, 68, 68, 0.4) !important; }
         #user-dropdown { display: none; position: absolute; top: 54px; left: 12px; z-index: 100; background: #111; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); min-width: 150px; }
     </style>
 </head>
@@ -44,13 +41,11 @@
             <div class="flex items-center gap-3">
                 <button onclick="triggerQuickAction('courses')" class="p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg"><i data-lucide="shopping-cart" class="w-4 h-4 text-amber-500"></i></button>
                 <button onclick="triggerQuickAction('macros')" class="p-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg"><i data-lucide="pie-chart" class="w-4 h-4 text-emerald-500"></i></button>
-                <div class="w-[1px] h-4 bg-white/10 mx-1"></div>
-                <i data-lucide="dumbbell" class="text-purple-500 w-5 h-5"></i>
             </div>
         </header>
 
         <main id="main-content" class="flex-1 flex flex-col overflow-hidden">
-            <div id="video-box" class="flex-none h-[30dvh] bg-black relative border-b border-white/10">
+            <div id="video-box" class="flex-none h-[30dvh] bg-black border-b border-white/10">
                 <video id="agentVideo" class="w-full h-full object-contain" autoplay loop muted playsinline><source src="agent-avatar.mp4" type="video/mp4"></video>
             </div>
             <div id="chat-box" class="flex-1 flex flex-col overflow-hidden">
@@ -76,16 +71,11 @@
 
     <script>
         let userEmail = localStorage.getItem('fitbuddy_email');
-        let storedName = localStorage.getItem('fitbuddy_user_name');
         const N8N_URL = "https://greedily-submarine-prance.ngrok-free.dev";
-        const RAYONS = ["Frais", "Boulangerie & Viennoiserie", "Fruits & Légumes frais", "Boucherie & Volaille", "Poissonnerie", "Pâtes Riz & féculents", "Conserves de Légumes & Plats Cuisinés", "Conserves de Poisson", "Huiles Vinaigres Epices & Sauces", "Apéritif", "Petit-déjeuner", "Biscuits & Gâteaux", "Confiserie & Chocolat", "Confitures Miels & Pâtes à tartiner", "Aide à la pâtisserie", "Lait & Oeufs", "Produits laitiers", "Surgelés", "Boissons", "Hygiène", "Entretien de la maison", "Animalerie", "Loisirs", "Autres"];
-        let currentList = [];
         let isListening = false;
 
         window.addEventListener('load', () => { 
             lucide.createIcons();
-            if (storedName) updateUserNameUI(storedName);
-            if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js?v=5').catch(err => console.log("SW Error:", err)); }
             checkAuth(); 
         });
 
@@ -96,50 +86,28 @@
                 else { location.reload(); }
             }
             if(document.getElementById('system-status')) document.getElementById('system-status').innerText = `Connecté : ${userEmail}`;
-            await identifyUser();
+            identifyUser();
         }
 
         async function identifyUser() {
             try {
                 const res = await fetch(`${N8N_URL}/webhook/identification`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ email: userEmail }) });
                 const data = await res.json();
-                if (data.name) { localStorage.setItem('fitbuddy_user_name', data.name); updateUserNameUI(data.name); } 
-                else if (!localStorage.getItem('fitbuddy_user_name')) updateUserNameUI("Utilisateur");
-            } catch (e) { if (!localStorage.getItem('fitbuddy_user_name')) updateUserNameUI("Invité"); }
-        }
-
-        function updateUserNameUI(name) {
-            const el = document.getElementById('current-user-name');
-            if (el) { el.innerHTML = `${name} <i data-lucide="chevron-down" class="w-3 h-3 text-white/40"></i>`; lucide.createIcons(); }
+                if (data.name) { localStorage.setItem('fitbuddy_user_name', data.name); document.getElementById('current-user-name').innerHTML = `${data.name} <i data-lucide="chevron-down" class="w-3 h-3 text-white/40"></i>`; lucide.createIcons(); }
+            } catch (e) {}
         }
 
         function toggleUserDropdown() { const dd = document.getElementById('user-dropdown'); dd.style.display = (dd.style.display === 'block') ? 'none' : 'block'; }
-        
-        async function selectUser(name) {
-            localStorage.setItem('fitbuddy_user_name', name);
-            updateUserNameUI(name);
-            toggleUserDropdown();
-            try { await fetch(`${N8N_URL}/webhook/chat-agent`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ message: `[SYSTEM] Utilisateur actif : ${name}`, email: userEmail, userName: name }) }); } catch(e) {}
-        }
-
+        async function selectUser(name) { localStorage.setItem('fitbuddy_user_name', name); location.reload(); }
         function logout() { localStorage.clear(); location.reload(); }
 
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        let recognition = (SpeechRecognition) ? new SpeechRecognition() : null;
-        if (recognition) {
-            recognition.lang = 'fr-FR';
-            recognition.onstart = () => { isListening = true; document.getElementById('micBtn').classList.add('mic-active'); };
-            recognition.onresult = (e) => { document.getElementById('userInput').value = e.results[0][0].transcript; setTimeout(envoyerMessage, 400); };
-            recognition.onend = () => { isListening = false; document.getElementById('micBtn').classList.remove('mic-active'); };
-        }
-        function toggleMic() { if (!recognition) return; (isListening) ? recognition.stop() : recognition.start(); }
-
         function switchToMacros(data) {
-            const d = (data.data) ? data.data : data;
+            const d = data.data || data;
+            console.log("--- VERSION SCRIPT : 2.0 (MODERNE) ---");
             console.log("--- DONNÉES REÇUES ---", d);
+
             const chat = document.getElementById('chat');
-            let listeAliments = [];
-            if (d.aliments) { listeAliments = Array.isArray(d.aliments) ? d.aliments : Object.values(d.aliments); }
+            let listeAliments = Array.isArray(d.aliments) ? d.aliments : [];
             listeAliments.reverse();
 
             const water = d.water || { current: 0, goal: 2000, unit: 'mL', remaining: 2000 };
@@ -153,40 +121,33 @@
             let html = `<div class="p-2 space-y-6 animate-in fade-in duration-500">
                 <div class="bg-white/5 p-4 rounded-2xl border border-white/10">
                     <div class="flex justify-between items-end mb-2">
-                        <div class="flex items-center gap-2 text-cyan-400 font-bold text-[10px] tracking-widest"><i data-lucide="droplets" class="w-3 h-3"></i> NIVEAU D'HYDRATATION</div>
-                        <span class="text-[8px] text-white/40 uppercase font-bold">RESTANT : ${water.remaining}${water.unit}</span>
+                        <div class="text-cyan-400 font-bold text-[10px]">HYDRATATION</div>
+                        <span class="text-[8px] text-white/40 uppercase">RESTANT : ${water.remaining}${water.unit}</span>
                     </div>
                     <div class="water-progress mb-2"><div class="water-bar" style="width: ${Math.min((water.current/water.goal)*100, 100)}%"></div></div>
-                    <div class="text-2xl font-black text-white font-mono">${water.current}<span class="text-[10px] ml-1 font-normal text-cyan-400">${water.unit}</span></div>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     ${rings.map(m => {
                         const pct = Math.min((m.val.current / m.val.goal) * 100, 100);
                         return `<div class="flex flex-col items-center gap-3 p-3 bg-white/[0.03] rounded-2xl border border-white/5">
-                            <span class="text-[9px] font-black text-cyan-400 tracking-widest uppercase">${m.label}</span>
+                            <span class="text-[9px] font-black text-cyan-400 uppercase">${m.label}</span>
                             <div class="macro-ring">
                                 <div class="absolute inset-0 rounded-full" style="background: conic-gradient(${m.color} ${pct * 3.6}deg, rgba(255,255,255,0.05) 0deg); -webkit-mask: radial-gradient(transparent 58%, black 59%); mask: radial-gradient(transparent 58%, black 59%);"></div>
                                 <span class="macro-value" style="color: ${m.color}">${Math.round(pct)}%</span>
                             </div>
-                            <div class="text-center">
-                                <div class="text-[8px] text-white/40 uppercase tracking-tighter mb-1">CONSO : ${m.val.current}/${m.val.goal}${m.val.unit}</div>
-                                <div class="text-[9px] font-bold text-cyan-400 uppercase tracking-tight">RESTANT : ${m.val.remaining}${m.val.unit}</div>
-                            </div>
+                            <div class="text-[8px] text-white/40 uppercase">RESTANT : ${m.val.remaining}${m.val.unit}</div>
                         </div>`;
                     }).join('')}
                 </div>
-                <div class="bg-white/5 p-4 rounded-2xl border border-white/10 shadow-lg">
-                    <span class="text-[9px] font-black text-cyan-400 tracking-widest uppercase mb-3 block text-center">Journal Alimentaire</span>
+                <div class="bg-white/5 p-4 rounded-2xl border border-white/10">
+                    <span class="text-[9px] font-black text-cyan-400 uppercase mb-3 block text-center">Journal Alimentaire</span>
                     <div id="journal-container" class="flex flex-wrap justify-center gap-2">
                         ${listeAliments.map((a, idx) => {
                             const isObj = (typeof a === 'object' && a !== null);
                             const nom = isObj ? (a.nom || "Aliment") : a;
-                            const id = isObj ? (a.id || a.pageId) : `idx-${idx}`;
-                            const c = isObj ? (a.calories || 0) : 0;
-                            const p = isObj ? (a.proteines || 0) : 0;
-                            const g = isObj ? (a.glucides || 0) : 0;
-                            const l = isObj ? (a.lipides || 0) : 0;
-                            return `<span id="food-${id}" onclick="toggleAliment('${id}', '${nom.replace(/'/g, "\\'")}', ${c}, ${p}, ${g}, ${l})" class="px-3 py-1 bg-white/10 border border-white/20 rounded-full text-[10px] text-gray-200 font-medium cursor-pointer transition-all active:scale-90">${nom}</span>`;
+                            const id = isObj ? (a.id || `idx-${idx}`) : `idx-${idx}`;
+                            if(!isObj) console.warn("Attention : n8n a envoyé du texte pur pour :", a);
+                            return `<span id="food-${id}" onclick="toggleAliment('${id}', '${nom.replace(/'/g, "\\'")}', ${a.calories || 0}, ${a.proteines || 0}, ${a.glucides || 0}, ${a.lipides || 0})" class="px-3 py-1 bg-white/10 border border-white/20 rounded-full text-[10px] text-gray-200 font-medium cursor-pointer">${nom}</span>`;
                         }).join('')}
                     </div>
                 </div>
@@ -196,92 +157,33 @@
             lucide.createIcons();
         }
 
-        async function toggleAliment(id, name, cals, prot, gluc, lipi) {
+        async function toggleAliment(id, name, c, p, g, l) {
             const el = document.getElementById(`food-${id}`);
-            const container = document.getElementById('journal-container');
-            if (!el || !container) return;
             const isDeleting = !el.classList.contains('food-deleted');
-            if (isDeleting) { el.classList.add('food-deleted'); container.appendChild(el); } 
-            else { el.classList.remove('food-deleted'); container.prepend(el); }
-            const payload = { action: isDeleting ? "delete" : "restore", alimentId: id, nom: name, calories: cals, proteines: prot, glucides: gluc, lipides: lipi, email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') };
-            console.log("--- ENVOI FOOD-ACTION ---", payload);
-            try { await fetch(`${N8N_URL}/webhook/food-action`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); } catch(e) {}
-        }
-
-        function switchToShopping(data) {
-            const video = document.getElementById('agentVideo');
-            if (video) { video.src = "agent-courses.mp4"; video.load(); video.play(); }
-            let items = (Array.isArray(data)) ? data : (data.items || data.data || []);
-            currentList = items.map((i, idx) => ({ id: i.id || i.pageId || `idx-${idx}`, nom: (i.nom || i.item || "Produit").trim(), quantite: i.quantite || "1", unite: i.unite || "", rayon: (i.rayon || i.category || "Autres").trim(), isPurchased: false }));
-            renderShopping();
-        }
-
-        function renderShopping() {
-            const chat = document.getElementById('chat');
-            chat.innerHTML = `<div id="shopping-content" class="space-y-6 pb-10"></div>`;
-            const content = document.getElementById('shopping-content');
-            RAYONS.forEach(r => {
-                const items = currentList.filter(i => i.rayon.toLowerCase() === r.toLowerCase() && !i.isPurchased);
-                if (items.length > 0) appendCategory(content, r, items);
-            });
-            const purchased = currentList.filter(i => i.isPurchased);
-            if (purchased.length > 0) appendCategory(content, "PANIER", purchased, true);
-            chat.scrollTop = 0;
-        }
-
-        function appendCategory(container, title, items, isPurchased = false) {
-            const section = document.createElement('div');
-            section.innerHTML = `<h2 class="text-[9px] font-black text-cyan-400/40 uppercase mb-3 pl-1 border-l-2 border-cyan-400/20">${title}</h2><div class="grid grid-cols-3 gap-2"></div>`;
-            const grid = section.querySelector('.grid');
-            items.forEach(item => {
-                const card = document.createElement('div');
-                card.onclick = () => togglePurchase(item.id);
-                card.className = `relative aspect-[4/5] rounded-xl overflow-hidden bg-black border border-white/10 ${isPurchased ? 'purchased' : ''}`;
-                const clean = item.nom.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '-');
-                card.innerHTML = `<img src="images/produits/${clean}.jpg" class="absolute inset-0 w-full h-full object-cover" onerror="this.src='default-item.svg';">
-                    <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent p-2 flex flex-col justify-end">
-                        <p class="text-[9px] font-bold text-white leading-tight">${item.nom}</p>
-                        <p class="text-[8px] text-cyan-400">${item.quantite} ${item.unite}</p>
-                    </div>`;
-                grid.appendChild(card);
-            });
-            container.appendChild(section);
-        }
-
-        async function togglePurchase(id) {
-            const item = currentList.find(i => i.id === id);
-            if (!item) return;
-            item.isPurchased = !item.isPurchased;
-            renderShopping();
-            try { await fetch(`${N8N_URL}/webhook/shopping-action`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: item.isPurchased ? "delete" : "add", pageId: item.id, produit: item.nom, email: userEmail })}); } catch(e){}
+            if (isDeleting) el.classList.add('food-deleted'); else el.classList.remove('food-deleted');
+            try { await fetch(`${N8N_URL}/webhook/food-action`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: isDeleting ? "delete" : "restore", alimentId: id, nom: name, calories: c, proteines: p, glucides: g, lipides: l, email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') }) }); } catch(e) {}
         }
 
         async function envoyerMessage() {
             const input = document.getElementById('userInput');
             const msg = input.value.trim();
-            if (!msg || !userEmail) return;
+            if (!msg) return;
             const chat = document.getElementById('chat');
-            chat.innerHTML += `<div class="msg-user p-4 max-w-[80%] text-xs shadow-lg animate-in slide-in-from-right-4 font-semibold">${msg}</div>`;
+            chat.innerHTML += `<div class="msg-user p-4 max-w-[80%] text-xs shadow-lg font-semibold">${msg}</div>`;
             input.value = '';
             chat.scrollTop = chat.scrollHeight;
             try {
-                const res = await fetch(`${N8N_URL}/webhook/chat-agent`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ message: msg, email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') })});
-                const r = await res.json();
-                const data = Array.isArray(r) ? r[0] : r;
-                if (data.output) { chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl">${data.output}</div>`; }
-                let action = (data.action || (data.data && data.data.action) || "").toLowerCase();
-                if (action.includes("macro") || action.includes("dashboard") || action.includes("switchtomacros")) { switchToMacros(data); } 
-                else if (action.includes("shopping") || action.includes("course")) { switchToShopping(data); }
-                if (data.audio_base64 && data.audio_base64 !== "empty") { new Audio("data:audio/mp3;base64," + data.audio_base64).play(); }
+                const res = await fetch(`${N8N_URL}/webhook/chat-agent`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ message: msg, email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') }) });
+                const data = await res.json();
+                const r = Array.isArray(data) ? data[0] : data;
+                if (r.output) chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl">${r.output}</div>`;
+                const action = (r.action || "").toLowerCase();
+                if (action.includes("macro") || action.includes("switchtomacros")) switchToMacros(r);
                 chat.scrollTop = chat.scrollHeight;
-            } catch(e) { console.error("Error:", e); }
+            } catch(e) {}
         }
 
-        async function triggerQuickAction(type) {
-            const input = document.getElementById('userInput');
-            input.value = (type === 'courses') ? "Affiche ma liste de courses" : "Affiche mon dashboard de macros";
-            envoyerMessage();
-        }
+        function triggerQuickAction(type) { document.getElementById('userInput').value = (type === 'courses') ? "Courses" : "Afficher mon bilan macro"; envoyerMessage(); }
     </script>
 </body>
 </html>
