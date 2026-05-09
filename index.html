@@ -47,7 +47,6 @@
         #chat::-webkit-scrollbar { width: 0; }
         .purchased { opacity: 0.25; filter: grayscale(1); transform: scale(0.96); }
 
-        /* Style pour les aliments supprimés */
         .food-deleted { 
             opacity: 0.2; 
             text-decoration: line-through; 
@@ -153,7 +152,6 @@
     </div>
 
     <script>
-        // --- INITIALISATION MÉMOIRE ---
         let userEmail = localStorage.getItem('fitbuddy_email');
         let storedName = localStorage.getItem('fitbuddy_user_name');
 
@@ -272,10 +270,7 @@
                 if (Array.isArray(d.aliments)) { listeAliments = d.aliments; } 
                 else if (typeof d.aliments === 'object') { listeAliments = Object.values(d.aliments); }
             }
-            
-            // Inversion pour avoir le dernier aliment à gauche
             listeAliments.reverse();
-
             const water = d.water || { current: 0, goal: 2000, unit: 'ML', remaining: 2000 };
             const calories = d.calories || { current: 0, goal: 2000, unit: 'KCAL', remaining: 2000 };
             const proteins = d.proteins || { current: 0, goal: 150, unit: 'G', remaining: 150 };
@@ -320,14 +315,15 @@
                     <span class="text-[9px] font-black text-cyan-400 tracking-widest uppercase mb-3 block text-center">Journal Alimentaire</span>
                     <div id="journal-container" class="flex flex-wrap justify-center gap-2">
                         ${listeAliments.map((a, idx) => {
-                            // Extraction propre des données d'objet envoyées par n8n
-                            const name = typeof a === 'object' ? a.nom : a;
-                            const id = typeof a === 'object' ? (a.id || a.pageId) : `idx-${idx}`;
-                            const cals = a.calories || 0;
-                            const prot = a.proteines || 0;
-                            const gluc = a.glucides || 0;
-                            const lipi = a.lipides || 0;
-                            
+                            // Extraction propre de l'objet riche envoyé par n8n
+                            const isObj = (typeof a === 'object' && a !== null);
+                            const name = isObj ? (a.nom || "Aliment") : a;
+                            const id = isObj ? (a.id || a.pageId) : `idx-${idx}`;
+                            const cals = isObj ? (a.calories || 0) : 0;
+                            const prot = isObj ? (a.proteines || 0) : 0;
+                            const gluc = isObj ? (a.glucides || 0) : 0;
+                            const lipi = isObj ? (a.lipides || 0) : 0;
+
                             return `<span 
                                 id="food-${id}"
                                 onclick="toggleAliment('${id}', '${name.replace(/'/g, "\\'")}', ${cals}, ${prot}, ${gluc}, ${lipi})"
