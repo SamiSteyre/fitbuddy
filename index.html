@@ -70,7 +70,7 @@
         @media (orientation: landscape) {
             #main-content { flex-direction: row !important; }
             #video-box { width: 45% !important; height: 100% !important; border-bottom: none !important; border-right: 1px solid rgba(255,255,255,0.1); }
-            #chat-box { width: 55% !important; }
+            #chat-box { width: 55% !important; padding-top: 0 !important; }
         }
 
         #user-dropdown {
@@ -86,28 +86,48 @@
             min-width: 150px;
         }
 
-        /* Style pour l'incrustation dans le header (Option 2 optimisée) */
-        .video-header-mode {
-            position: absolute !important;
-            top: -48px !important; /* Remonte dans le header (h-14 = 56px) */
-            left: 10px !important;
-            width: 40px !important;
-            height: 40px !important;
+        /* LOGIQUE VIDÉO HEADER */
+        #video-box {
+            position: absolute;
+            top: 56px; /* Juste en dessous du header (h-14) */
+            left: 0;
+            width: 100%;
+            height: 30dvh;
+            z-index: 20;
+            background: #000;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+
+        /* Mode Miniature dans le Header */
+        #video-box.video-header-mode {
+            position: relative !important;
+            top: 0 !important;
+            width: 38px !important;
+            height: 38px !important;
             border-radius: 50% !important;
             border: 1.5px solid #22d3ee !important;
             z-index: 50 !important;
-            overflow: hidden !important;
-            box-shadow: 0 0 15px rgba(34, 211, 238, 0.3) !important;
-            background: #000 !important;
-            transition: all 0.4s ease-in-out;
+            box-shadow: 0 0 15px rgba(34, 211, 238, 0.2) !important;
+            margin-right: 4px;
         }
-        .video-header-mode video {
-            object-fit: cover !important;
-            object-position: top !important; /* Cale le haut de la vidéo au top */
-            width: 100% !important;
-            height: 100% !important;
+
+        #video-box video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: top; /* Cale le haut de la vidéo au top du cercle */
         }
-        #main-content { position: relative; } 
+
+        /* Ajustement du chat pour laisser la place à la vidéo quand elle est "grande" */
+        #chat-box {
+            transition: padding-top 0.4s ease;
+            padding-top: 30dvh;
+        }
+        #chat-box.no-spacing {
+            padding-top: 0 !important;
+        }
     </style>
 </head>
 <body>
@@ -115,7 +135,13 @@
 <div id="app-container">
     <header class="flex-none h-14 border-b border-white/10 flex justify-between items-center px-4 bg-black relative">
         <div class="flex items-center gap-3">
-            <!-- Le point vert sera masqué par la vidéo quand elle est active -->
+            <!-- La vidéo est injectée ici pour être à gauche de FitBuddy -->
+            <div id="video-box">
+                <video id="agentVideo" autoplay loop muted playsinline>
+                    <source src="agent-avatar.mp4" type="video/mp4">
+                </video>
+            </div>
+
             <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_#22c55e]"></div>
             <div class="flex flex-col cursor-pointer" onclick="toggleUserDropdown()">
                 <h1 class="text-[10px] font-bold uppercase text-cyan-400 tracking-tighter leading-none">FitBuddy</h1>
@@ -138,23 +164,15 @@
             <button onclick="triggerQuickAction('courses')" class="p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg active:scale-90 transition-transform">
                 <i data-lucide="shopping-cart" class="w-4 h-4 text-amber-500"></i>
             </button>
-            
             <button onclick="triggerQuickAction('macros')" class="p-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg active:scale-90 transition-transform">
                 <i data-lucide="pie-chart" class="w-4 h-4 text-emerald-500"></i>
             </button>
-
             <div class="w-[1px] h-4 bg-white/10 mx-1"></div>
             <i data-lucide="dumbbell" class="text-purple-500 w-5 h-5 cursor-pointer" onclick="if(typeof switchToTraining === 'function') switchToTraining()"></i>
         </div>
     </header>
 
     <main id="main-content" class="flex-1 flex flex-col overflow-hidden">
-        <div id="video-box" class="flex-none h-[30dvh] bg-black relative border-b border-white/10">
-            <video id="agentVideo" class="w-full h-full object-contain" autoplay loop muted playsinline>
-                <source src="agent-avatar.mp4" type="video/mp4">
-            </video>
-        </div>
-
         <div id="chat-box" class="flex-1 flex flex-col overflow-hidden">
             <div id="chat" class="flex-1 overflow-y-auto p-4 space-y-4 flex flex-col bg-black">
                 <div class="msg-agent p-4 max-w-[90%] shadow-lg">
@@ -183,7 +201,6 @@
 <script>
     let userEmail = localStorage.getItem('fitbuddy_email');
     let storedName = localStorage.getItem('fitbuddy_user_name');
-
     const N8N_URL = "https://greedily-submarine-prance.ngrok-free.dev";
     const RAYONS = ["Frais", "Boulangerie & Viennoiserie", "Fruits & Légumes frais", "Boucherie & Volaille", "Poissonnerie", "Pâtes Riz & féculents", "Conserves de Légumes & Plats Cuisinés", "Conserves de Poisson", "Huiles Vinaigres Epices & Sauces", "Apéritif", "Petit-déjeuner", "Biscuits & Gâteaux", "Confiserie & Chocolat", "Confitures Miels & Pâtes à tartiner", "Aide à la pâtisserie", "Lait & Oeufs", "Produits laitiers", "Surgelés", "Boissons", "Hygiène", "Entretien de la maison", "Animalerie", "Loisirs", "Autres"];
 
@@ -295,22 +312,23 @@
 
     function toggleMic() { if (!recognition) return; (isListening) ? recognition.stop() : recognition.start(); }
 
-    function switchToMacros(data) {
-        // Mise en place du mode header
+    function applyHeaderMode(videoSrc) {
         const vBox = document.getElementById('video-box');
-        if(vBox) {
-            vBox.classList.remove('flex-none', 'h-[30dvh]', 'border-b');
-            vBox.classList.add('video-header-mode');
-        }
+        const cBox = document.getElementById('chat-box');
+        const video = document.getElementById('agentVideo');
 
-        try {
-            const videoElement = document.getElementById('agentVideo');
-            if (videoElement && !videoElement.src.includes("agent-eat.mp4")) {
-                videoElement.src = "agent-eat.mp4";
-                videoElement.load();
-                videoElement.play().catch(e => {});
-            }
-        } catch (vE) {}
+        if(vBox) vBox.classList.add('video-header-mode');
+        if(cBox) cBox.classList.add('no-spacing');
+
+        if (video && videoSrc && !video.src.includes(videoSrc)) {
+            video.src = videoSrc;
+            video.load();
+            video.play().catch(e => {});
+        }
+    }
+
+    function switchToMacros(data) {
+        applyHeaderMode("agent-eat.mp4");
 
         const d = (data.data) ? data.data : data;
         const chat = document.getElementById('chat');
@@ -413,18 +431,7 @@
     }
 
     function switchToShopping(data) {
-        const vBox = document.getElementById('video-box');
-        if(vBox) {
-            vBox.classList.remove('flex-none', 'h-[30dvh]', 'border-b');
-            vBox.classList.add('video-header-mode');
-        }
-
-        const video = document.getElementById('agentVideo');
-        if (video) { 
-            video.src = "agent-courses.mp4"; 
-            video.load(); 
-            video.play().catch(e => {}); 
-        }
+        applyHeaderMode("agent-courses.mp4");
         
         let items = (Array.isArray(data)) ? data : (data.items || data.data || []);
         currentList = items.map((i, idx) => ({
