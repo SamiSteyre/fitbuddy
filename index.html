@@ -47,6 +47,15 @@
         #chat::-webkit-scrollbar { width: 0; }
         .purchased { opacity: 0.25; filter: grayscale(1); transform: scale(0.96); }
 
+        /* Style pour les aliments supprimés */
+        .food-deleted { 
+            opacity: 0.2; 
+            text-decoration: line-through; 
+            filter: grayscale(1); 
+            transform: scale(0.95);
+            background: rgba(255,255,255,0.05) !important;
+        }
+
         @keyframes pulse-red {
             0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
             70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
@@ -144,7 +153,6 @@
     </div>
 
     <script>
-        // --- INITIALISATION MÉMOIRE ---
         let userEmail = localStorage.getItem('fitbuddy_email');
         let storedName = localStorage.getItem('fitbuddy_user_name');
 
@@ -155,14 +163,8 @@
         let isListening = false;
 
         window.addEventListener('load', () => { 
-            console.log("Page chargée. Email:", userEmail, "Nom stocké:", storedName);
             lucide.createIcons();
-            
-            // Si on a un nom en mémoire, on l'affiche AVANT TOUT
-            if (storedName) {
-                updateUserNameUI(storedName);
-            }
-
+            if (storedName) updateUserNameUI(storedName);
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('sw.js?v=5').catch(err => console.log("SW Error:", err));
             }
@@ -177,13 +179,10 @@
                 } else { location.reload(); }
             }
             if(document.getElementById('system-status')) document.getElementById('system-status').innerText = `Connecté : ${userEmail}`;
-            
-            // Appel à n8n pour vérifier l'identité réelle liée à l'email
             await identifyUser();
         }
 
         async function identifyUser() {
-            console.log("Appel identification n8n...");
             try {
                 const res = await fetch(`${N8N_URL}/webhook/identification`, {
                     method: 'POST',
@@ -191,19 +190,13 @@
                     body: JSON.stringify({ email: userEmail })
                 });
                 const data = await res.json();
-                
-                // Si n8n renvoie un nom, on met à jour la mémoire ET l'affichage
                 if (data.name) { 
-                    console.log("Nom reçu de n8n:", data.name);
                     localStorage.setItem('fitbuddy_user_name', data.name);
                     updateUserNameUI(data.name); 
                 } else {
-                    console.log("n8n n'a pas renvoyé de nom.");
                     if (!localStorage.getItem('fitbuddy_user_name')) updateUserNameUI("Utilisateur");
                 }
             } catch (e) { 
-                console.error("Erreur identification serveur:", e);
-                // En cas d'erreur, on garde le nom déjà présent ou on met "Utilisateur"
                 if (!localStorage.getItem('fitbuddy_user_name')) updateUserNameUI("Invité"); 
             }
         }
@@ -222,13 +215,9 @@
         }
 
         async function selectUser(name) {
-            console.log("Utilisateur sélectionné manuellement:", name);
-            // On sauvegarde tout de suite
             localStorage.setItem('fitbuddy_user_name', name);
             updateUserNameUI(name);
             toggleUserDropdown();
-            
-            // On prévient l'agent
             try {
                 await fetch(`${N8N_URL}/webhook/chat-agent`, {
                     method: 'POST',
@@ -239,7 +228,7 @@
                         userName: name 
                     })
                 });
-            } catch(e) { console.error("Erreur signal agent:", e); }
+            } catch(e) {}
         }
 
         function logout() {
@@ -252,8 +241,6 @@
                 document.getElementById('user-dropdown').style.display = 'none';
             }
         });
-
-        // --- FONCTIONS AGENT (MACROS, SHOPPING, MESSAGES) ---
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         let recognition = (SpeechRecognition) ? new SpeechRecognition() : null;
@@ -273,7 +260,7 @@
                 if (videoElement && !videoElement.src.includes("agent-eat.mp4")) {
                     videoElement.src = "agent-eat.mp4";
                     videoElement.load();
-                    videoElement.play().catch(e => console.log("Auto-play blocked:", e));
+                    videoElement.play().catch(e => {});
                 }
             } catch (vE) {}
 
@@ -327,8 +314,17 @@
                 </div>
                 ${listeAliments.length > 0 ? `<div class="bg-white/5 p-4 rounded-2xl border border-white/10 mt-2 shadow-lg">
                     <span class="text-[9px] font-black text-cyan-400 tracking-widest uppercase mb-3 block text-center">Journal Alimentaire</span>
-                    <div class="flex flex-wrap justify-center gap-2">
-                        ${listeAliments.map(a => `<span class="px-3 py-1 bg-white/10 border border-white/20 rounded-full text-[10px] text-gray-200 font-medium">${String(a).trim()}</span>`).join('')}
+                    <div id="journal-container" class="flex flex-wrap justify-center gap-2">
+                        ${listeAliments.map((a, idx) => {
+                            const name = typeof a === 'object' ? a.nom : a;
+                            const id = typeof a === 'object' ? (a.id || a.pageId) : `idx-${idx}`;
+                            return `<span 
+                                id="food-${id}"
+                                onclick="toggleAliment('${id}', '${name.replace(/'/g, "\\'")}')"
+                                class="px-3 py-1 bg-white/10 border border-white/20 rounded-full text-[10px] text-gray-200 font-medium cursor-pointer transition-all active:scale-90">
+                                ${String(name).trim()}
+                            </span>`;
+                        }).join('')}
                     </div>
                 </div>` : ''}
             </div>`;
@@ -337,12 +333,39 @@
             lucide.createIcons();
         }
 
+        async function toggleAliment(id, name) {
+            const el = document.getElementById(`food-${id}`);
+            const container = document.getElementById('journal-container');
+            if (!el || !container) return;
+            const isDeleting = !el.classList.contains('food-deleted');
+            if (isDeleting) {
+                el.classList.add('food-deleted');
+                container.appendChild(el); 
+            } else {
+                el.classList.remove('food-deleted');
+                container.prepend(el);
+            }
+            try {
+                await fetch(`${N8N_URL}/webhook/food-action`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        action: isDeleting ? "delete" : "restore",
+                        alimentId: id,
+                        nom: name,
+                        email: userEmail,
+                        userName: localStorage.getItem('fitbuddy_user_name')
+                    })
+                });
+            } catch(e) {}
+        }
+
         function switchToShopping(data) {
             const video = document.getElementById('agentVideo');
             if (video) { video.innerHTML = ""; video.src = "agent-courses.mp4"; video.load(); video.play(); }
             let items = (Array.isArray(data)) ? data : (data.items || data.data || []);
             currentList = items.map((i, idx) => ({
-                id: i.id || i.pageId || `idx-${idx}`,
+                id: i.id || i.pageId || i.idNotion || `idx-${idx}`,
                 nom: (i.nom || i.item || "Produit").trim(),
                 quantite: i.quantite || "1", unite: i.unite || "",
                 rayon: (i.rayon || i.category || "Autres").trim(),
