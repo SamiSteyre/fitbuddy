@@ -112,7 +112,6 @@
 <div id="app-container">
     <header class="flex-none h-14 border-b border-white/10 flex justify-between items-center px-4 bg-black relative">
         <div class="flex items-center gap-3">
-            <!-- SLOT POUR LA VIDÉO MINIATURE (Pousse le texte vers la droite) -->
             <div id="mini-video-slot" class="flex items-center"></div>
 
             <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_#22c55e]"></div>
@@ -342,7 +341,11 @@
                     ${listeAliments.map((a, idx) => {
                         const name = (typeof a === 'object' && a !== null) ? (a.nom || "Aliment") : a;
                         const id = (typeof a === 'object' && a !== null) ? (a.id || a.pageId || a.idNotion) : `idx-${idx}`;
-                        return `<span id="food-${id}" onclick="toggleAliment('${id}', '${name.replace(/'/g, "\\'")}')" class="px-3 py-1 bg-white/10 border border-white/20 rounded-full text-[10px] text-gray-200 font-medium cursor-pointer transition-all active:scale-90">${String(name).trim()}</span>`;
+                        const cal = a.calories || 0;
+                        const prot = a.prot || a.proteines || 0;
+                        const glu = a.glu || a.glucides || 0;
+                        const lip = a.lip || a.lipides || 0;
+                        return `<span id="food-${id}" onclick="toggleAliment('${id}', '${name.replace(/'/g, "\\'")}', ${cal}, ${prot}, ${glu}, ${lip})" class="px-3 py-1 bg-white/10 border border-white/20 rounded-full text-[10px] text-gray-200 font-medium cursor-pointer transition-all active:scale-90">${String(name).trim()}</span>`;
                     }).join('')}
                 </div>
             </div>` : ''}
@@ -352,14 +355,14 @@
         forceScrollTop();
     }
 
-    async function toggleAliment(id, name) {
+    async function toggleAliment(id, name, cal, prot, glu, lip) {
         const el = document.getElementById(`food-${id}`);
         const container = document.getElementById('journal-container');
         if (!el || !container) return;
         const isDeleting = !el.classList.contains('food-deleted');
         if (isDeleting) { el.classList.add('food-deleted'); container.appendChild(el); } 
         else { el.classList.remove('food-deleted'); container.prepend(el); }
-        try { fetch(`${N8N_URL}/webhook/food-action`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: isDeleting ? "delete" : "restore", alimentId: id, nom: name, email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') }) }); } catch(e) {}
+        try { fetch(`${N8N_URL}/webhook/food-action`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: isDeleting ? "delete" : "restore", alimentId: id, nom: name, calories: cal, proteines: prot, glucides: glu, lipides: lip, email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') }) }); } catch(e) {}
     }
 
     function switchToShopping(data) {
