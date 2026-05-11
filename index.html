@@ -898,9 +898,7 @@
 
     }
 
-
 function openRecipe(id) {
-    // 1. Récupération de la recette ou création d'une vide
     const recipe = recipesCache.find(r => String(r.id) === String(id)) || {
         nom: "",
         ingredients: [],
@@ -913,16 +911,19 @@ function openRecipe(id) {
     const modal = document.getElementById('recipe-modal');
     const body = document.getElementById('recipe-detail-body');
     
-    // Configuration
     const categories = ["Entrées", "Plats", "Desserts", "Autres", "Suggestions de Tyler", "Menu de la semaine"];
     const currentCats = recipe.categorie || recipe.property_cat_gorie || "";
     const partsValue = recipe.part || recipe.parts || recipe.property_parts || 1;
     const clean = recipe.photo || "default-recipe.jpg";
     const path = clean.startsWith('http') ? clean : `images/recettes/${clean}`;
 
-    // 2. Génération du HTML complet
+    // Extraction des macros par part
+    const kcal = recipe.property_kcal_part || 0;
+    const prot = recipe.property_p_part || 0;
+    const glu = recipe.property_g_part || 0;
+    const lip = recipe.property_l_part || 0;
+
     body.innerHTML = `
-        <!-- HEADER PHOTO + ACTIONS -->
         <div class="relative w-full h-[45dvh] overflow-hidden group">
             <input type="file" id="recipe-photo-input" class="hidden" accept="image/*" onchange="handlePhotoUpload(this)">
             <img id="recipe-preview-img" src="${path}" class="w-full h-full object-cover" onerror="this.src='images/recettes/default-recipe.jpg';">
@@ -956,7 +957,6 @@ function openRecipe(id) {
             </div>
         </div>
 
-        <!-- CONTENU DE LA FICHE -->
         <div class="px-7 -mt-12 relative z-10">
             <input type="text" id="recipe-name-input" value="${recipe.nom || ''}" placeholder="Nom de la recette" class="w-full bg-transparent text-3xl font-black text-white uppercase tracking-tighter mb-6 outline-none">
             
@@ -987,13 +987,36 @@ function openRecipe(id) {
             </div>
 
             <!-- ÉTAPES -->
-            <div class="mb-12">
+            <div class="mb-10">
                 <div class="flex justify-between items-center mb-5">
                     <h3 class="text-[11px] font-black text-cyan-400 uppercase tracking-widest">Préparation</h3>
                     <button onclick="addStepRow()" class="text-cyan-400"><i data-lucide="plus-circle" class="w-5 h-5"></i></button>
                 </div>
                 <div id="steps-container" class="space-y-8">
                     ${(recipe.etapes || []).map((step, idx) => renderStepRow(idx + 1, step.desc, step.duree)).join('')}
+                </div>
+            </div>
+
+            <!-- MACROS RÉCAPITULATIF -->
+            <div class="mb-10 p-4 bg-white/[0.03] border border-white/10 rounded-2xl">
+                <h3 class="text-[9px] font-black text-white/40 uppercase tracking-[0.3em] mb-4 text-center">Valeurs par portion</h3>
+                <div class="grid grid-cols-4 gap-2">
+                    <div class="flex flex-col items-center p-2 rounded-xl bg-white/[0.02] border border-white/5">
+                        <span class="text-[8px] font-bold text-[#f97316] mb-1">KCAL</span>
+                        <span class="text-xs font-black text-white">${kcal}</span>
+                    </div>
+                    <div class="flex flex-col items-center p-2 rounded-xl bg-white/[0.02] border border-white/5">
+                        <span class="text-[8px] font-bold text-[#3b82f6] mb-1">PROT</span>
+                        <span class="text-xs font-black text-white">${prot}g</span>
+                    </div>
+                    <div class="flex flex-col items-center p-2 rounded-xl bg-white/[0.02] border border-white/5">
+                        <span class="text-[8px] font-bold text-[#22c55e] mb-1">GLUC</span>
+                        <span class="text-xs font-black text-white">${glu}g</span>
+                    </div>
+                    <div class="flex flex-col items-center p-2 rounded-xl bg-white/[0.02] border border-white/5">
+                        <span class="text-[8px] font-bold text-[#ef4444] mb-1">LIPID</span>
+                        <span class="text-xs font-black text-white">${lip}g</span>
+                    </div>
                 </div>
             </div>
 
