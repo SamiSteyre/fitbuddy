@@ -922,7 +922,19 @@ function openRecipe(id) {
     const prot = parseFloat(recipe.property_p_part || 0).toFixed(1);
     const glu = parseFloat(recipe.property_g_part || 0).toFixed(1);
     const lip = parseFloat(recipe.property_l_part || 0).toFixed(1);
+    
+// Extraction des ingrédients depuis la propriété Notion "Composition Recette"
+let rawIngredients = recipe.property_composition_recette || recipe.ingredients || [];
 
+// On s'assure que c'est un format exploitable (Nom + Quantité)
+const formattedIngredients = rawIngredients.map(item => {
+    return {
+        // On cherche le nom dans les différentes structures possibles renvoyées par n8n
+        nom: item.ingredient_name || item.nom_ingrédient || item.nom || "Ingrédient inconnu",
+        // On récupère la quantité (souvent stockée dans la base de liaison)
+        quantite: item.quantité || item.quantite_ingrédient || item.quantity || 0
+    };
+});
     body.innerHTML = `
         <div class="relative w-full h-[45dvh] overflow-hidden group">
             <input type="file" id="recipe-photo-input" class="hidden" accept="image/*" onchange="handlePhotoUpload(this)">
@@ -994,17 +1006,21 @@ function openRecipe(id) {
                 </div>
             </div>
 
-            <!-- INGRÉDIENTS -->
-            <div class="mb-10">
-                <div class="flex justify-between items-center mb-5">
-                    <h3 class="text-[11px] font-black text-cyan-400 uppercase tracking-widest">Ingrédients (g)</h3>
-                    <button onclick="addIngredientRow()" class="text-cyan-400"><i data-lucide="plus-circle" class="w-5 h-5"></i></button>
-                </div>
-                <div id="ingredients-container" class="space-y-2.5">
-                    ${(recipe.ingredients || []).map(ing => renderIngredientRow(ing.nom, ing.quantite)).join('')}
-                </div>
-            </div>
-
+         <!-- INGRÉDIENTS -->
+<div class="mb-10">
+    <div class="flex justify-between items-center mb-5">
+        <h3 class="text-[11px] font-black text-cyan-400 uppercase tracking-widest">Ingrédients (g)</h3>
+        <button onclick="addIngredientRow()" class="text-cyan-400">
+            <i data-lucide="plus-circle" class="w-5 h-5"></i>
+        </button>
+    </div>
+    <div id="ingredients-container" class="space-y-2.5">
+        ${formattedIngredients.length > 0 
+            ? formattedIngredients.map(ing => renderIngredientRow(ing.nom, ing.quantite)).join('')
+            : '<p class="text-[10px] text-white/20 text-center py-4 italic">Aucun ingrédient répertorié</p>'
+        }
+    </div>
+</div>
             <!-- ÉTAPES -->
             <div class="mb-12">
                 <div class="flex justify-between items-center mb-5">
