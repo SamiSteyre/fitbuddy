@@ -928,49 +928,49 @@ function openRecipe(id) {
             <input type="file" id="recipe-photo-input" class="hidden" accept="image/*" onchange="handlePhotoUpload(this)">
             <img id="recipe-preview-img" src="${path}" class="w-full h-full object-cover" onerror="this.src='images/recettes/default-recipe.jpg';">
             
-            <div onclick="document.getElementById('recipe-photo-input').click()" class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+            <div onclick="document.getElementById('recipe-photo-input').click()" class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10">
                 <div class="bg-white/10 backdrop-blur-md p-4 rounded-full border border-white/20">
                     <i data-lucide="camera" class="w-6 h-6 text-white"></i>
                 </div>
             </div>
 
-            <div class="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent pointer-events-none"></div>
+            <div class="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent pointer-events-none z-0"></div>
             
-            <!-- BADGES NUTRITIONNELS ET TEMPS (Haut Gauche) -->
-            <div class="absolute top-6 left-4 flex flex-wrap gap-1.5 z-20 max-w-[220px]">
+            <!-- 1. MÉDAILLONS ALIGNÉS (Haut) -->
+            <div class="absolute top-6 left-0 right-0 flex justify-center gap-1.5 z-20 px-4">
                  <!-- Temps -->
-                 <div class="info-circle !relative !w-12 !h-12 border-white/20">
-                    <span class="text-[7px] font-black text-white/40 uppercase">Min</span>
-                    <span class="text-[11px] font-black text-white">${recipe.temps || 0}</span>
+                 <div class="info-circle !relative !w-11 !h-11 border-white/20">
+                    <span class="text-[6px] font-black text-white/40 uppercase">Min</span>
+                    <span class="text-[10px] font-black text-white">${recipe.temps || 0}</span>
                 </div>
                 <!-- Kcal -->
-                <div class="info-circle !relative !w-12 !h-12 border-[#f97316]/40">
-                    <span class="text-[7px] font-black text-[#f97316] uppercase">Kcal</span>
-                    <span class="text-[11px] font-black text-white">${kcal}</span>
+                <div class="info-circle !relative !w-11 !h-11 border-[#f97316]/40">
+                    <span class="text-[6px] font-black text-[#f97316] uppercase">Kcal</span>
+                    <span class="text-[10px] font-black text-white">${kcal}</span>
                 </div>
-                <!-- Protéines -->
-                <div class="info-circle !relative !w-12 !h-12 border-[#3b82f6]/40">
-                    <span class="text-[7px] font-black text-[#3b82f6] uppercase">P</span>
-                    <span class="text-[11px] font-black text-white">${prot}</span>
+                <!-- P -->
+                <div class="info-circle !relative !w-11 !h-11 border-[#3b82f6]/40">
+                    <span class="text-[6px] font-black text-[#3b82f6] uppercase">P</span>
+                    <span class="text-[10px] font-black text-white">${prot}</span>
                 </div>
-                <!-- Glucides -->
-                <div class="info-circle !relative !w-12 !h-12 border-[#22c55e]/40">
-                    <span class="text-[7px] font-black text-[#22c55e] uppercase">G</span>
-                    <span class="text-[11px] font-black text-white">${glu}</span>
+                <!-- G -->
+                <div class="info-circle !relative !w-11 !h-11 border-[#22c55e]/40">
+                    <span class="text-[6px] font-black text-[#22c55e] uppercase">G</span>
+                    <span class="text-[10px] font-black text-white">${glu}</span>
                 </div>
-                <!-- Lipides -->
-                <div class="info-circle !relative !w-12 !h-12 border-[#ef4444]/40">
-                    <span class="text-[7px] font-black text-[#ef4444] uppercase">L</span>
-                    <span class="text-[11px] font-black text-white">${lip}</span>
+                <!-- L -->
+                <div class="info-circle !relative !w-11 !h-11 border-[#ef4444]/40">
+                    <span class="text-[6px] font-black text-[#ef4444] uppercase">L</span>
+                    <span class="text-[10px] font-black text-white">${lip}</span>
                 </div>
             </div>
 
-            <!-- ACTIONS (Haut Droite) -->
-            <div class="absolute top-6 right-20 flex gap-2 z-20">
-                <button onclick="openMacroPopup()" class="w-10 h-10 bg-purple-500/80 backdrop-blur-md rounded-full flex items-center justify-center border border-purple-400/50 shadow-lg">
+            <!-- 2. BOUTONS ACTIONS (Bas de l'image, au-dessus du titre) -->
+            <div class="absolute bottom-16 right-6 flex gap-3 z-30">
+                <button onclick="openMacroPopup()" class="w-11 h-11 bg-purple-600/90 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-purple-400/30 shadow-2xl active:scale-90 transition-transform">
                     <i data-lucide="pie-chart" class="w-5 h-5 text-white"></i>
                 </button>
-                <button onclick="saveRecipeData('${recipe.id}')" class="w-10 h-10 bg-blue-600/80 backdrop-blur-md rounded-full flex items-center justify-center border border-blue-400/50 shadow-lg">
+                <button onclick="saveRecipeData('${recipe.id}')" class="w-11 h-11 bg-blue-600/90 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-blue-400/30 shadow-2xl active:scale-90 transition-transform">
                     <i data-lucide="save" class="w-5 h-5 text-white"></i>
                 </button>
             </div>
