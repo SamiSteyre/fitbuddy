@@ -315,25 +315,48 @@
 
         const allRecipes = Array.isArray(d) ? d : (d.recipes || []);
         
+        // 1. Dispatching direct si Tyler envoie une structure pré-formatée
         if(d.menuMidi) sections["Menu de la semaine"].push({...d.menuMidi, label: "MIDI"});
         if(d.menuSoir) sections["Menu de la semaine"].push({...d.menuSoir, label: "SOIR"});
         if(d.suggestionsTyler) sections["Suggestions de Tyler"] = d.suggestionsTyler;
         
-        if(d.categories) {
-            Object.keys(d.categories).forEach(cat => {
-                if(sections[cat]) sections[cat] = sections[cat].concat(d.categories[cat]);
-                else sections["Autres"] = sections["Autres"].concat(d.categories[cat]);
-            });
-        }
-
+        // 2. DISPATCHING AMÉLIORÉ (Basé sur Notion)
         allRecipes.forEach(r => {
-            let cats = r.categorie || r.categories || "Autres";
-            if(!Array.isArray(cats)) cats = [cats];
+            // Utilise 'property_cat_gorie' venant de Notion
+            let catsRaw = r.property_cat_gorie || r.categorie || r.categories || "Autres";
+            let cats = [];
+            
+            if (typeof catsRaw === 'string') {
+                cats = catsRaw.split(',').map(s => s.trim());
+            } else if (Array.isArray(catsRaw)) {
+                cats = catsRaw;
+            } else {
+                cats = [catsRaw];
+            }
+
+            let matchedAny = false;
             cats.forEach(c => {
-                const target = Object.keys(sections).find(k => k.toLowerCase() === c.toLowerCase());
-                if(target) { if(!sections[target].some(item => item.id === r.id)) sections[target].push(r); }
-                else { sections["Autres"].push(r); }
+                const normalizedCat = c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                
+                const targetKey = Object.keys(sections).find(k => {
+                    const normalizedKey = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                    // Match flou pour "Plats" vs "Plat" ou "Suggestions" vs "Suggestions de Tyler"
+                    return normalizedKey.includes(normalizedCat) || normalizedCat.includes(normalizedKey);
+                });
+
+                if(targetKey && targetKey !== "Autres") {
+                    if(!sections[targetKey].some(item => item.id === r.id)) {
+                        sections[targetKey].push(r);
+                    }
+                    matchedAny = true;
+                }
             });
+
+            if (!matchedAny) {
+                if(!sections["Autres"].some(item => item.id === r.id)) {
+                    sections["Autres"].push(r);
+                }
+            }
         });
 
         let html = `<div class="p-2 space-y-8 pb-28 animate-in fade-in duration-500">`;
@@ -352,7 +375,6 @@
                     const clean = r.photo || (r.nom ? r.nom.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".jpg" : "default-recipe.jpg");
                     const path = clean.startsWith('http') ? clean : `images/recettes/${clean}`;
                     
-                    // Ligne de debug pour vérifier l'URL dans la console
                     console.log("Tyler cherche : " + path);
                     
                     html += `
