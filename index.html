@@ -102,7 +102,7 @@
             background: #22d3ee; color: #000;
             display: flex; align-items: center; justify-content: center;
             box-shadow: 0 8px 30px rgba(34, 211, 238, 0.5);
-            z-index: 9999; transition: transform 0.2s;
+            z-index: 999; transition: transform 0.2s;
         }
         .floating-add-btn:active { transform: scale(0.9); }
     </style>
@@ -295,14 +295,11 @@
         if (chat) { setTimeout(() => { chat.scrollTo({ top: 0, behavior: 'instant' }); }, 100); }
     }
 
-    /* --- FONCTION CUISINE CORRIGÉE --- */
+    /* --- FONCTION CUISINE --- */
     function switchToCooking(data) {
-        moveToHeader("agent-cook.mp4");
+        moveToHeader("agent-cook.mp4"); 
         const btnPlus = document.getElementById('floating-plus');
-        if(btnPlus) { 
-            btnPlus.classList.remove('hidden'); 
-            btnPlus.style.display = 'flex'; 
-        }
+        if(btnPlus) { btnPlus.classList.remove('hidden'); btnPlus.style.display = 'flex'; }
         
         const chat = document.getElementById('chat');
         const d = data.data || data;
@@ -353,14 +350,10 @@
                 
                 list.forEach(r => {
                     const clean = r.photo || (r.nom ? r.nom.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".jpg" : "default-recipe.jpg");
+                    const path = clean.startsWith('http') ? clean : `images/recettes/${clean}`;
                     
-                    // Sécurité : on évite de rajouter 'images/recettes/' si c'est déjà une URL ou si n8n a déjà mis le chemin
-                    let path = clean;
-                    if (!clean.startsWith('http')) {
-                        if (!clean.startsWith('images/')) {
-                            path = clean.startsWith('recettes/') ? 'images/' + clean : 'images/recettes/' + clean;
-                        }
-                    }
+                    // Ligne de debug pour vérifier l'URL dans la console
+                    console.log("Tyler cherche : " + path);
                     
                     html += `
                         <div class="recipe-card snap-start" onclick="openRecipe('${r.id}')">
@@ -372,7 +365,6 @@
                                 </div>
                             </div>
                             <p class="text-[10px] font-bold text-white px-1 leading-tight line-clamp-2">${r.nom || r.name}</p>
-                            <p class="text-[6px] text-white/20 truncate px-1 mt-1">Path: ${path}</p>
                         </div>`;
                 });
                 html += `</div></section>`;
