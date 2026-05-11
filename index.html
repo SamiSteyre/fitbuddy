@@ -45,6 +45,9 @@
         .water-bar { height: 100%; background: linear-gradient(90deg, #22d3ee, #0891b2); transition: width 1s ease-in-out; }
         
         #chat::-webkit-scrollbar { width: 0; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
         .purchased { opacity: 0.25; filter: grayscale(1); transform: scale(0.96); }
 
         .food-deleted { 
@@ -67,13 +70,12 @@
         }
         .mic-active i { color: #ef4444 !important; }
 
-        /* --- STYLES MINIATURE HEADER --- */
         .video-mini-active {
             width: 40px !important;
             height: 40px !important;
             min-width: 40px !important;
             min-height: 40px !important;
-            flex-shrink: 0 !important; /* Empêche l'écrasement */
+            flex-shrink: 0 !important;
             border-radius: 50% !important;
             border: 2px solid #22d3ee !important;
             overflow: hidden !important;
@@ -105,6 +107,18 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.8);
             min-width: 150px;
         }
+
+        /* --- STYLES CUISINE --- */
+        .recipe-card { flex: 0 0 150px; scroll-snap-align: start; }
+        .floating-add-btn {
+            position: fixed; bottom: 90px; right: 20px;
+            width: 56px; height: 56px; border-radius: 18px;
+            background: #22d3ee; color: #000;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 20px rgba(34, 211, 238, 0.4);
+            z-index: 50; transition: transform 0.2s;
+        }
+        .floating-add-btn:active { transform: scale(0.9); }
     </style>
 </head>
 <body>
@@ -133,6 +147,9 @@
         </div>
 
         <div class="flex items-center gap-3">
+            <button onclick="triggerQuickAction('cuisine')" class="p-2 bg-cyan-500/10 border border-cyan-500/30 rounded-lg active:scale-90 transition-transform">
+                <i data-lucide="chef-hat" class="w-4 h-4 text-cyan-400"></i>
+            </button>
             <button onclick="triggerQuickAction('courses')" class="p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg active:scale-90 transition-transform">
                 <i data-lucide="shopping-cart" class="w-4 h-4 text-amber-500"></i>
             </button>
@@ -144,7 +161,7 @@
         </div>
     </header>
 
-    <main id="main-content" class="flex-1 flex flex-col overflow-hidden">
+    <main id="main-content" class="flex-1 flex flex-col overflow-hidden relative">
         <div id="video-box" class="flex-none h-[30dvh] bg-black relative border-b border-white/10">
             <video id="agentVideo" class="w-full h-full object-contain" autoplay loop muted playsinline>
                 <source src="agent-avatar.mp4" type="video/mp4">
@@ -159,6 +176,10 @@
                 </div>
             </div>
         </div>
+
+        <button id="floating-plus" class="floating-add-btn hidden" onclick="addNewRecipe()">
+            <i data-lucide="plus" class="w-7 h-7"></i>
+        </button>
     </main>
 
     <footer class="flex-none p-3 bg-black border-t border-white/10">
@@ -228,46 +249,33 @@
         dd.style.display = (dd.style.display === 'block') ? 'none' : 'block';
     }
 
-  async function selectUser(name) {
-    // 1. Mettre à jour le stockage local immédiatement
-    localStorage.setItem('fitbuddy_user_name', name);
-    updateUserNameUI(name); 
-    toggleUserDropdown();
-
-    // 2. Nettoyer le chat visuellement pour marquer le changement de contexte
-    const chat = document.getElementById('chat');
-    chat.innerHTML = `
-        <div class="msg-agent p-4 max-w-[90%] shadow-lg">
-            <p class="text-[8px] text-cyan-400 font-black mb-1 uppercase tracking-widest">System</p>
-            <p class="text-xs text-gray-400">Changement d'utilisateur : <b>${name}</b> en cours...</p>
-        </div>
-    `;
-
-    // 3. Envoyer l'info à l'agent et afficher sa confirmation
-    try { 
-        const res = await fetch(`${N8N_URL}/webhook/chat-agent`, { 
-            method: 'POST', 
-            headers: {'Content-Type': 'application/json'}, 
-            body: JSON.stringify({ 
-                message: `[SYSTEM] Oublie l'utilisateur précédent. À partir de maintenant, je suis ${name}. Confirme-moi que tu as bien chargé mes données.`, 
-                email: userEmail, 
-                userName: name 
-            }) 
-        }); 
-        
-        const responseData = await res.json();
-        const r = Array.isArray(responseData) ? responseData[0] : responseData;
-        
-        // Afficher la confirmation de l'agent
-        if (r.output) {
-            chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl">${r.output}</div>`;
-        }
-        chat.scrollTop = chat.scrollHeight;
-
-    } catch(e) {
-        console.error("Erreur switch user:", e);
+    async function selectUser(name) {
+        localStorage.setItem('fitbuddy_user_name', name);
+        updateUserNameUI(name); 
+        toggleUserDropdown();
+        const chat = document.getElementById('chat');
+        chat.innerHTML = `
+            <div class="msg-agent p-4 max-w-[90%] shadow-lg">
+                <p class="text-[8px] text-cyan-400 font-black mb-1 uppercase tracking-widest">System</p>
+                <p class="text-xs text-gray-400">Changement d'utilisateur : <b>${name}</b> en cours...</p>
+            </div>
+        `;
+        try { 
+            const res = await fetch(`${N8N_URL}/webhook/chat-agent`, { 
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify({ 
+                    message: `[SYSTEM] Oublie l'utilisateur précédent. À partir de maintenant, je suis ${name}. Confirme-moi que tu as bien chargé mes données.`, 
+                    email: userEmail, 
+                    userName: name 
+                }) 
+            }); 
+            const responseData = await res.json();
+            const r = Array.isArray(responseData) ? responseData[0] : responseData;
+            if (r.output) { chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl">${r.output}</div>`; }
+            chat.scrollTop = chat.scrollHeight;
+        } catch(e) { console.error("Erreur switch user:", e); }
     }
-}
 
     function logout() { localStorage.clear(); location.reload(); }
 
@@ -290,18 +298,15 @@
 
     function toggleMic() { if (!recognition) return; (isListening) ? recognition.stop() : recognition.start(); }
 
-    // LOGIQUE DE DÉPLACEMENT VERS LE HEADER
     function moveToHeader(videoSrc) {
         const vBox = document.getElementById('video-box');
         const miniSlot = document.getElementById('mini-video-slot');
         const video = document.getElementById('agentVideo');
-
         if(vBox && miniSlot && !vBox.classList.contains('video-mini-active')) {
             vBox.classList.add('video-mini-active');
             vBox.classList.remove('flex-none', 'h-[30dvh]', 'border-b');
-            miniSlot.appendChild(vBox); // Déplace la vidéo dans le header
+            miniSlot.appendChild(vBox);
         }
-
         if (video && videoSrc && !video.src.includes(videoSrc)) {
             video.src = videoSrc;
             video.load();
@@ -311,17 +316,80 @@
 
     function forceScrollTop() {
         const chat = document.getElementById('chat');
-        if (chat) {
-            // Un délai de 100ms assure que le DOM est prêt
-            setTimeout(() => {
-                chat.scrollTo({ top: 0, behavior: 'instant' });
-            }, 100);
-        }
+        if (chat) { setTimeout(() => { chat.scrollTo({ top: 0, behavior: 'instant' }); }, 100); }
     }
 
+    /* --- LOGIQUE CUISINE --- */
+    function switchToCooking(data) {
+        moveToHeader("agent-cook.mp4");
+        document.getElementById('floating-plus').classList.remove('hidden');
+        
+        const d = (data.data) ? data.data : data;
+        const chat = document.getElementById('chat');
+        
+        let html = `<div class="p-2 space-y-8 pb-20 animate-in fade-in duration-500">`;
+
+        // 1. Menu et Suggestions (Le haut)
+        html += `<section>
+            <div class="flex items-center gap-2 mb-4">
+                <i data-lucide="chef-hat" class="w-4 h-4 text-cyan-400"></i>
+                <h2 class="text-[10px] font-black text-white uppercase tracking-widest">Aujourd'hui & Tyler</h2>
+            </div>
+            <div class="flex gap-4 overflow-x-auto no-scrollbar snap-x">`;
+        
+        // On fusionne menu du midi/soir et suggestions tyler pour le scroll horizontal du haut
+        const topItems = (d.menuSemaine || []).concat(d.suggestionsTyler || []);
+        topItems.forEach(r => {
+            html += `
+                <div class="recipe-card snap-start" onclick="openRecipe('${r.id}')">
+                    <div class="relative aspect-square rounded-2xl overflow-hidden border border-white/10 mb-2">
+                        <img src="${r.photo}" class="w-full h-full object-cover" onerror="this.src='default-recipe.jpg'">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent flex flex-col justify-end p-2">
+                            <p class="text-[9px] font-bold text-white leading-tight">${r.nom}</p>
+                            <p class="text-[8px] text-cyan-400">${r.temps || 0} min</p>
+                        </div>
+                    </div>
+                </div>`;
+        });
+        html += `</div></section>`;
+
+        // 2. Catégories standard (Entrées, Plats, Desserts)
+        const categories = ["Entrées", "Plats", "Desserts"];
+        categories.forEach(cat => {
+            const recipes = (d.categories && d.categories[cat]) || [];
+            if(recipes.length > 0) {
+                html += `<section>
+                    <h2 class="text-[10px] font-black text-white/40 uppercase tracking-widest mb-4 border-l-2 border-cyan-500 pl-2">${cat}</h2>
+                    <div class="flex gap-4 overflow-x-auto no-scrollbar snap-x">`;
+                recipes.forEach(r => {
+                    html += `
+                        <div class="recipe-card snap-start" onclick="openRecipe('${r.id}')">
+                            <div class="relative aspect-[4/5] rounded-2xl overflow-hidden border border-white/10 mb-2 bg-white/5">
+                                <img src="${r.photo}" class="w-full h-full object-cover" onerror="this.src='default-recipe.jpg'">
+                                <div class="absolute bottom-2 left-2 flex items-center gap-1 bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded-md text-[8px] text-white border border-white/5">
+                                    <i data-lucide="clock" class="w-2.5 h-2.5"></i> ${r.temps || 0}m
+                                </div>
+                            </div>
+                            <p class="text-[10px] font-medium text-white px-1 truncate">${r.nom}</p>
+                        </div>`;
+                });
+                html += `</div></section>`;
+            }
+        });
+
+        html += `</div>`;
+        chat.innerHTML = html;
+        lucide.createIcons();
+        forceScrollTop();
+    }
+
+    function openRecipe(id) { console.log("Detail recette:", id); }
+    function addNewRecipe() { console.log("Ajout recette"); }
+
+    /* --- MACROS --- */
     function switchToMacros(data) {
         moveToHeader("agent-eat.mp4");
-        
+        document.getElementById('floating-plus').classList.add('hidden');
         const d = (data.data) ? data.data : data;
         const chat = document.getElementById('chat');
         let listeAliments = [];
@@ -402,6 +470,7 @@
 
     function switchToShopping(data) {
         moveToHeader("agent-courses.mp4");
+        document.getElementById('floating-plus').classList.add('hidden');
         let items = (Array.isArray(data)) ? data : (data.items || data.data || []);
         currentList = items.map((i, idx) => ({ id: i.id || i.pageId || i.idNotion || `idx-${idx}`, nom: (i.nom || i.item || "Produit").trim(), quantite: i.quantite || "1", unite: i.unite || "", rayon: (i.rayon || i.category || "Autres").trim(), isPurchased: false }));
         renderShopping();
@@ -459,8 +528,11 @@
             if (r.output) { chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl">${r.output}</div>`; }
             if (r.audio_base64 && r.audio_base64 !== "empty") { new Audio("data:audio/mp3;base64," + r.audio_base64).play(); }
             let actionStr = (r.action || (r.data && r.data.action) || "").toLowerCase();
+            
             if (actionStr.includes("macro") || actionStr.includes("dashboard") || actionStr.includes("switchtomacros")) { switchToMacros(r); } 
             else if (actionStr.includes("shopping") || actionStr.includes("course")) { switchToShopping(r); }
+            else if (actionStr.includes("cuisine") || actionStr.includes("cooking") || actionStr.includes("recette")) { switchToCooking(r); }
+            
             chat.scrollTop = chat.scrollHeight;
         } catch(e) {}
     }
@@ -469,6 +541,7 @@
         const input = document.getElementById('userInput');
         if (type === 'courses') { input.value = "Affiche ma liste de courses"; } 
         else if (type === 'macros') { input.value = "Affiche mon dashboard de macros"; }
+        else if (type === 'cuisine') { input.value = "Affiche la cuisine"; }
         envoyerMessage();
     }
 
