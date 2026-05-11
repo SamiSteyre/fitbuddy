@@ -24,7 +24,6 @@
             padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);
         }
 
-        /* AJOUT DE L'ESPACE DE SCROLLING GLOBAL */
         #chat {
             padding-bottom: 150px !important;
         }
@@ -120,6 +119,26 @@
             z-index: 9999; transition: transform 0.2s;
         }
         .floating-add-btn:active { transform: scale(0.9); }
+
+        /* --- STYLES MODALES --- */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(10px); z-index: 10000;
+            display: none; align-items: center; justify-content: center; padding: 20px;
+        }
+        .modal-container {
+            background: #111; border: 1px solid rgba(255,255,255,0.1);
+            width: 100%; max-width: 500px; max-height: 90vh;
+            border-radius: 32px; overflow-y: auto; position: relative;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        }
+        .modal-input {
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 14px; padding: 12px; width: 100%; color: white; font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        .modal-input:focus { border-color: #22d3ee; outline: none; }
+        .label-style { font-size: 10px; font-weight: 800; color: #22d3ee; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; display: block; }
     </style>
 </head>
 <body>
@@ -198,6 +217,94 @@
     </footer>
 </div>
 
+<div id="recipe-modal" class="modal-overlay" onclick="if(event.target === this) closeModal()">
+    <div class="modal-container p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h2 id="modal-title" class="text-xl font-black text-white italic uppercase tracking-tighter">Création Recette</h2>
+            <button onclick="closeModal()" class="w-8 h-8 flex items-center justify-center bg-white/10 rounded-full"><i data-lucide="x" class="w-4 h-4 text-white"></i></button>
+        </div>
+
+        <div class="space-y-5">
+            <div class="relative w-full aspect-video rounded-2xl overflow-hidden bg-white/5 border border-dashed border-white/20 flex flex-col items-center justify-center cursor-pointer" onclick="document.getElementById('photoInput').click()">
+                <img id="preview-photo" class="absolute inset-0 w-full h-full object-cover hidden">
+                <div id="photo-placeholder" class="text-center">
+                    <i data-lucide="image-plus" class="w-8 h-8 text-cyan-400 mx-auto mb-2"></i>
+                    <p class="text-[10px] font-bold text-white/40 uppercase">Ajouter une photo</p>
+                </div>
+                <input type="file" id="photoInput" class="hidden" accept="image/*" onchange="previewImage(this)">
+            </div>
+
+            <div>
+                <label class="label-style">Nom de la recette</label>
+                <input type="text" id="recipe-name" class="modal-input" placeholder="Ex: Poulet Coco Fit">
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="label-style">Catégorie</label>
+                    <input type="text" id="recipe-cat" class="modal-input" placeholder="Plat, Entrée...">
+                </div>
+                <div>
+                    <label class="label-style">Temps (min)</label>
+                    <input type="number" id="recipe-time" class="modal-input" placeholder="20">
+                </div>
+            </div>
+
+            <div>
+                <label class="label-style">Calories / part</label>
+                <input type="number" id="recipe-cal" class="modal-input" placeholder="450">
+            </div>
+
+            <div>
+                <div class="flex justify-between items-center mb-2">
+                    <label class="label-style">Ingrédients</label>
+                    <button onclick="addIngredientRow()" class="text-[10px] text-cyan-400 font-bold uppercase">+ Ajouter</button>
+                </div>
+                <div id="ingredients-list" class="space-y-2">
+                    </div>
+            </div>
+
+            <div>
+                <div class="flex justify-between items-center mb-2">
+                    <label class="label-style">Étapes de cuisine</label>
+                    <button onclick="addStepRow()" class="text-[10px] text-cyan-400 font-bold uppercase">+ Ajouter</button>
+                </div>
+                <div id="steps-list" class="space-y-2">
+                    </div>
+            </div>
+
+            <div class="flex gap-3 pt-4">
+                <button onclick="openMacroFollow()" class="flex-none w-14 h-14 bg-emerald-500/20 border border-emerald-500/40 rounded-2xl flex items-center justify-center active:scale-90 transition-transform">
+                    <i data-lucide="pie-chart" class="w-6 h-6 text-emerald-500"></i>
+                </button>
+                <button onclick="saveRecipe()" class="flex-1 bg-cyan-500 text-black font-black uppercase tracking-widest rounded-2xl text-sm h-14 active:scale-95 transition-transform shadow-lg shadow-cyan-500/20">Valider</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="macro-follow-modal" class="modal-overlay" style="z-index: 10001;">
+    <div class="modal-container p-6 max-w-[320px]">
+        <h3 class="text-white font-black uppercase text-center mb-6 tracking-widest italic">Suivi Macro</h3>
+        
+        <div class="space-y-4">
+            <div>
+                <label class="label-style text-center">Nombre de parts consommé</label>
+                <input type="number" id="macro-parts" class="modal-input text-center text-xl font-bold" value="1">
+            </div>
+            <div>
+                <label class="label-style text-center">Utilisateur</label>
+                <input type="text" id="macro-user" class="modal-input text-center" value="">
+            </div>
+            
+            <div class="flex gap-2 pt-2">
+                <button onclick="document.getElementById('macro-follow-modal').style.display='none'" class="flex-1 py-3 text-white/40 font-bold uppercase text-[10px]">Annuler</button>
+                <button onclick="confirmMacroAdd()" class="flex-1 py-3 bg-emerald-500 text-black font-black rounded-xl uppercase text-[10px]">Confirmer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     let userEmail = localStorage.getItem('fitbuddy_email');
     let storedName = localStorage.getItem('fitbuddy_user_name');
@@ -206,6 +313,7 @@
 
     let currentList = [];
     let isListening = false;
+    let recipesDataStore = []; // Pour stocker les recettes localement et les retrouver
 
     window.addEventListener('load', () => { 
         lucide.createIcons();
@@ -216,6 +324,7 @@
         checkAuth(); 
     });
 
+    // --- AUTH & IDENTIFICATION ---
     async function checkAuth() {
         if (!userEmail) {
             userEmail = prompt("E-mail :");
@@ -310,7 +419,182 @@
         if (chat) { setTimeout(() => { chat.scrollTo({ top: 0, behavior: 'instant' }); }, 100); }
     }
 
-    /* --- FONCTION CUISINE --- */
+    // --- LOGIQUE MODALE RECETTE ---
+    let currentEditRecipeId = null;
+
+    function closeModal() { 
+        document.getElementById('recipe-modal').style.display = 'none';
+        currentEditRecipeId = null;
+    }
+
+    function addNewRecipe() {
+        currentEditRecipeId = null;
+        document.getElementById('modal-title').innerText = "Création Recette";
+        document.getElementById('recipe-name').value = "";
+        document.getElementById('recipe-cat').value = "";
+        document.getElementById('recipe-time').value = "";
+        document.getElementById('recipe-cal').value = "";
+        document.getElementById('preview-photo').classList.add('hidden');
+        document.getElementById('photo-placeholder').classList.remove('hidden');
+        document.getElementById('ingredients-list').innerHTML = "";
+        document.getElementById('steps-list').innerHTML = "";
+        addIngredientRow();
+        addStepRow();
+        document.getElementById('recipe-modal').style.display = 'flex';
+        lucide.createIcons();
+    }
+
+    function openRecipe(id) {
+        currentEditRecipeId = id;
+        const r = recipesDataStore.find(item => item.id === id);
+        if(!r) return;
+
+        document.getElementById('modal-title').innerText = "Modifier Recette";
+        document.getElementById('recipe-name').value = r.nom || r.name || "";
+        document.getElementById('recipe-cat').value = r.property_cat_gorie || "";
+        document.getElementById('recipe-time').value = r.temps || r.property_dur_e || "";
+        document.getElementById('recipe-cal').value = r.calories || "";
+
+        // Photo
+        if(r.photo) {
+            const preview = document.getElementById('preview-photo');
+            const placeholder = document.getElementById('photo-placeholder');
+            const clean = r.photo.startsWith('http') ? r.photo : `images/recettes/${r.photo}`;
+            preview.src = clean;
+            preview.classList.remove('hidden');
+            placeholder.classList.add('hidden');
+        }
+
+        // Ingrédients & Étapes (si disponibles dans les données)
+        document.getElementById('ingredients-list').innerHTML = "";
+        if(r.ingredients) {
+            r.ingredients.forEach(ing => addIngredientRow(ing));
+        } else { addIngredientRow(); }
+
+        document.getElementById('steps-list').innerHTML = "";
+        if(r.steps) {
+            r.steps.forEach(step => addStepRow(step));
+        } else { addStepRow(); }
+
+        document.getElementById('recipe-modal').style.display = 'flex';
+        lucide.createIcons();
+    }
+
+    function addIngredientRow(val = "") {
+        const container = document.getElementById('ingredients-list');
+        const div = document.createElement('div');
+        div.className = "flex gap-2";
+        div.innerHTML = `
+            <input type="text" class="modal-input ingredient-item flex-1" value="${val}" placeholder="100g de poulet">
+            <button onclick="this.parentElement.remove()" class="text-red-500 p-2"><i data-lucide="minus-circle" class="w-4 h-4"></i></button>
+        `;
+        container.appendChild(div);
+        lucide.createIcons();
+    }
+
+    function addStepRow(val = "") {
+        const container = document.getElementById('steps-list');
+        const div = document.createElement('div');
+        div.className = "flex gap-2 items-start";
+        div.innerHTML = `
+            <textarea class="modal-input step-item flex-1" rows="2" placeholder="Décrivez l'étape...">${val}</textarea>
+            <button onclick="this.parentElement.remove()" class="text-red-500 p-2"><i data-lucide="minus-circle" class="w-4 h-4"></i></button>
+        `;
+        container.appendChild(div);
+        lucide.createIcons();
+    }
+
+    function previewImage(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const preview = document.getElementById('preview-photo');
+                const placeholder = document.getElementById('photo-placeholder');
+                preview.src = e.target.result;
+                preview.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    async function saveRecipe() {
+        const name = document.getElementById('recipe-name').value;
+        const photoFile = document.getElementById('photoInput').files[0];
+        
+        const ingredients = Array.from(document.querySelectorAll('.ingredient-item')).map(i => i.value).filter(v => v !== "");
+        const steps = Array.from(document.querySelectorAll('.step-item')).map(i => i.value).filter(v => v !== "");
+
+        const recipeData = {
+            id: currentEditRecipeId,
+            nom: name,
+            categorie: document.getElementById('recipe-cat').value,
+            temps: document.getElementById('recipe-time').value,
+            calories: document.getElementById('recipe-cal').value,
+            ingredients: ingredients,
+            etapes: steps,
+            email: userEmail
+        };
+
+        // Gestion photo (Base64 pour envoi n8n)
+        if(photoFile) {
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                recipeData.photoBase64 = e.target.result;
+                recipeData.photoName = photoFile.name;
+                sendToN8N(recipeData);
+            };
+            reader.readAsDataURL(photoFile);
+        } else {
+            sendToN8N(recipeData);
+        }
+    }
+
+    async function sendToN8N(data) {
+        try {
+            const res = await fetch(`${N8N_URL}/webhook/save-recipe`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            if(res.ok) { 
+                alert("Recette enregistrée !");
+                closeModal();
+                triggerQuickAction('cuisine');
+            }
+        } catch(e) { alert("Erreur lors de l'enregistrement."); }
+    }
+
+    // --- LOGIQUE SUIVI MACRO ---
+    function openMacroFollow() {
+        document.getElementById('macro-user').value = localStorage.getItem('fitbuddy_user_name') || "";
+        document.getElementById('macro-follow-modal').style.display = 'flex';
+    }
+
+    async function confirmMacroAdd() {
+        const parts = document.getElementById('macro-parts').value;
+        const user = document.getElementById('macro-user').value;
+        const recipeName = document.getElementById('recipe-name').value;
+
+        try {
+            await fetch(`${N8N_URL}/webhook/food-action`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    action: "add_recipe_to_macros",
+                    recipeId: currentEditRecipeId,
+                    recipeName: recipeName,
+                    parts: parts,
+                    targetUser: user,
+                    email: userEmail
+                })
+            });
+            document.getElementById('macro-follow-modal').style.display = 'none';
+            alert("Ajouté au suivi macro !");
+        } catch(e) { alert("Erreur lors de l'ajout."); }
+    }
+
+    // --- FONCTION CUISINE ---
     function switchToCooking(data) {
         moveToHeader("agent-cook.mp4"); 
         const btnPlus = document.getElementById('floating-plus');
@@ -338,6 +622,7 @@
         };
 
         const allRecipes = Array.isArray(d) ? d : (d.recipes || []);
+        recipesDataStore = allRecipes; // On garde les données pour la modale
         
         if(d.menuMidi) sections["Menu de la semaine"].push({...d.menuMidi, label: "MIDI"});
         if(d.menuSoir) sections["Menu de la semaine"].push({...d.menuSoir, label: "SOIR"});
@@ -403,16 +688,13 @@
             }
         });
 
-        html += `</div>`;
+        html += `<div class="h-40 w-full flex-none"></div></div>`;
         chat.innerHTML = html;
         lucide.createIcons();
         forceScrollTop();
     }
 
-    function openRecipe(id) { console.log("Detail recette:", id); }
-    function addNewRecipe() { console.log("Ajout recette"); }
-
-    /* --- MACROS --- */
+    // --- MACROS ---
     function switchToMacros(data) {
         moveToHeader("agent-eat.mp4");
         document.getElementById('floating-plus').classList.add('hidden');
@@ -475,6 +757,7 @@
                     }).join('')}
                 </div>
             </div>` : ''}
+            <div class="h-40 w-full flex-none"></div>
         </div>`;
         chat.innerHTML = html; lucide.createIcons(); forceScrollTop();
     }
@@ -488,7 +771,7 @@
         try { fetch(`${N8N_URL}/webhook/food-action`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: isDeleting ? "delete" : "restore", alimentId: id, nom: name, calories: cal, proteines: prot, glucides: glu, lipides: lip, email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') }) }); } catch(e) {}
     }
 
-    /* --- COURSES --- */
+    // --- COURSES ---
     function switchToShopping(data) {
         moveToHeader("agent-courses.mp4");
         document.getElementById('floating-plus').classList.add('hidden');
@@ -509,6 +792,9 @@
         if(itemsInconnus.length > 0) appendCategory(content, "AUTRES", itemsInconnus);
         const purchased = currentList.filter(i => i.isPurchased);
         if (purchased.length > 0) appendCategory(content, "PANIER", purchased, true);
+        const spacer = document.createElement('div');
+        spacer.className = "h-40 w-full flex-none";
+        content.appendChild(spacer);
     }
 
     function appendCategory(container, title, items, isPurchased = false) {
@@ -549,17 +835,9 @@
             if (r.audio_base64 && r.audio_base64 !== "empty") { new Audio("data:audio/mp3;base64," + r.audio_base64).play(); }
             
             let actionStr = (r.action || (r.data && r.data.action) || "").toLowerCase();
-            
-            if (actionStr.includes("cuisine") || actionStr.includes("cook") || actionStr.includes("recette")) {
-                switchToCooking(r);
-            } 
-            else if (actionStr.includes("macro") || actionStr.includes("dashboard") || actionStr.includes("switchtomacros")) {
-                switchToMacros(r);
-            } 
-            else if (actionStr.includes("shopping") || actionStr.includes("course")) {
-                switchToShopping(r);
-            }
-            
+            if (actionStr.includes("cuisine") || actionStr.includes("cook") || actionStr.includes("recette")) { switchToCooking(r); } 
+            else if (actionStr.includes("macro") || actionStr.includes("dashboard")) { switchToMacros(r); } 
+            else if (actionStr.includes("shopping") || actionStr.includes("course")) { switchToShopping(r); }
             chat.scrollTop = chat.scrollHeight;
         } catch(e) {}
     }
