@@ -228,11 +228,46 @@
         dd.style.display = (dd.style.display === 'block') ? 'none' : 'block';
     }
 
-    async function selectUser(name) {
-        localStorage.setItem('fitbuddy_user_name', name);
-        updateUserNameUI(name); toggleUserDropdown();
-        try { fetch(`${N8N_URL}/webhook/chat-agent`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ message: `[SYSTEM] Utilisateur actif : ${name}`, email: userEmail, userName: name }) }); } catch(e) {}
+  async function selectUser(name) {
+    // 1. Mettre à jour le stockage local immédiatement
+    localStorage.setItem('fitbuddy_user_name', name);
+    updateUserNameUI(name); 
+    toggleUserDropdown();
+
+    // 2. Nettoyer le chat visuellement pour marquer le changement de contexte
+    const chat = document.getElementById('chat');
+    chat.innerHTML = `
+        <div class="msg-agent p-4 max-w-[90%] shadow-lg">
+            <p class="text-[8px] text-cyan-400 font-black mb-1 uppercase tracking-widest">System</p>
+            <p class="text-xs text-gray-400">Changement d'utilisateur : <b>${name}</b> en cours...</p>
+        </div>
+    `;
+
+    // 3. Envoyer l'info à l'agent et afficher sa confirmation
+    try { 
+        const res = await fetch(`${N8N_URL}/webhook/chat-agent`, { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'}, 
+            body: JSON.stringify({ 
+                message: `[SYSTEM] Oublie l'utilisateur précédent. À partir de maintenant, je suis ${name}. Confirme-moi que tu as bien chargé mes données.`, 
+                email: userEmail, 
+                userName: name 
+            }) 
+        }); 
+        
+        const responseData = await res.json();
+        const r = Array.isArray(responseData) ? responseData[0] : responseData;
+        
+        // Afficher la confirmation de l'agent
+        if (r.output) {
+            chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl">${r.output}</div>`;
+        }
+        chat.scrollTop = chat.scrollHeight;
+
+    } catch(e) {
+        console.error("Erreur switch user:", e);
     }
+}
 
     function logout() { localStorage.clear(); location.reload(); }
 
