@@ -102,7 +102,7 @@
             background: #22d3ee; color: #000;
             display: flex; align-items: center; justify-content: center;
             box-shadow: 0 8px 30px rgba(34, 211, 238, 0.5);
-            z-index: 999; transition: transform 0.2s;
+            z-index: 9999; transition: transform 0.2s;
         }
         .floating-add-btn:active { transform: scale(0.9); }
     </style>
@@ -297,9 +297,12 @@
 
     /* --- FONCTION CUISINE CORRIGÉE --- */
     function switchToCooking(data) {
-        moveToHeader("agent-cook.mp4"); // On force agent-cook
+        moveToHeader("agent-cook.mp4");
         const btnPlus = document.getElementById('floating-plus');
-        if(btnPlus) { btnPlus.classList.remove('hidden'); btnPlus.style.display = 'flex'; }
+        if(btnPlus) { 
+            btnPlus.classList.remove('hidden'); 
+            btnPlus.style.display = 'flex'; 
+        }
         
         const chat = document.getElementById('chat');
         const d = data.data || data;
@@ -315,7 +318,6 @@
 
         const allRecipes = Array.isArray(d) ? d : (d.recipes || []);
         
-        // 1. Dispatching selon la structure envoyée
         if(d.menuMidi) sections["Menu de la semaine"].push({...d.menuMidi, label: "MIDI"});
         if(d.menuSoir) sections["Menu de la semaine"].push({...d.menuSoir, label: "SOIR"});
         if(d.suggestionsTyler) sections["Suggestions de Tyler"] = d.suggestionsTyler;
@@ -327,7 +329,6 @@
             });
         }
 
-        // 2. Dispatching si liste plate
         allRecipes.forEach(r => {
             let cats = r.categorie || r.categories || "Autres";
             if(!Array.isArray(cats)) cats = [cats];
@@ -351,20 +352,27 @@
                     <div class="flex gap-4 overflow-x-auto no-scrollbar snap-x">`;
                 
                 list.forEach(r => {
-                    // Chemin d'image corrigé vers "recettes"
                     const clean = r.photo || (r.nom ? r.nom.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".jpg" : "default-recipe.jpg");
-                    const path = clean.startsWith('http') ? clean : `images/recettes/${clean}`;
+                    
+                    // Sécurité : on évite de rajouter 'images/recettes/' si c'est déjà une URL ou si n8n a déjà mis le chemin
+                    let path = clean;
+                    if (!clean.startsWith('http')) {
+                        if (!clean.startsWith('images/')) {
+                            path = clean.startsWith('recettes/') ? 'images/' + clean : 'images/recettes/' + clean;
+                        }
+                    }
                     
                     html += `
                         <div class="recipe-card snap-start" onclick="openRecipe('${r.id}')">
                             <div class="relative aspect-[4/5] rounded-2xl overflow-hidden border border-white/10 mb-2 bg-white/5">
-                                <img src="${path}" class="w-full h-full object-cover" onerror="this.src='default-recipe.jpg'">
+                                <img src="${path}" class="w-full h-full object-cover" onerror="this.onerror=null; this.src='images/recettes/default-recipe.jpg';">
                                 ${r.label ? `<div class="absolute top-2 left-2 bg-cyan-500 text-black font-black text-[7px] px-1.5 py-0.5 rounded-md uppercase">${r.label}</div>` : ''}
                                 <div class="absolute bottom-2 left-2 flex items-center gap-1 bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded-md text-[8px] text-white border border-white/5">
                                     <i data-lucide="clock" class="w-2.5 h-2.5"></i> ${r.temps || r.property_dur_e || 0} min
                                 </div>
                             </div>
                             <p class="text-[10px] font-bold text-white px-1 leading-tight line-clamp-2">${r.nom || r.name}</p>
+                            <p class="text-[6px] text-white/20 truncate px-1 mt-1">Path: ${path}</p>
                         </div>`;
                 });
                 html += `</div></section>`;
@@ -518,7 +526,6 @@
             
             let actionStr = (r.action || (r.data && r.data.action) || "").toLowerCase();
             
-            // Priorité Cuisine pour éviter les confusions
             if (actionStr.includes("cuisine") || actionStr.includes("cook") || actionStr.includes("recette")) {
                 switchToCooking(r);
             } 
