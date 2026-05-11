@@ -24,6 +24,11 @@
             padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);
         }
 
+        /* AJOUT DE L'ESPACE DE SCROLLING GLOBAL */
+        #chat {
+            padding-bottom: 150px !important;
+        }
+
         .msg-user { 
             background: linear-gradient(135deg, #6b21a8, #4c1d95) !important; 
             border-radius: 18px 18px 2px 18px !important; 
@@ -361,7 +366,7 @@
             }
         });
 
-        let html = `<div class="p-2 space-y-10 pb-28 animate-in fade-in duration-500">`;
+        let html = `<div class="p-2 space-y-10 animate-in fade-in duration-500">`;
 
         Object.keys(sections).forEach(title => {
             const list = sections[title];
@@ -494,7 +499,7 @@
 
     function renderShopping() {
         const chat = document.getElementById('chat');
-        chat.innerHTML = `<div id="shopping-content" class="space-y-6 pb-10"></div>`;
+        chat.innerHTML = `<div id="shopping-content" class="space-y-6"></div>`;
         const content = document.getElementById('shopping-content');
         RAYONS.forEach(r => {
             const items = currentList.filter(i => i.rayon.toLowerCase() === r.toLowerCase() && !i.isPurchased);
