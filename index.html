@@ -1215,63 +1215,73 @@ async function saveRecipeData(id) {
 }
 
 
-    async function envoyerMessage() {
+async function envoyerMessage() {
+    const input = document.getElementById('userInput');
+    const msg = input.value.trim();
+    if (!msg || !userEmail) return;
 
-        const input = document.getElementById('userInput');
+    const chat = document.getElementById('chat');
+    chat.innerHTML += `<div class="msg-user p-4 max-w-[80%] text-xs shadow-lg animate-in slide-in-from-right-4 font-semibold">${msg}</div>`;
+    input.value = ''; 
+    chat.scrollTop = chat.scrollHeight;
 
-        const msg = input.value.trim();
+    try {
+        const res = await fetch(`${N8N_URL}/webhook/chat-agent`, { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'}, 
+            body: JSON.stringify({ 
+                message: msg, 
+                email: userEmail, 
+                userName: localStorage.getItem('fitbuddy_user_name') 
+            }) 
+        });
 
-        if (!msg || !userEmail) return;
+        const responseData = await res.json();
+        let r = Array.isArray(responseData) ? responseData[0] : responseData;
 
-        const chat = document.getElementById('chat');
-
-        chat.innerHTML += `<div class="msg-user p-4 max-w-[80%] text-xs shadow-lg animate-in slide-in-from-right-4 font-semibold">${msg}</div>`;
-
-        input.value = ''; chat.scrollTop = chat.scrollHeight;
-
-        try {
-
-            const res = await fetch(`${N8N_URL}/webhook/chat-agent`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ message: msg, email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') }) });
-
-            const responseData = await res.json();
-
-            const r = Array.isArray(responseData) ? responseData[0] : responseData;
-
-            if (r.output) { chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl">${r.output}</div>`; }
-
-            if (r.audio_base64 && r.audio_base64 !== "empty") { new Audio("data:audio/mp3;base64," + r.audio_base64).play(); }
-
-            
-
-            let actionStr = (r.action || (r.data && r.data.action) || "").toLowerCase();
-
-            
-
-            if (actionStr.includes("cuisine") || actionStr.includes("cook") || actionStr.includes("recette")) {
-
-                switchToCooking(r);
-
-            } 
-
-            else if (actionStr.includes("macro") || actionStr.includes("dashboard") || actionStr.includes("switchtomacros")) {
-
-                switchToMacros(r);
-
-            } 
-
-            else if (actionStr.includes("shopping") || actionStr.includes("course")) {
-
-                switchToShopping(r);
-
+        // --- NOUVELLE LOGIQUE DE PARSING ---
+        let processedData = r;
+        
+        // Si l'agent renvoie un champ 'output' qui est une string JSON
+        if (r.output && typeof r.output === 'string' && r.output.trim().startsWith('{')) {
+            try {
+                processedData = JSON.parse(r.output);
+                // On affiche quand même le texte de l'agent s'il y a un champ texte dans le JSON
+                if (processedData.output) {
+                    chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl">${processedData.output}</div>`;
+                }
+            } catch(e) {
+                console.error("Erreur de parsing du JSON interne:", e);
+                chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl">${r.output}</div>`;
             }
+        } else if (r.output) {
+            // Affichage classique si c'est juste du texte
+            chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl">${r.output}</div>`;
+        }
 
-            
+        // Audio
+        if (r.audio_base64 && r.audio_base64 !== "empty") { 
+            new Audio("data:audio/mp3;base64," + r.audio_base64).play(); 
+        }
 
-            chat.scrollTop = chat.scrollHeight;
+        // Détection de l'action dans les données parsées
+        let actionStr = (processedData.action || "").toLowerCase();
 
-        } catch(e) {}
+        if (actionStr.includes("cooking") || actionStr.includes("cuisine") || actionStr.includes("cook")) {
+            switchToCooking(processedData);
+        } 
+        else if (actionStr.includes("macro") || actionStr.includes("dashboard")) {
+            switchToMacros(processedData);
+        } 
+        else if (actionStr.includes("shopping") || actionStr.includes("course")) {
+            switchToShopping(processedData);
+        }
 
+        chat.scrollTop = chat.scrollHeight;
+    } catch(e) {
+        console.error("Erreur envoi message:", e);
     }
+}
 
 
 
