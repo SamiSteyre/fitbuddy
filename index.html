@@ -1465,11 +1465,11 @@ function switchToCooking(response) {
 
 /* --- GESTION DES RECETTES --- */
 
+/* --- GESTION DES RECETTES (Version Complète) --- */
 function openRecipe(id) {
     const r = recipesCache.find(x => String(x.id) === String(id));
     
-    // LOG DE DÉBOGAGE
-    console.log("Recette sélectionnée dans le cache :", r);
+    console.log("Données brutes de la recette :", r); // Pour vérifier tes champs n8n
 
     if(!r) {
         console.error("Recette introuvable pour l'ID :", id);
@@ -1479,30 +1479,96 @@ function openRecipe(id) {
     const modal = document.getElementById('recipe-modal');
     const body = document.getElementById('recipe-detail-body');
     
-    // Nettoyage des données pour éviter les erreurs "undefined"
-    const name = r.name || r.nom || "Sans titre";
-    const photo = r.photo || 'images/recettes/default-recipe.jpg';
-    const ingredients = r.property_composition_recette || [];
+    // 1. ARRONDIS ET RÉCUPÉRATION DES MACROS PAR PART
+    const getVal = (v) => parseFloat(Array.isArray(v) ? v[0] : (v || 0)).toFixed(1);
+    
+    const kcal = getVal(r.property_kcal_part || r.kcal);
+    const prot = getVal(r.property_p_part || r.p);
+    const glu = getVal(r.property_g_part || r.g);
+    const lip = getVal(r.property_l_part || r.l);
+    const temps = r.temps || r.property_dur_e || 0;
 
+    // 2. EXTRACTION SÉCURISÉE DES INGRÉDIENTS (avec ton nouveau champ property_quantites)
+    const formattedIngs = (r.property_composition_recette || []).map(i => {
+        // Gestion du nom (souvent un tableau venant de Notion/n8n)
+        let nameArr = i.property_nom_aliment;
+        let name = Array.isArray(nameArr) ? nameArr[0] : (nameArr || "Ingrédient");
+        
+        // Priorité à property_quantites (ton nouvel ajout), sinon property_quantit
+        let qtyRaw = i.property_quantites !== undefined ? i.property_quantites : i.property_quantit;
+        let qty = Array.isArray(qtyRaw) ? qtyRaw[0] : (qtyRaw || 0);
+        
+        return { nom: name, qte: qty };
+    });
+
+    // 3. RÉGÉNÉRATION DU HTML COMPLET
     body.innerHTML = `
-        <div class="relative w-full h-[45dvh] overflow-hidden">
-            <img src="${photo}" class="w-full h-full object-cover" onerror="this.src='images/recettes/default-recipe.jpg';">
-            <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
+        <!-- Image et Badges Macros -->
+        <div class="relative w-full h-[45dvh] overflow-hidden group">
+            <input type="file" id="recipe-photo-input" class="hidden" accept="image/*" onchange="handlePhotoUpload(this)">
+            <img id="recipe-preview-img" src="${r.photo || 'images/recettes/default-recipe.jpg'}" class="w-full h-full object-cover" onerror="this.src='images/recettes/default-recipe.jpg';">
+            
+            <!-- Overlay Caméra -->
+            <div onclick="document.getElementById('recipe-photo-input').click()" class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 cursor-pointer">
+                <div class="bg-white/10 backdrop-blur-md p-4 rounded-full border border-white/20">
+                    <i data-lucide="camera" class="w-6 h-6 text-white"></i>
+                </div>
+            </div>
+
+            <div class="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent pointer-events-none z-0"></div>
+            
+            <!-- BADGES D'INFORMATION (Haut) -->
+            <div class="absolute top-6 left-0 right-0 flex justify-center gap-1.5 z-20 px-4">
+                 <div class="info-circle !relative !w-11 !h-11 border-white/20"><span class="text-[6px] font-black text-white/40 uppercase">Min</span><span class="text-[10px] font-black text-white">${temps}</span></div>
+                 <div class="info-circle !relative !w-11 !h-11 border-[#f97316]/40"><span class="text-[6px] font-black text-[#f97316] uppercase">Kcal</span><span class="text-[10px] font-black text-white">${kcal}</span></div>
+                 <div class="info-circle !relative !w-11 !h-11 border-[#3b82f6]/40"><span class="text-[6px] font-black text-[#3b82f6] uppercase">P</span><span class="text-[10px] font-black text-white">${prot}</span></div>
+                 <div class="info-circle !relative !w-11 !h-11 border-[#22c55e]/40"><span class="text-[6px] font-black text-[#22c55e] uppercase">G</span><span class="text-[10px] font-black text-white">${glu}</span></div>
+                 <div class="info-circle !relative !w-11 !h-11 border-[#ef4444]/40"><span class="text-[6px] font-black text-[#ef4444] uppercase">L</span><span class="text-[10px] font-black text-white">${lip}</span></div>
+            </div>
+
+            <!-- BOUTONS D'ACTION (Sur l'image) -->
+            <div class="absolute bottom-16 right-6 flex gap-3 z-30">
+                <button onclick="openMacroPopup()" class="w-11 h-11 bg-purple-600/90 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-purple-400/30 shadow-2xl active:scale-90 transition-transform">
+                    <i data-lucide="pie-chart" class="w-5 h-5 text-white"></i>
+                </button>
+                <button onclick="saveRecipeData('${r.id}')" class="w-11 h-11 bg-blue-600/90 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-blue-400/30 shadow-2xl active:scale-90 transition-transform">
+                    <i data-lucide="save" class="w-5 h-5 text-white"></i>
+                </button>
+            </div>
         </div>
 
         <div class="px-7 -mt-12 relative z-10">
-            <h2 class="text-3xl font-black text-white uppercase outline-none mb-6">${name}</h2>
+            <!-- Nom de la recette -->
+            <input type="text" value="${r.nom || r.name}" placeholder="Nom de la recette" class="w-full bg-transparent text-3xl font-black text-white uppercase tracking-tighter mb-6 outline-none">
             
-            <div class="mb-10">
-                <h3 class="text-[11px] font-black text-cyan-400 uppercase tracking-widest mb-5">Ingrédients</h3>
-                <div id="ingredients-container" class="space-y-2.5">
-                    ${ingredients.length > 0 
-                        ? ingredients.map(i => renderIngredientRow(i.nom || i, i.qte || "")).join('')
-                        : '<p class="text-white/40 text-xs">Détails des ingrédients non transmis.</p>'}
+            <div class="space-y-6 mb-10">
+                <div class="flex items-center justify-between bg-white/5 p-4 rounded-2xl border border-white/10">
+                    <span class="text-[11px] font-black text-white/70 uppercase tracking-widest">Nombre de parts</span>
+                    <span class="font-black text-cyan-400">${r.parts || 1}</span>
                 </div>
             </div>
+
+            <!-- SECTION INGRÉDIENTS -->
+            <div class="mb-10">
+                <div class="flex justify-between items-center mb-5">
+                    <h3 class="text-[11px] font-black text-cyan-400 uppercase tracking-widest">Ingrédients (g)</h3>
+                    <button onclick="addIngredientRow()" class="text-cyan-400"><i data-lucide="plus-circle" class="w-5 h-5"></i></button>
+                </div>
+                <div id="ingredients-container" class="space-y-2.5">
+                    ${formattedIngs.length > 0 
+                        ? formattedIngs.map(i => renderIngredientRow(i.nom, i.qte)).join('') 
+                        : renderIngredientRow('', '')}
+                </div>
+            </div>
+
+            <!-- BOUTON CUISINER -->
+            <button class="w-full bg-cyan-500 py-5 rounded-2xl flex items-center justify-center gap-4 active:scale-95 transition-transform mb-10">
+                <i data-lucide="flame" class="w-6 h-6 text-black"></i>
+                <span class="text-base font-black text-black uppercase tracking-widest">Cuisiner !</span>
+            </button>
         </div>
     `;
+    
     modal.style.display = 'flex';
     lucide.createIcons();
 }
