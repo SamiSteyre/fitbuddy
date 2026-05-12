@@ -911,11 +911,11 @@ function openRecipe(id) {
     // --- LOGS DE DÉBOGAGE ---
     console.log("ID recherché :", id);
     console.log("Objet recette complet (r) :", r);
-    // ------------------------
 
     const modal = document.getElementById('recipe-modal');
     const body = document.getElementById('recipe-detail-body');
     
+    // Arrondis des macros (en gérant les tableaux ou les nombres)
     const getVal = (v) => parseFloat(Array.isArray(v) ? v[0] : (v || 0)).toFixed(1);
     
     const kcal = getVal(r.property_kcal_part);
@@ -925,28 +925,31 @@ function openRecipe(id) {
     
     const path = r.photo?.startsWith('http') ? r.photo : `images/recettes/${r.photo || 'default-recipe.jpg'}`;
 
-    // --- MAPPING DES INGRÉDIENTS ---
-    // Note : Si tes ingrédients sont directement dans le cache et non dans une sous-propriété,
-    // il faut s'assurer que 'r' contient bien la liste. 
-    // Ici, on part du principe que 'property_composition_recette' est la liste d'objets type n8n.
-    
-    const rawIngredients = r.property_composition_recette || [];
-    console.log("Ingrédients bruts reçus :", rawIngredients);
+    // --- MAPPING DES INGRÉDIENTS (Correction : Recherche des objets par ID) ---
+    const rawIngredientIds = r.property_composition_recette || [];
+    console.log("IDs des ingrédients extraits de la recette :", rawIngredientIds);
 
-    const formattedIngs = rawIngredients.map((i, index) => {
-        // Extraction du nom (gère le format ["nom"] de Notion/n8n)
+    const formattedIngs = rawIngredientIds.map((ingId, index) => {
+        // On cherche l'aliment correspondant à l'ID dans le cache global
+        const itemData = recipesCache.find(x => String(x.id) === String(ingId));
+        
+        console.log(`Données brutes trouvées dans le cache pour l'ID ${ingId} :`, itemData);
+
         let n = "Ingrédient";
-        if (i.property_nom_aliment) {
-            n = Array.isArray(i.property_nom_aliment) ? i.property_nom_aliment[0] : i.property_nom_aliment;
-        }
-
-        // Extraction de la quantité
         let q = 0;
-        if (i.property_quantit !== undefined) {
-            q = Array.isArray(i.property_quantit) ? i.property_quantit[0] : i.property_quantit;
+
+        if (itemData) {
+            // Extraction du nom
+            if (itemData.property_nom_aliment) {
+                n = Array.isArray(itemData.property_nom_aliment) ? itemData.property_nom_aliment[0] : itemData.property_nom_aliment;
+            }
+            // Extraction de la quantité
+            if (itemData.property_quantit !== undefined) {
+                q = Array.isArray(itemData.property_quantit) ? itemData.property_quantit[0] : itemData.property_quantit;
+            }
         }
 
-        console.log(`Ingrédient [${index}] mappé :`, { nom: n, qte: q });
+        console.log(`Mapping final ingrédient [${index}] :`, { nom: n, qte: q });
         return { nom: n, qte: q };
     });
 
@@ -968,7 +971,7 @@ function openRecipe(id) {
                 </div>
             </div>
 
-            <div class="absolute inset-0 bg-gradient-t from-black via-black/20 to-transparent pointer-events-none z-0"></div>
+            <div class="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent pointer-events-none z-0"></div>
             
             <div class="absolute top-6 left-0 right-0 flex justify-center gap-1.5 z-20 px-4">
                  <div class="info-circle !relative !w-11 !h-11 border-white/20"><span class="text-[6px] font-black text-white/40 uppercase">Min</span><span class="text-[10px] font-black text-white">${r.temps || 0}</span></div>
