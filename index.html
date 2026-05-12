@@ -703,71 +703,71 @@
     /* --- FONCTION CUISINE --- */
 
 /* --- FONCTION CUISINE CORRIGÉE --- */
-function switchToCooking(data) {
-    moveToHeader("agent-cook.mp4"); 
+function switchToCooking(response) {
+    moveToHeader("agent-cook.mp4");
     const chat = document.getElementById('chat');
-    const d = data.data || data;
-    let allRecipes = [];
-
-    // Normalisation du format (Recette unique ou liste)
-    if (d.recipe) {
-        let singleRecipe = d.recipe;
-        if (d.linked_ingredients && Array.isArray(singleRecipe.property_composition_recette)) {
-            singleRecipe.property_composition_recette = singleRecipe.property_composition_recette.map(ingId => {
-                return d.linked_ingredients.find(li => li.id === ingId) || ingId;
-            });
-        }
-        allRecipes = [singleRecipe];
-    } else {
-        allRecipes = Array.isArray(d) ? d : (d.recipes || []);
+    
+    // 1. Parsing du JSON imbriqué (la "poupée russe")
+    let rawData = response.output;
+    if (typeof rawData === 'string') {
+        try { rawData = JSON.parse(rawData); } catch(e) { console.error("Erreur JSON"); return; }
     }
-
-    recipesCache = allRecipes;
-
-    const sections = {
-        "Menu de la semaine": [], "Suggestions de Tyler": [], "Entrées": [], "Plats": [], "Desserts": [], "Autres": []
-    };
-
-    allRecipes.forEach(r => {
-        // On récupère les catégories (gestion String ou Array)
-        let catsRaw = r.property_cat_gorie || r.categorie || "Autres";
-        let cats = Array.isArray(catsRaw) ? catsRaw : String(catsRaw).split(',').map(s => s.trim());
-
-        let matchedAny = false;
-        cats.forEach(c => {
-            const cleanC = c.toLowerCase().trim();
-            // On cherche la clé de section qui correspond
-            const targetKey = Object.keys(sections).find(key => 
-                key.toLowerCase().includes(cleanC) || cleanC.includes(key.toLowerCase().split(' ')[0])
-            );
-
-            if(targetKey) {
-                sections[targetKey].push(r);
-                matchedAny = true;
-            }
+    
+    const items = Array.isArray(rawData.data) ? rawData.data : [];
+    
+    // 2. REGROUPEMENT : On fusionne les lignes par ID de recette
+    const groupedRecipes = {};
+    items.forEach(item => {
+        if (!groupedRecipes[item.id]) {
+            groupedRecipes[item.id] = { 
+                ...item, 
+                ingredients: [] // On crée notre propre liste d'ingrédients
+            };
+        }
+        // Ajout de l'ingrédient de cette ligne (on nettoie le Array(1) de Notion)
+        const nomAliment = Array.isArray(item.property_nom_aliment) ? item.property_nom_aliment[0] : item.property_nom_aliment;
+        groupedRecipes[item.id].ingredients.push({
+            nom: nomAliment || "Ingrédient",
+            qte: item.property_quantit || 0
         });
-        if (!matchedAny) sections["Autres"].push(r);
     });
 
-    // Génération du HTML (identique à ton style actuel)
-    let html = `<div class="p-2 space-y-10 animate-in fade-in duration-500">`;
+    const finalRecipes = Object.values(groupedRecipes);
+    recipesCache = finalRecipes; // Indispensable pour la modal
+
+    // 3. RÉPARTITION DES SECTIONS
+    const sections = { "Plats": [], "Entrées": [], "Desserts": [], "Suggestions": [], "Menu de la semaine": [], "Autres": [] };
+
+    finalRecipes.forEach(r => {
+        let cats = r.property_cat_gorie || [];
+        if (!Array.isArray(cats)) cats = [cats];
+
+        cats.forEach(c => {
+            // On cherche la section correspondante (ex: "Plats" dans "Plats")
+            const key = Object.keys(sections).find(k => k.toLowerCase().includes(c.toLowerCase()));
+            if (key) sections[key].push(r);
+        });
+    });
+
+    // 4. GÉNÉRATION HTML
+    let html = `<div class="p-2 space-y-10 animate-in fade-in">`;
     Object.keys(sections).forEach(title => {
         const list = sections[title];
-        if(list.length > 0) {
+        if (list.length > 0) {
             html += `
                 <section>
-                    <div class="flex justify-between items-center mb-5 px-1">
-                        <div class="category-badge"><h2 class="text-[10px] font-black text-white uppercase tracking-widest">${title}</h2></div>
-                    </div>
+                    <div class="category-badge mb-5"><h2 class="text-[10px] font-black text-white uppercase tracking-widest">${title}</h2></div>
                     <div class="flex gap-4 overflow-x-auto no-scrollbar snap-x px-1">
                         ${list.map(r => `
                             <div class="recipe-card snap-start" onclick="openRecipe('${r.id}')">
                                 <div class="relative aspect-[4/5] rounded-2xl overflow-hidden border border-white/10 mb-2.5">
-                                    <img src="${r.photo || 'images/recettes/default-recipe.jpg'}" class="w-full h-full object-cover">
+                                    <img src="${r.photo}" class="w-full h-full object-cover" onerror="this.src='images/recettes/default-recipe.jpg'">
                                     <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
-                                    <div class="absolute bottom-2.5 left-2.5 text-[8px] text-white"><i data-lucide="clock" class="w-2.5 h-2.5 inline"></i> ${r.temps || 0} min</div>
+                                    <div class="absolute bottom-2.5 left-2.5 text-[8px] text-white">
+                                        <i data-lucide="clock" class="w-2.5 h-2.5 inline text-cyan-400"></i> ${r.property_dur_e || 0} min
+                                    </div>
                                 </div>
-                                <p class="text-[10px] font-bold text-white/90 leading-tight">${r.nom || r.name}</p>
+                                <p class="text-[10px] font-bold text-white/90 leading-tight">${r.name}</p>
                             </div>
                         `).join('')}
                     </div>
@@ -786,44 +786,57 @@ function openRecipe(id) {
     const modal = document.getElementById('recipe-modal');
     const body = document.getElementById('recipe-detail-body');
     
-    // Extraction sécurisée des ingrédients
-    const formattedIngs = (r.property_composition_recette || []).map(i => {
-        let nameArr = i.property_nom_aliment;
-        // Si c'est un tableau, on prend le 1er index, sinon on prend la valeur
-        let name = Array.isArray(nameArr) ? nameArr[0] : (nameArr || "Ingrédient");
-        let qty = i.property_quantit || 0;
-        return { nom: name, qte: qty };
-    });
-
-    // Extraction sécurisée des catégories de la recette pour les puces
-    const currentCats = String(r.property_cat_gorie || r.categorie || "").toLowerCase();
+    // Extraction des catégories pour les puces
+    const activeCats = Array.isArray(r.property_cat_gorie) ? r.property_cat_gorie : [r.property_cat_gorie];
 
     body.innerHTML = `
         <div class="relative w-full h-[45dvh] overflow-hidden">
-            <img src="${r.photo || 'images/recettes/default-recipe.jpg'}" class="w-full h-full object-cover">
+            <img src="${r.photo}" class="w-full h-full object-cover">
             <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
         </div>
 
         <div class="px-7 -mt-12 relative z-10">
-            <input type="text" value="${r.nom || r.name}" class="w-full bg-transparent text-3xl font-black text-white uppercase outline-none mb-6">
+            <h1 class="text-3xl font-black text-white uppercase tracking-tighter mb-6">${r.name}</h1>
             
-            <div class="space-y-6 mb-10">
-                <div class="flex flex-wrap gap-2">
-                    ${["Entrées", "Plats", "Desserts", "Suggestions de Tyler", "Menu de la semaine"].map(c => {
-                        const isActive = currentCats.includes(c.toLowerCase().split(' ')[0]);
-                        return `<button class="category-chip ${isActive ? 'active' : ''}">${c}</button>`;
-                    }).join('')}
+            <!-- MACROS RÉCUPÉRÉES -->
+            <div class="grid grid-cols-4 gap-2 mb-8">
+                <div class="bg-white/5 border border-white/10 rounded-xl p-2 text-center">
+                    <p class="text-[8px] text-white/40 font-bold uppercase">Kcal</p>
+                    <p class="text-xs font-black text-white">${Math.round(r.property_kcal_part || 0)}</p>
+                </div>
+                <div class="bg-white/5 border border-white/10 rounded-xl p-2 text-center">
+                    <p class="text-[8px] text-blue-400 font-bold uppercase">Prot</p>
+                    <p class="text-xs font-black text-white">${Math.round(r.property_p_part || 0)}g</p>
+                </div>
+                <div class="bg-white/5 border border-white/10 rounded-xl p-2 text-center">
+                    <p class="text-[8px] text-green-400 font-bold uppercase">Gluc</p>
+                    <p class="text-xs font-black text-white">${Math.round(r.property_g_part || 0)}g</p>
+                </div>
+                <div class="bg-white/5 border border-white/10 rounded-xl p-2 text-center">
+                    <p class="text-[8px] text-red-400 font-bold uppercase">Lip</p>
+                    <p class="text-xs font-black text-white">${Math.round(r.property_l_part || 0)}g</p>
                 </div>
             </div>
 
+            <div class="flex flex-wrap gap-2 mb-10">
+                ${["Plats", "Entrées", "Desserts", "Suggestions", "Menu de la semaine"].map(c => {
+                    const active = activeCats.some(ac => ac.includes(c)) ? 'active' : '';
+                    return `<span class="category-chip ${active}">${c}</span>`;
+                }).join('')}
+            </div>
+
             <div class="mb-10">
-                <h3 class="text-[11px] font-black text-cyan-400 uppercase tracking-widest mb-5">Ingrédients</h3>
-                <div id="ingredients-container" class="space-y-2.5">
-                    ${formattedIngs.map(i => renderIngredientRow(i.nom, i.qte)).join('')}
+                <h3 class="text-[11px] font-black text-cyan-400 uppercase tracking-widest mb-5">Ingrédients (pour ${r.property_parts || 1} pers.)</h3>
+                <div class="space-y-2.5">
+                    ${r.ingredients.map(i => `
+                        <div class="flex items-center justify-between bg-white/5 p-4 rounded-2xl border border-white/5">
+                            <span class="text-sm font-bold text-white/90">${i.nom}</span>
+                            <span class="text-sm font-black text-cyan-400">${i.qte}g</span>
+                        </div>
+                    `).join('')}
                 </div>
             </div>
-            
-            </div>
+        </div>
     `;
     modal.style.display = 'flex';
     lucide.createIcons();
