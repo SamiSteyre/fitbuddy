@@ -899,8 +899,8 @@
     }
 
 /* --- GESTION DES RECETTES --- */
-
 function openRecipe(id) {
+    // 1. Récupération de la recette
     const r = recipesCache.find(x => String(x.id) === String(id)) || { 
         nom: "Nouvelle Recette", 
         ingredients: [], 
@@ -911,34 +911,37 @@ function openRecipe(id) {
     const modal = document.getElementById('recipe-modal');
     const body = document.getElementById('recipe-detail-body');
     
-    const kcal = parseFloat(r.property_kcal_part || 0).toFixed(1);
-    const prot = parseFloat(r.property_p_part || 0).toFixed(1);
-    const glu = parseFloat(r.property_g_part || 0).toFixed(1);
-    const lip = parseFloat(r.property_l_part || 0).toFixed(1);
+    // Arrondis des macros (en gérant les tableaux ou les nombres)
+    const getVal = (v) => parseFloat(Array.isArray(v) ? v[0] : (v || 0)).toFixed(1);
+    
+    const kcal = getVal(r.property_kcal_part);
+    const prot = getVal(r.property_p_part);
+    const glu = getVal(r.property_g_part);
+    const lip = getVal(r.property_l_part);
+    
     const path = r.photo?.startsWith('http') ? r.photo : `images/recettes/${r.photo || 'default-recipe.jpg'}`;
 
-    // --- MAPPING RÉVISÉ POUR TON JSON ---
-    const rawComposition = r.property_composition_recette || [];
-    
-    const formattedIngs = rawComposition.map(i => {
-        // Extraction du nom : on prend le premier élément du tableau property_nom_aliment
-        let nomExtrait = "Ingrédient";
-        if (i.property_nom_aliment && Array.isArray(i.property_nom_aliment) && i.property_nom_aliment.length > 0) {
-            nomExtrait = i.property_nom_aliment[0];
+    // --- MAPPING BULLETPROOF DES INGRÉDIENTS (Basé sur ton JSON) ---
+    const formattedIngs = (r.property_composition_recette || []).map(i => {
+        // On cherche le nom dans property_nom_aliment (tableau ou string)
+        let n = "Ingrédient";
+        if (i.property_nom_aliment) {
+            n = Array.isArray(i.property_nom_aliment) ? i.property_nom_aliment[0] : i.property_nom_aliment;
         }
-
-        return {
-            nom: nomExtrait,
-            // On utilise property_quantit tel que vu dans ton output
-            qte: i.property_quantit || 0
-        };
+        // On cherche la quantité dans property_quantit (tableau ou nombre)
+        let q = 0;
+        if (i.property_quantit !== undefined) {
+            q = Array.isArray(i.property_quantit) ? i.property_quantit[0] : i.property_quantit;
+        }
+        return { nom: n, qte: q };
     });
 
-    const rawSteps = r.property_etapes_de_cuisine || [];
-    const formattedSteps = rawSteps.map(s => ({
-        desc: (s.property_description && s.property_description.length > 0) ? s.property_description[0] : (s.property_nom_etape || "Action"),
-        dur: s.property_dur_e || 0
-    }));
+    // Mapping des étapes
+    const formattedSteps = (r.property_etapes_de_cuisine || []).map(s => {
+        const d = Array.isArray(s.property_description) ? s.property_description[0] : (s.property_description || s.property_nom_etape || "Action");
+        const dur = Array.isArray(s.property_dur_e) ? s.property_dur_e[0] : (s.property_dur_e || 0);
+        return { desc: d, dur: dur };
+    });
 
     body.innerHTML = `
         <div class="relative w-full h-[45dvh] overflow-hidden group">
@@ -992,7 +995,9 @@ function openRecipe(id) {
                     <button onclick="addIngredientRow()" class="text-cyan-400"><i data-lucide="plus-circle" class="w-5 h-5"></i></button>
                 </div>
                 <div id="ingredients-container" class="space-y-2.5">
-                    ${formattedIngs.length > 0 ? formattedIngs.map(i => renderIngredientRow(i.nom, i.qte)).join('') : renderIngredientRow('', '')}
+                    ${formattedIngs.length > 0 
+                        ? formattedIngs.map(i => renderIngredientRow(i.nom, i.qte)).join('') 
+                        : renderIngredientRow('', '')}
                 </div>
             </div>
 
@@ -1002,7 +1007,9 @@ function openRecipe(id) {
                     <button onclick="addStepRow()" class="text-cyan-400"><i data-lucide="plus-circle" class="w-5 h-5"></i></button>
                 </div>
                 <div id="steps-container" class="space-y-8">
-                    ${formattedSteps.length > 0 ? formattedSteps.map((s, idx) => renderStepRow(idx + 1, s.desc, s.dur)).join('') : renderStepRow(1, '', '')}
+                    ${formattedSteps.length > 0 
+                        ? formattedSteps.map((s, idx) => renderStepRow(idx + 1, s.desc, s.dur)).join('') 
+                        : renderStepRow(1, '', '')}
                 </div>
             </div>
 
