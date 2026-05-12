@@ -702,201 +702,129 @@
 
     /* --- FONCTION CUISINE --- */
 
-    function switchToCooking(data) {
+/* --- FONCTION CUISINE CORRIGÉE --- */
+function switchToCooking(data) {
+    moveToHeader("agent-cook.mp4"); 
+    const btnPlus = document.getElementById('floating-plus');
+    if(btnPlus) { btnPlus.classList.remove('hidden'); btnPlus.style.display = 'flex'; }
+    
+    const chat = document.getElementById('chat');
+    // On récupère l'objet data (qui contient recipe et linked_ingredients)
+    const d = data.data || data;
+    
+    let allRecipes = [];
 
-        moveToHeader("agent-cook.mp4"); 
-
-        const btnPlus = document.getElementById('floating-plus');
-
-        if(btnPlus) { btnPlus.classList.remove('hidden'); btnPlus.style.display = 'flex'; }
-
+    // 1. GESTION DU NOUVEAU FORMAT (Une seule recette avec ingrédients liés)
+    if (d.recipe) {
+        let singleRecipe = d.recipe;
         
+        // On fusionne les détails des ingrédients s'ils sont fournis à part
+        if (d.linked_ingredients && Array.isArray(singleRecipe.property_composition_recette)) {
+            singleRecipe.property_composition_recette = singleRecipe.property_composition_recette.map(ingId => {
+                const details = d.linked_ingredients.find(li => li.id === ingId);
+                return details || ingId; // On remplace l'ID par l'objet complet
+            });
+        }
+        allRecipes = [singleRecipe];
+    } 
+    // 2. ANCIENS FORMATS (Tableau direct ou objet avec .recipes)
+    else if (Array.isArray(d)) {
+        allRecipes = d;
+    } else if (d.recipes) {
+        allRecipes = d.recipes;
+    }
 
-        const chat = document.getElementById('chat');
+    // Mise à jour du cache global pour openRecipe
+    recipesCache = allRecipes;
 
-        const d = data.data || data;
+    const sections = {
+        "Menu de la semaine": [],
+        "Suggestions de Tyler": [],
+        "Entrées": [],
+        "Plats": [],
+        "Desserts": [],
+        "Autres": []
+    };
 
-        
+    const categoryIcons = {
+        "Menu de la semaine": "calendar",
+        "Suggestions de Tyler": "sparkles",
+        "Entrées": "leaf",
+        "Plats": "utensils",
+        "Desserts": "cookie",
+        "Autres": "layout-grid"
+    };
 
-        const sections = {
+    // On ajoute les menus spécifiques si présents
+    if(d.menuMidi) { sections["Menu de la semaine"].push({...d.menuMidi, label: "MIDI"}); recipesCache.push(d.menuMidi); }
+    if(d.menuSoir) { sections["Menu de la semaine"].push({...d.menuSoir, label: "SOIR"}); recipesCache.push(d.menuSoir); }
+    if(d.suggestionsTyler) { sections["Suggestions de Tyler"] = d.suggestionsTyler; recipesCache = [...recipesCache, ...d.suggestionsTyler]; }
 
-            "Menu de la semaine": [],
+    // Distribution dans les catégories
+    allRecipes.forEach(r => {
+        let catsRaw = r.property_cat_gorie || r.categorie || "Autres";
+        let cats = (typeof catsRaw === 'string') ? catsRaw.split(',').map(s => s.trim()) : (Array.isArray(catsRaw) ? catsRaw : [catsRaw]);
 
-            "Suggestions de Tyler": [],
-
-            "Entrées": [],
-
-            "Plats": [],
-
-            "Desserts": [],
-
-            "Autres": []
-
-        };
-
-
-
-        const categoryIcons = {
-
-            "Menu de la semaine": "calendar",
-
-            "Suggestions de Tyler": "sparkles",
-
-            "Entrées": "leaf",
-
-            "Plats": "utensils",
-
-            "Desserts": "cookie",
-
-            "Autres": "layout-grid"
-
-        };
-
-
-
-        const allRecipes = Array.isArray(d) ? d : (d.recipes || []);
-
-        recipesCache = allRecipes; // Stockage global pour l'ouverture
-
-        
-
-        if(d.menuMidi) { sections["Menu de la semaine"].push({...d.menuMidi, label: "MIDI"}); recipesCache.push(d.menuMidi); }
-
-        if(d.menuSoir) { sections["Menu de la semaine"].push({...d.menuSoir, label: "SOIR"}); recipesCache.push(d.menuSoir); }
-
-        if(d.suggestionsTyler) { sections["Suggestions de Tyler"] = d.suggestionsTyler; recipesCache = [...recipesCache, ...d.suggestionsTyler]; }
-
-        
-
-        allRecipes.forEach(r => {
-
-            let catsRaw = r.property_cat_gorie || r.categorie || r.categories || "Autres";
-
-            let cats = (typeof catsRaw === 'string') ? catsRaw.split(',').map(s => s.trim()) : (Array.isArray(catsRaw) ? catsRaw : [catsRaw]);
-
-
-
-            let matchedAny = false;
-
-            cats.forEach(c => {
-
-                const normalizedCat = c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-
-                const targetKey = Object.keys(sections).find(k => {
-
-                    const normalizedKey = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-
-                    return normalizedKey.includes(normalizedCat) || normalizedCat.includes(normalizedKey);
-
-                });
-
-
-
-                if(targetKey && targetKey !== "Autres") {
-
-                    if(!sections[targetKey].some(item => item.id === r.id)) sections[targetKey].push(r);
-
-                    matchedAny = true;
-
-                }
-
+        let matchedAny = false;
+        cats.forEach(c => {
+            const normC = c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            const targetKey = Object.keys(sections).find(k => {
+                const normK = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                return normK.includes(normC) || normC.includes(normK);
             });
 
-
-
-            if (!matchedAny) {
-
-                if(!sections["Autres"].some(item => item.id === r.id)) sections["Autres"].push(r);
-
+            if(targetKey) {
+                if(!sections[targetKey].some(item => item.id === r.id)) sections[targetKey].push(r);
+                matchedAny = true;
             }
-
         });
 
+        if (!matchedAny && !sections["Autres"].some(item => item.id === r.id)) {
+            sections["Autres"].push(r);
+        }
+    });
 
+    let html = `<div class="p-2 space-y-10 animate-in fade-in duration-500">`;
 
-        let html = `<div class="p-2 space-y-10 animate-in fade-in duration-500">`;
-
-
-
-        Object.keys(sections).forEach(title => {
-
-            const list = sections[title];
-
-            const icon = categoryIcons[title] || "chef-hat";
-
-            if(list && list.length > 0) {
-
-                html += `<section>
-
+    Object.keys(sections).forEach(title => {
+        const list = sections[title];
+        const icon = categoryIcons[title] || "chef-hat";
+        if(list && list.length > 0) {
+            html += `
+                <section>
                     <div class="flex justify-between items-center mb-5 px-1">
-
                         <div class="category-badge">
-
                             <i data-lucide="${icon}" class="w-3.5 h-3.5 text-cyan-400"></i>
-
                             <h2 class="text-[10px] font-black text-white uppercase tracking-[0.15em]">${title}</h2>
-
                         </div>
-
-                        <span class="text-[8px] font-bold text-white/30 uppercase tracking-widest">${list.length} recettes</span>
-
+                        <span class="text-[8px] font-bold text-white/30 uppercase tracking-widest">${list.length}</span>
                     </div>
-
                     <div class="flex gap-4 overflow-x-auto no-scrollbar snap-x px-1">`;
-
-                
-
-                list.forEach(r => {
-
-                    const clean = r.photo || (r.nom ? r.nom.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".jpg" : "default-recipe.jpg");
-
-                    const path = clean.startsWith('http') ? clean : `images/recettes/${clean}`;
-
-                    
-
-                    html += `
-
-                        <div class="recipe-card snap-start" onclick="openRecipe('${r.id}')">
-
-                            <div class="relative aspect-[4/5] rounded-2xl overflow-hidden border border-white/10 mb-2.5 bg-white/5 shadow-2xl">
-
-                                <img src="${path}" class="w-full h-full object-cover" onerror="this.onerror=null; this.src='images/recettes/default-recipe.jpg';">
-
-                                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
-
-                                ${r.label ? `<div class="absolute top-2.5 left-2.5 bg-cyan-500 text-black font-black text-[7px] px-2 py-0.5 rounded-md uppercase shadow-lg shadow-cyan-500/20">${r.label}</div>` : ''}
-
-                                <div class="absolute bottom-2.5 left-2.5 flex items-center gap-1.5 bg-black/40 backdrop-blur-md px-2 py-1 rounded-lg text-[8px] text-white border border-white/10">
-
-                                    <i data-lucide="clock" class="w-2.5 h-2.5 text-cyan-400"></i> ${r.temps || r.property_dur_e || 0} min
-
-                                </div>
-
+            
+            list.forEach(r => {
+                const path = r.photo || `images/recettes/default-recipe.jpg`;
+                html += `
+                    <div class="recipe-card snap-start" onclick="openRecipe('${r.id}')">
+                        <div class="relative aspect-[4/5] rounded-2xl overflow-hidden border border-white/10 mb-2.5 bg-white/5 shadow-2xl">
+                            <img src="${path}" class="w-full h-full object-cover" onerror="this.src='images/recettes/default-recipe.jpg';">
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+                            ${r.label ? `<div class="absolute top-2.5 left-2.5 bg-cyan-500 text-black font-black text-[7px] px-2 py-0.5 rounded-md uppercase">${r.label}</div>` : ''}
+                            <div class="absolute bottom-2.5 left-2.5 flex items-center gap-1.5 bg-black/40 backdrop-blur-md px-2 py-1 rounded-lg text-[8px] text-white border border-white/10">
+                                <i data-lucide="clock" class="w-2.5 h-2.5 text-cyan-400"></i> ${r.temps || 0} min
                             </div>
+                        </div>
+                        <p class="text-[10px] font-bold text-white/90 px-1 leading-tight line-clamp-2">${r.nom || r.name}</p>
+                    </div>`;
+            });
+            html += `</div></section>`;
+        }
+    });
 
-                            <p class="text-[10px] font-bold text-white/90 px-1 leading-tight line-clamp-2">${r.nom || r.name}</p>
-
-                        </div>`;
-
-                });
-
-                html += `</div></section>`;
-
-            }
-
-        });
-
-
-
-        html += `</div>`;
-
-        chat.innerHTML = html;
-
-        lucide.createIcons();
-
-        forceScrollTop();
-
-    }
+    html += `</div>`;
+    chat.innerHTML = html;
+    lucide.createIcons();
+    forceScrollTop();
+}
 
 /* --- GESTION DES RECETTES --- */
 function openRecipe(id) {
