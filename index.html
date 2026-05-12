@@ -898,6 +898,8 @@
 
     }
 
+/* --- GESTION DES RECETTES --- */
+
 function openRecipe(id) {
     // 1. Récupération de la recette depuis le cache ou création d'une vide
     const r = recipesCache.find(x => String(x.id) === String(id)) || { 
@@ -933,7 +935,6 @@ function openRecipe(id) {
 
     body.innerHTML = `
         <div class="relative w-full h-[45dvh] overflow-hidden group">
-            <!-- Zone Upload Photo -->
             <input type="file" id="recipe-photo-input" class="hidden" accept="image/*" onchange="handlePhotoUpload(this)">
             <img id="recipe-preview-img" src="${path}" class="w-full h-full object-cover" onerror="this.src='images/recettes/default-recipe.jpg';">
             
@@ -945,7 +946,7 @@ function openRecipe(id) {
 
             <div class="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent pointer-events-none z-0"></div>
             
-            <!-- MÉDAILLONS ALIGNÉS (Haut) -->
+            <!-- MÉDAILLONS ALIGNÉS -->
             <div class="absolute top-6 left-0 right-0 flex justify-center gap-1.5 z-20 px-4">
                  <div class="info-circle !relative !w-11 !h-11 border-white/20">
                     <span class="text-[6px] font-black text-white/40 uppercase">Min</span>
@@ -969,7 +970,7 @@ function openRecipe(id) {
                 </div>
             </div>
 
-            <!-- BOUTONS ACTIONS (Bas de l'image / Au-dessus du titre) -->
+            <!-- BOUTONS ACTIONS -->
             <div class="absolute bottom-16 right-6 flex gap-3 z-30">
                 <button onclick="openMacroPopup()" class="w-11 h-11 bg-purple-600/90 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-purple-400/30 shadow-2xl active:scale-90 transition-transform">
                     <i data-lucide="pie-chart" class="w-5 h-5 text-white"></i>
@@ -984,15 +985,11 @@ function openRecipe(id) {
             <input type="text" id="recipe-name-input" value="${r.nom || r.name || ''}" placeholder="Nom de la recette" class="w-full bg-transparent text-3xl font-black text-white uppercase tracking-tighter mb-6 outline-none">
             
             <div class="space-y-6 mb-10">
-                <!-- Sélecteur de parts -->
                 <div class="flex items-center justify-between bg-white/5 p-4 rounded-2xl border border-white/10">
                     <span class="text-[11px] font-black text-white/70 uppercase tracking-widest">Nombre de parts</span>
-                    <select id="recipe-parts-select" class="custom-select font-black text-cyan-400">
-                        ${[1,2,3,4,5,6,7,8,9,10].map(n => `<option value="${n}" ${n == (r.parts || r.property_parts || 1) ? 'selected' : ''}>${n}</option>`).join('')}
-                    </select>
+                    <span class="font-black text-cyan-400">${r.parts || r.property_parts || 1}</span>
                 </div>
 
-                <!-- Sélecteur de catégories -->
                 <div class="flex flex-wrap gap-2">
                     ${["Entrées", "Plats", "Desserts", "Autres", "Suggestions de Tyler", "Menu de la semaine"].map(c => `
                         <button class="category-chip ${(r.categorie || r.property_cat_gorie || '').includes(c) ? 'active' : ''}" onclick="this.classList.toggle('active')">${c}</button>
@@ -1004,10 +1001,10 @@ function openRecipe(id) {
             <div class="mb-10">
                 <div class="flex justify-between items-center mb-5">
                     <h3 class="text-[11px] font-black text-cyan-400 uppercase tracking-widest">Ingrédients (g)</h3>
-                    <button onclick="addIngRow()" class="text-cyan-400"><i data-lucide="plus-circle" class="w-5 h-5"></i></button>
+                    <button onclick="addIngredientRow()" class="text-cyan-400"><i data-lucide="plus-circle" class="w-5 h-5"></i></button>
                 </div>
-                <div id="ing-list" class="space-y-2.5">
-                    ${formattedIngs.length > 0 ? formattedIngs.map(i => renderIngRow(i.nom, i.qte)).join('') : renderIngRow('', '')}
+                <div id="ingredients-container" class="space-y-2.5">
+                    ${formattedIngs.length > 0 ? formattedIngs.map(i => renderIngredientRow(i.nom, i.qte)).join('') : renderIngredientRow('', '')}
                 </div>
             </div>
 
@@ -1017,7 +1014,7 @@ function openRecipe(id) {
                     <h3 class="text-[11px] font-black text-cyan-400 uppercase tracking-widest">Préparation</h3>
                     <button onclick="addStepRow()" class="text-cyan-400"><i data-lucide="plus-circle" class="w-5 h-5"></i></button>
                 </div>
-                <div id="step-list" class="space-y-8">
+                <div id="steps-container" class="space-y-8">
                     ${formattedSteps.length > 0 ? formattedSteps.map((s, idx) => renderStepRow(idx + 1, s.desc, s.dur)).join('') : renderStepRow(1, '', '')}
                 </div>
             </div>
@@ -1030,6 +1027,47 @@ function openRecipe(id) {
     `;
     
     modal.style.display = 'flex';
+    lucide.createIcons();
+}
+
+function renderIngredientRow(nom = "", qte = "") {
+    return `
+        <div class="flex items-center gap-3 bg-white/[0.03] p-2 rounded-xl border border-white/5 group">
+            <input type="number" value="${parseInt(qte) || ''}" placeholder="0" class="w-16 bg-cyan-500/10 border border-cyan-500/20 rounded-lg py-1.5 px-2 text-[10px] font-black text-cyan-400 outline-none text-center">
+            <input type="text" value="${nom}" placeholder="Aliment" class="flex-1 bg-transparent text-[13px] text-white/80 outline-none">
+            <button onclick="this.parentElement.remove()" class="p-2 text-white/20 hover:text-red-500 transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+        </div>
+    `;
+}
+
+function renderStepRow(num, desc = "", duree = "") {
+    return `
+        <div class="flex gap-4 group">
+            <div class="flex-none w-7 h-7 rounded-lg bg-cyan-500/10 flex items-center justify-center text-[11px] font-black text-cyan-400 border border-cyan-500/20">${num}</div>
+            <div class="flex-1 space-y-2">
+                <textarea class="w-full bg-transparent text-[13px] text-white/60 leading-relaxed outline-none border-b border-white/5 focus:border-cyan-500/50 resize-none" rows="2" placeholder="Action...">${desc}</textarea>
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2 text-[10px] font-black text-cyan-400/80 uppercase">
+                        <i data-lucide="timer" class="w-3.5 h-3.5"></i>
+                        <input type="number" value="${parseInt(duree) || ''}" placeholder="0" class="bg-transparent focus:outline-none w-8 text-center"> min
+                    </div>
+                    <button onclick="this.closest('.group').remove()" class="text-white/10 hover:text-red-500 transition-colors"><i data-lucide="x-circle" class="w-4 h-4"></i></button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function addIngredientRow() {
+    const container = document.getElementById('ingredients-container');
+    container.insertAdjacentHTML('beforeend', renderIngredientRow());
+    lucide.createIcons();
+}
+
+function addStepRow() {
+    const container = document.getElementById('steps-container');
+    const nextNum = container.children.length + 1;
+    container.insertAdjacentHTML('beforeend', renderStepRow(nextNum));
     lucide.createIcons();
 }
 // Affiche une ligne d'ingrédient avec quantité numérique
