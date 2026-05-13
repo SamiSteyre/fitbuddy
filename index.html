@@ -904,6 +904,8 @@ function openRecipe(id) {
         name: "",
         property_ingredients: [],
         property_quantites: [],
+        property_instructions: [],
+        property_dur_es: [],
         property_parts: 1,
         property_cat_gorie: "Autres"
     };
@@ -913,30 +915,34 @@ function openRecipe(id) {
     
     const categories = ["Entrées", "Plats", "Desserts", "Autres", "Suggestions de Tyler", "Menu de la semaine"];
     
-    // Correction des accès aux propriétés
     const recipeName = recipe.property_nom || recipe.name || "";
     const currentCats = recipe.property_cat_gorie || "";
     const partsValue = recipe.property_parts || 1;
     const clean = recipe.photo || "default-recipe.jpg";
     const path = clean.startsWith('http') ? clean : `images/recettes/${clean}`;
 
-    // Extraction et arrondi (Correction property_kcal_part)
     const kcal = parseFloat(recipe.property_kcal_part || 0).toFixed(1);
     const prot = parseFloat(recipe.property_p_part || 0).toFixed(1);
     const glu = parseFloat(recipe.property_g_part || 0).toFixed(1);
     const lip = parseFloat(recipe.property_l_part || 0).toFixed(1);
     
-    // FIX : On fusionne property_ingredients et property_quantites qui sont deux tableaux séparés
-    const names = recipe.property_ingredients || [];
-    const quants = recipe.property_quantites || [];
+    // --- SÉCURISATION DES INGRÉDIENTS ---
+    const rawNames = recipe.property_ingredients || [];
+    const names = Array.isArray(rawNames) ? rawNames : [rawNames];
+    const rawQuants = recipe.property_quantites || [];
+    const quants = Array.isArray(rawQuants) ? rawQuants : [rawQuants];
+
     const formattedIngredients = names.map((nom, index) => {
-        return {
-            nom: nom,
-            quantite: quants[index] || 0
-        };
+        return { nom: nom, quantite: quants[index] || 0 };
     });
-    const instructions = recipe.property_instructions || [];
-    const durations = recipe.property_dur_es || [];
+
+    // --- SÉCURISATION DES ÉTAPES (C'est ici que ça bloquait) ---
+    const rawInstructions = recipe.property_instructions || [];
+    const instructions = Array.isArray(rawInstructions) ? rawInstructions : (rawInstructions ? [rawInstructions] : []);
+    
+    const rawDurations = recipe.property_dur_es || [];
+    const durations = Array.isArray(rawDurations) ? rawDurations : (rawDurations ? [rawDurations] : []);
+
     const formattedSteps = instructions.map((text, index) => {
         return {
             desc: text,
@@ -1023,21 +1029,18 @@ function openRecipe(id) {
                 </div>
             </div>
 
-      <!-- ÉTAPES -->
-    <div class="mb-12">
-        <div class="flex justify-between items-center mb-5">
-            <h3 class="text-[11px] font-black text-cyan-400 uppercase tracking-widest">Préparation</h3>
-            <button onclick="addStepRow()" class="text-cyan-400">
-                <i data-lucide="plus-circle" class="w-5 h-5"></i>
-            </button>
-        </div>
-        <div id="steps-container" class="space-y-8">
-            ${formattedSteps.length > 0 
-                ? formattedSteps.map((step, idx) => renderStepRow(idx + 1, step.desc, step.duree)).join('')
-                : '<p class="text-[10px] text-white/20 text-center py-4 italic">Aucune instruction saisie</p>'
-            }
-        </div>
-    </div>
+            <div class="mb-12">
+                <div class="flex justify-between items-center mb-5">
+                    <h3 class="text-[11px] font-black text-cyan-400 uppercase tracking-widest">Préparation</h3>
+                    <button onclick="addStepRow()" class="text-cyan-400"><i data-lucide="plus-circle" class="w-5 h-5"></i></button>
+                </div>
+                <div id="steps-container" class="space-y-8">
+                    ${formattedSteps.length > 0 
+                        ? formattedSteps.map((step, idx) => renderStepRow(idx + 1, step.desc, step.duree)).join('')
+                        : '<p class="text-[10px] text-white/20 text-center py-4 italic">Aucune instruction saisie</p>'
+                    }
+                </div>
+            </div>
 
             <button class="w-full bg-cyan-500 py-5 rounded-2xl flex items-center justify-center gap-4 active:scale-95 transition-transform">
                 <i data-lucide="flame" class="w-6 h-6 text-black"></i>
