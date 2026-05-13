@@ -968,29 +968,36 @@ function openRecipe(id) {
             </div>
 
             <div class="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent pointer-events-none z-0"></div>
-            
-            <div class="absolute top-6 left-0 right-0 flex justify-center gap-1.5 z-20 px-4">
-                 <div class="info-circle !relative !w-11 !h-11 border-white/20">
-                    <span class="text-[6px] font-black text-white/40 uppercase">Min</span>
-                    <span class="text-[10px] font-black text-white">${recipe.property_dur_e || 0}</span>
-                </div>
-                <div class="info-circle !relative !w-11 !h-11 border-[#f97316]/40">
-                    <span class="text-[6px] font-black text-[#f97316] uppercase">Kcal</span>
-                    <span class="text-[10px] font-black text-white">${kcal}</span>
-                </div>
-                <div class="info-circle !relative !w-11 !h-11 border-[#3b82f6]/40">
-                    <span class="text-[6px] font-black text-[#3b82f6] uppercase">P</span>
-                    <span class="text-[10px] font-black text-white">${prot}</span>
-                </div>
-                <div class="info-circle !relative !w-11 !h-11 border-[#22c55e]/40">
-                    <span class="text-[6px] font-black text-[#22c55e] uppercase">G</span>
-                    <span class="text-[10px] font-black text-white">${glu}</span>
-                </div>
-                <div class="info-circle !relative !w-11 !h-11 border-[#ef4444]/40">
-                    <span class="text-[6px] font-black text-[#ef4444] uppercase">L</span>
-                    <span class="text-[10px] font-black text-white">${lip}</span>
-                </div>
-            </div>
+// ... à l'intérieur de body.innerHTML dans openRecipe ...
+
+<!-- 1. MÉDAILLONS ALIGNÉS (Haut) -->
+<div class="absolute top-6 left-0 right-0 flex justify-center gap-1.5 z-20 px-4">
+     <!-- Temps -->
+     <div class="info-circle !relative !w-11 !h-11 border-white/20">
+        <span class="text-[6px] font-black text-white/40 uppercase">Min</span>
+        <span class="text-[10px] font-black text-white">${recipe.property_dur_e || 0}</span>
+    </div>
+    <!-- Kcal (Ajout ID) -->
+    <div class="info-circle !relative !w-11 !h-11 border-[#f97316]/40">
+        <span class="text-[6px] font-black text-[#f97316] uppercase">Kcal</span>
+        <span id="display-kcal" class="text-[10px] font-black text-white">${kcal}</span>
+    </div>
+    <!-- P (Ajout ID) -->
+    <div class="info-circle !relative !w-11 !h-11 border-[#3b82f6]/40">
+        <span class="text-[6px] font-black text-[#3b82f6] uppercase">P</span>
+        <span id="display-prot" class="text-[10px] font-black text-white">${prot}</span>
+    </div>
+    <!-- G (Ajout ID) -->
+    <div class="info-circle !relative !w-11 !h-11 border-[#22c55e]/40">
+        <span class="text-[6px] font-black text-[#22c55e] uppercase">G</span>
+        <span id="display-glu" class="text-[10px] font-black text-white">${glu}</span>
+    </div>
+    <!-- L (Ajout ID) -->
+    <div class="info-circle !relative !w-11 !h-11 border-[#ef4444]/40">
+        <span class="text-[6px] font-black text-[#ef4444] uppercase">L</span>
+        <span id="display-lip" class="text-[10px] font-black text-white">${lip}</span>
+    </div>
+</div>
 
             <div class="absolute bottom-16 right-6 flex gap-3 z-30">
                 <button onclick="openMacroPopup()" class="w-11 h-11 bg-purple-600/90 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-purple-400/30 shadow-2xl active:scale-90 transition-transform">
