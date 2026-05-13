@@ -1383,17 +1383,69 @@ function closeMacroPopup() {
 }
 
 async function confirmMacroSend() {
-    const portions = document.getElementById('macro-portions').value;
-    const user = document.getElementById('macro-user-select').value;
+    const btnConfirm = event.target; // Pour changer l'état du bouton
+    const originalText = btnConfirm.innerText;
     
-    // Logique d'envoi vers Notion via ton Webhook
-    console.log(`Envoi de ${portions} portions pour ${user}`);
+    // 1. Récupération des infos de la modal de LOG
+    const portions = parseFloat(document.getElementById('macro-portions').value) || 1;
+    const targetUser = document.getElementById('macro-user-select').value;
     
-    // Exemple d'appel :
-    // fetch(`${N8N_URL}/webhook/log-macro`, { method: 'POST', body: JSON.stringify({...}) });
+    // 2. Récupération dynamique du nom (depuis l'input de la recette)
+    const mealName = document.getElementById('recipe-name-input').value || "Repas inconnu";
     
-    closeMacroPopup();
-    alert("Données envoyées au suivi !");
+    // 3. Récupération des macros affichées à l'écran (Instant T)
+    // On récupère le texte, on remplace la virgule par un point et on transforme en nombre
+    const getVal = (id) => parseFloat(document.getElementById(id).innerText.replace(',', '.')) || 0;
+    
+    const macros = {
+        kcal: getVal('display-kcal'),
+        prot: getVal('display-prot'),
+        glu: getVal('display-glu'),
+        lip: getVal('display-lip')
+    };
+
+    // 4. Calcul final basé sur le nombre de portions consommées
+    const dataToSend = {
+        email: userEmail,
+        userName: targetUser, // L'utilisateur sélectionné (Sami, Djibril ou Maxime)
+        repas: mealName,
+        parts_consommees: portions,
+        total_kcal: (macros.kcal * portions).toFixed(1),
+        total_prot: (macros.prot * portions).toFixed(1),
+        total_glu: (macros.glu * portions).toFixed(1),
+        total_lip: (macros.lip * portions).toFixed(1),
+        timestamp: new Date().toISOString()
+    };
+
+    try {
+        btnConfirm.innerText = "ENVOI...";
+        btnConfirm.disabled = true;
+
+        const response = await fetch(`${N8N_URL}/webhook/log-macro`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dataToSend)
+        });
+
+        if (response.ok) {
+            closeMacroPopup();
+            // Petit feedback visuel sympa
+            const chat = document.getElementById('chat');
+            chat.innerHTML += `
+                <div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl animate-in fade-in">
+                    ✅ <b>${portions} portion(s)</b> de "${mealName}" enregistrée(s) pour <b>${targetUser}</b> !
+                </div>`;
+            chat.scrollTop = chat.scrollHeight;
+        } else {
+            alert("Erreur lors de l'enregistrement.");
+        }
+    } catch (error) {
+        console.error("Erreur:", error);
+        alert("Impossible de contacter FitBuddy.");
+    } finally {
+        btnConfirm.innerText = originalText;
+        btnConfirm.disabled = false;
+    }
 }
 
 // ENREGISTREMENT RECETTE
