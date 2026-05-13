@@ -929,16 +929,14 @@ function openRecipe(id) {
     const lip = parseFloat(recipe.property_l_part || 0).toFixed(1);
     
     // --- HELPER : Transforme un texte Notion (formule) en tableau propre ---
-    const parseNotionList = (val) => {
-        if (!val) return [];
-        // Si c'est un tableau avec un seul gros texte dedans, on récupère le texte
-        let str = Array.isArray(val) ? val[0] : val;
-        if (typeof str !== 'string') return Array.isArray(val) ? val : [val];
-        
-        // On split par point-virgule si présent, sinon par virgule
-        const separator = str.includes(';') ? ';' : ',';
-        return str.split(separator).map(s => s.trim()).filter(s => s !== "");
-    };
+const parseNotionList = (val) => {
+    if (!val) return [];
+    let str = Array.isArray(val) ? val[0] : val;
+    if (typeof str !== 'string') return Array.isArray(val) ? val : [val];
+    
+    // On coupe par le triple pipe, c'est incassable
+    return str.split('|||').map(s => s.trim()).filter(s => s.length > 0);
+};
 
     // 3. Préparation des INGRÉDIENTS (fusion nom + quantité)
     const names = parseNotionList(recipe.property_ingredients);
