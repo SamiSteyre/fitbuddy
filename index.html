@@ -1583,10 +1583,20 @@ async function searchAliments(input) {
     clearTimeout(searchTimeout);
     searchTimeout = setTimeout(async () => {
         try {
-            const res = await fetch(`${N8N_URL}/webhook/search-aliments?q=${encodeURIComponent(query)}`);
+            // Utilisation de POST au lieu de GET
+            const res = await fetch(`${N8N_URL}/webhook-test/search-aliments`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    "ngrok-skip-browser-warning": "69420"
+                },
+                // On envoie la recherche dans le body en JSON
+                body: JSON.stringify({ q: query })
+            });
+            
             const aliments = await res.json();
 
-            if (aliments.length > 0) {
+            if (aliments && aliments.length > 0) {
                 list.innerHTML = aliments.map(a => `
                     <div class="px-4 py-2 hover:bg-cyan-500/20 cursor-pointer text-xs text-white border-b border-white/5"
                          onclick="selectIngredient(this, '${a.nom.replace(/'/g, "\\'")}', ${a.kcal_100g}, ${a.prot_100g}, ${a.gluc_100g}, ${a.lip_100g})">
@@ -1597,7 +1607,9 @@ async function searchAliments(input) {
             } else {
                 list.classList.add('hidden');
             }
-        } catch (e) { console.error("Erreur recherche:", e); }
+        } catch (e) { 
+            console.error("Erreur recherche:", e); 
+        }
     }, 300);
 }
 
