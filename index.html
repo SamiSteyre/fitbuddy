@@ -52,7 +52,13 @@
 
         #chat { padding-bottom: 150px !important; }
 
-
+.suggestions-list::-webkit-scrollbar {
+    width: 4px;
+}
+.suggestions-list::-webkit-scrollbar-thumb {
+    background: rgba(34, 211, 238, 0.3);
+    border-radius: 10px;
+}
 
         .msg-user { 
 
@@ -1058,16 +1064,27 @@ function openRecipe(id) {
 // Affiche une ligne d'ingrédient avec quantité numérique
 function renderIngredientRow(nom = "", qte = "", ratios = {kcal:0, p:0, g:0, l:0}) {
     return `
-        <div class="flex items-center gap-3 bg-white/[0.03] p-2 rounded-xl border border-white/5 group ingredient-row" 
+        <div class="relative ingredient-row group" 
              data-rkcal="${ratios.kcal}" data-rp="${ratios.p}" data-rg="${ratios.g}" data-rl="${ratios.l}">
-            <input type="number" value="${parseInt(qte) || ''}" 
-                   oninput="recalculateMacros()" 
-                   placeholder="0" 
-                   class="w-16 bg-cyan-500/10 border border-cyan-500/20 rounded-lg py-1.5 px-2 text-[10px] font-black text-cyan-400 outline-none text-center ingredient-qte">
-            <input type="text" value="${nom}" placeholder="Nom de l'ingrédient" class="flex-1 bg-transparent text-[13px] text-white/80 outline-none">
-            <button onclick="this.parentElement.remove(); recalculateMacros();" class="p-2 text-white/20 hover:text-red-500 transition-colors">
-                <i data-lucide="trash-2" class="w-4 h-4"></i>
-            </button>
+            <div class="flex items-center gap-3 bg-white/[0.03] p-2 rounded-xl border border-white/5 mb-2">
+                <input type="number" value="${parseInt(qte) || ''}" 
+                       oninput="recalculateMacros()" 
+                       placeholder="0" 
+                       class="w-16 bg-cyan-500/10 border border-cyan-500/20 rounded-lg py-1.5 px-2 text-[10px] font-black text-cyan-400 outline-none text-center ingredient-qte">
+                
+                <div class="flex-1 relative">
+                    <input type="text" value="${nom}" 
+                           oninput="searchAliments(this)" 
+                           placeholder="Chercher un aliment..." 
+                           class="w-full bg-transparent text-[13px] text-white/80 outline-none ingredient-name">
+                    <!-- Liste de suggestions -->
+                    <div class="suggestions-list absolute left-0 right-0 top-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-xl hidden z-50 max-h-40 overflow-y-auto shadow-2xl"></div>
+                </div>
+
+                <button onclick="this.closest('.ingredient-row').remove(); recalculateMacros();" class="p-2 text-white/20 hover:text-red-500 transition-colors">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+            </div>
         </div>
     `;
 }
@@ -1553,6 +1570,54 @@ async function saveRecipeData(id) {
     document.getElementById('display-prot').innerText = (totalP / parts).toFixed(1);
     document.getElementById('display-glu').innerText = (totalG / parts).toFixed(1);
     document.getElementById('display-lip').innerText = (totalL / parts).toFixed(1);
+}
+
+    let searchTimeout;
+
+async function searchAliments(input) {
+    const query = input.value.trim();
+    const list = input.parentElement.querySelector('.suggestions-list');
+    
+    if (query.length < 2) { list.classList.add('hidden'); return; }
+
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(async () => {
+        try {
+            const res = await fetch(`${N8N_URL}/webhook/search-aliments?q=${encodeURIComponent(query)}`);
+            const aliments = await res.json();
+
+            if (aliments.length > 0) {
+                list.innerHTML = aliments.map(a => `
+                    <div class="px-4 py-2 hover:bg-cyan-500/20 cursor-pointer text-xs text-white border-b border-white/5"
+                         onclick="selectIngredient(this, '${a.nom.replace(/'/g, "\\'")}', ${a.kcal_100g}, ${a.prot_100g}, ${a.gluc_100g}, ${a.lip_100g})">
+                        ${a.nom} <span class="text-[8px] text-cyan-400 ml-2">${a.kcal_100g}kcal/100g</span>
+                    </div>
+                `).join('');
+                list.classList.remove('hidden');
+            } else {
+                list.classList.add('hidden');
+            }
+        } catch (e) { console.error("Erreur recherche:", e); }
+    }, 300);
+}
+
+function selectIngredient(element, nom, kcal100, p100, g100, l100) {
+    const row = element.closest('.ingredient-row');
+    const input = row.querySelector('.ingredient-name');
+    const list = row.querySelector('.suggestions-list');
+
+    // Mise à jour du nom
+    input.value = nom;
+    list.classList.add('hidden');
+
+    // Mise à jour des RATIOS (on divise par 100 car Notion donne souvent les macros pour 100g)
+    row.dataset.rkcal = kcal100 / 100;
+    row.dataset.rp = p100 / 100;
+    row.dataset.rg = g100 / 100;
+    row.dataset.rl = l100 / 100;
+
+    // Recalcul immédiat
+    recalculateMacros();
 }
 </script>
 <!-- POPUP ENREGISTREMENT MACRO -->
