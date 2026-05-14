@@ -960,8 +960,8 @@ function openRecipe(id) {
         };
     });
 
-    const instructions = parseNotionList(recipe.property_instructions, '.');
-    const durations = parseNotionList(recipe.property_dur_es, '.');
+ const instructions = parseNotionList(recipe.property_instructions, '|||');
+const durations = parseNotionList(recipe.property_dur_es, '|||');
     const formattedSteps = instructions.map((text, index) => {
         return { desc: text, duree: durations[index] || 0 };
     });
