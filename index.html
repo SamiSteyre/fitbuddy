@@ -481,7 +481,8 @@
 
 
 <script>
-
+let deletedIngredients = []; // IDs Notion des lignes Composition Recette supprimées
+let deletedEtapes = [];      // IDs Notion des Etapes supprimées
     let userEmail = localStorage.getItem('fitbuddy_email');
 
     let storedName = localStorage.getItem('fitbuddy_user_name');
@@ -939,32 +940,39 @@ function openRecipe(id) {
     };
 
     // --- CALCUL DES RATIOS DES INGRÉDIENTS ---
-    const names = parseNotionList(recipe.property_ingredients, ',');
-    const quants = parseNotionList(recipe.property_quantites, ',');
+const names = parseNotionList(recipe.property_ingredients, ',');
+const quants = parseNotionList(recipe.property_quantites, ',');
+const compositionIds = recipe.property_composition_recette || [];
+const etapeIds = recipe.property_etapes_de_cuisine || [];
     const k_list = parseNotionList(recipe.property_kcal, ',');
     const p_list = parseNotionList(recipe.property_p, ',');
     const g_list = parseNotionList(recipe.property_g, ',');
     const l_list = parseNotionList(recipe.property_l, ',');
 
-    const formattedIngredients = names.map((nom, index) => {
-        const qOriginale = parseFloat(quants[index]) || 1;
-        return { 
-            nom: nom, 
-            quantite: qOriginale,
-            ratios: {
-                kcal: (parseFloat(k_list[index]) || 0) / qOriginale,
-                p: (parseFloat(p_list[index]) || 0) / qOriginale,
-                g: (parseFloat(g_list[index]) || 0) / qOriginale,
-                l: (parseFloat(l_list[index]) || 0) / qOriginale
-            }
-        };
-    });
+const formattedIngredients = names.map((nom, index) => {
+    const qOriginale = parseFloat(quants[index]) || 1;
+    return { 
+        nom: nom, 
+        quantite: qOriginale,
+        compositionId: compositionIds[index] || null,
+        ratios: {
+            kcal: (parseFloat(k_list[index]) || 0) / qOriginale,
+            p: (parseFloat(p_list[index]) || 0) / qOriginale,
+            g: (parseFloat(g_list[index]) || 0) / qOriginale,
+            l: (parseFloat(l_list[index]) || 0) / qOriginale
+        }
+    };
+});
 
  const instructions = parseNotionList(recipe.property_instructions, '|||');
 const durations = parseNotionList(recipe.property_dur_es, '|||');
-    const formattedSteps = instructions.map((text, index) => {
-        return { desc: text, duree: durations[index] || 0 };
-    });
+   // Reset des tableaux de suppression à chaque ouverture
+deletedIngredients = [];
+deletedEtapes = [];
+
+const formattedSteps = instructions.map((text, index) => {
+    return { desc: text, duree: durations[index] || 0, etapeId: etapeIds[index] || null };
+});
 
     body.innerHTML = `
         <div class="relative w-full h-[45dvh] overflow-hidden group">
@@ -1032,7 +1040,8 @@ const durations = parseNotionList(recipe.property_dur_es, '|||');
                 </div>
                 <div id="ingredients-container" class="space-y-2.5">
                     ${formattedIngredients.length > 0 
-                        ? formattedIngredients.map(ing => renderIngredientRow(ing.nom, ing.quantite, ing.ratios)).join('')
+                        ? formattedIngredients.map(ing => renderIngredientRow(ing.nom, ing.quantite, ing.ratios, ing.compositionId)).join('')
+
                         : '<p class="text-[10px] text-white/20 text-center py-4 italic">Aucun ingrédient répertorié</p>'
                     }
                 </div>
@@ -1045,7 +1054,7 @@ const durations = parseNotionList(recipe.property_dur_es, '|||');
                 </div>
                 <div id="steps-container" class="space-y-8">
                     ${formattedSteps.length > 0 
-                        ? formattedSteps.map((step, idx) => renderStepRow(idx + 1, step.desc, step.duree)).join('')
+                        ? formattedSteps.map((step, idx) => renderStepRow(idx + 1, step.desc, step.duree, step.etapeId)).join('')
                         : '<p class="text-[10px] text-white/20 text-center py-4 italic">Aucune instruction saisie</p>'
                     }
                 </div>
@@ -1062,10 +1071,11 @@ const durations = parseNotionList(recipe.property_dur_es, '|||');
     lucide.createIcons();
 }
 // Affiche une ligne d'ingrédient avec quantité numérique
-function renderIngredientRow(nom = "", qte = "", ratios = {kcal:0, p:0, g:0, l:0}) {
+function renderIngredientRow(nom = "", qte = "", ratios = {kcal:0, p:0, g:0, l:0}, compositionId = null) {
     return `
         <div class="relative ingredient-row group" 
-             data-rkcal="${ratios.kcal}" data-rp="${ratios.p}" data-rg="${ratios.g}" data-rl="${ratios.l}">
+             data-rkcal="${ratios.kcal}" data-rp="${ratios.p}" data-rg="${ratios.g}" data-rl="${ratios.l}"
+             data-composition-id="${compositionId || ''}">
             <div class="flex items-center gap-3 bg-white/[0.03] p-2 rounded-xl border border-white/5 mb-2">
                 <input type="number" value="${parseInt(qte) || ''}" 
                        oninput="recalculateMacros()" 
@@ -1081,7 +1091,7 @@ function renderIngredientRow(nom = "", qte = "", ratios = {kcal:0, p:0, g:0, l:0
                     <div class="suggestions-list absolute left-0 right-0 top-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-xl hidden z-50 max-h-40 overflow-y-auto shadow-2xl"></div>
                 </div>
 
-                <button onclick="this.closest('.ingredient-row').remove(); recalculateMacros();" class="p-2 text-white/20 hover:text-red-500 transition-colors">
+                <button onclick="const row = this.closest('.ingredient-row'); const cid = row.dataset.compositionId; if(cid) deletedIngredients.push(cid); row.remove(); recalculateMacros();"
                     <i data-lucide="trash-2" class="w-4 h-4"></i>
                 </button>
             </div>
@@ -1090,9 +1100,9 @@ function renderIngredientRow(nom = "", qte = "", ratios = {kcal:0, p:0, g:0, l:0
 }
 
 // Affiche une ligne d'étape avec durée numérique
-function renderStepRow(num, desc = "", duree = "") {
+function renderStepRow(num, desc = "", duree = "", etapeId = null) {
     return `
-        <div class="flex gap-4 group">
+        <div class="flex gap-4 group" data-etape-id="${etapeId || ''}">
             <div class="flex-none w-7 h-7 rounded-lg bg-cyan-500/10 flex items-center justify-center text-[11px] font-black text-cyan-400 border border-cyan-500/20">${num}</div>
             <div class="flex-1 space-y-2">
                 <textarea class="w-full bg-transparent text-[13px] text-white/60 leading-relaxed outline-none border-b border-white/5 focus:border-cyan-500/50 resize-none" rows="2" placeholder="Description de l'étape">${desc}</textarea>
@@ -1100,7 +1110,7 @@ function renderStepRow(num, desc = "", duree = "") {
                     <div class="flex items-center gap-2 text-[10px] font-black text-cyan-400/80 uppercase">
                         <i data-lucide="timer" class="w-3.5 h-3.5"></i>
 <input type="number" value="${parseInt(duree) || ''}" placeholder="0" oninput="recalculateDuration()" class="bg-transparent focus:outline-none w-8 text-center step-duration"> min                    </div>
-<button onclick="this.closest('.group').remove(); recalculateDuration();" class="text-white/10 hover:text-red-500 transition-colors">                </div>
+<button onclick="const grp = this.closest('.group'); const eid = grp.dataset.etapeId; if(eid) deletedEtapes.push(eid); grp.remove(); recalculateDuration();" class="text-white/10 hover:text-red-500 transition-colors">               </div>
             </div>
         </div>
     `;
@@ -1462,16 +1472,73 @@ async function confirmMacroSend() {
 
 // ENREGISTREMENT RECETTE
 async function saveRecipeData(id) {
-    // Récupère les données modifiées dans la modal pour les envoyer à Notion
-    const updatedRecipe = {
-        id: id,
-        nom: document.querySelector('input[placeholder="Nom de la recette"]').value,
-        parts: document.getElementById('recipe-parts-select').value,
-        // ... récupérer les ingrédients et étapes ...
-    };
+    const btnSave = document.querySelector('button[onclick*="saveRecipeData"]');
     
-    console.log("Sauvegarde de la recette...", updatedRecipe);
-    alert("Recette mise à jour dans Notion !");
+    // Collecte des catégories actives
+    const categories = [...document.querySelectorAll('.category-chip.active')].map(c => c.textContent.trim());
+    
+    // Collecte des ingrédients
+    const ingredients = [];
+    document.querySelectorAll('.ingredient-row').forEach(row => {
+        ingredients.push({
+            id: row.dataset.compositionId || null,
+            nom: row.querySelector('.ingredient-name').value,
+            quantite: parseFloat(row.querySelector('.ingredient-qte').value) || 0
+        });
+    });
+
+    // Collecte des étapes
+    const etapes = [];
+    document.querySelectorAll('#steps-container .group').forEach((row, idx) => {
+        etapes.push({
+            id: row.dataset.etapeId || null,
+            description: row.querySelector('textarea').value,
+            duree: parseFloat(row.querySelector('.step-duration').value) || 0,
+            ordre: idx + 1
+        });
+    });
+
+    const payload = {
+        email: userEmail,
+        recette: {
+            id: id,
+            nom: document.getElementById('recipe-name-input').value,
+            parts: parseInt(document.getElementById('recipe-parts-select').value),
+            categories: categories,
+            duree: etapes.reduce((sum, e) => sum + e.duree, 0)
+        },
+        ingredients: ingredients,
+        etapes: etapes,
+        ingredients_supprimes: deletedIngredients,
+        etapes_supprimees: deletedEtapes
+    };
+
+    try {
+        if(btnSave) { btnSave.disabled = true; btnSave.innerHTML = '<i data-lucide="loader" class="w-5 h-5 animate-spin text-white"></i>'; lucide.createIcons(); }
+        
+        const res = await fetch(`${N8N_URL}/webhook/save-recipe`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+            // Reset des tableaux après sauvegarde réussie
+            deletedIngredients = [];
+            deletedEtapes = [];
+            closeRecipe();
+            const chat = document.getElementById('chat');
+            chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl animate-in fade-in">✅ Recette "<b>${payload.recette.nom}</b>" sauvegardée dans Notion !</div>`;
+            chat.scrollTop = chat.scrollHeight;
+        } else {
+            alert("Erreur lors de la sauvegarde.");
+        }
+    } catch(e) {
+        console.error(e);
+        alert("Impossible de contacter FitBuddy.");
+    } finally {
+        if(btnSave) { btnSave.disabled = false; btnSave.innerHTML = '<i data-lucide="save" class="w-5 h-5 text-white"></i>'; lucide.createIcons(); }
+    }
 }
 
 
