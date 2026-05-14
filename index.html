@@ -1584,7 +1584,7 @@ async function searchAliments(input) {
     searchTimeout = setTimeout(async () => {
         try {
             // Utilisation de POST au lieu de GET
-            const res = await fetch(`${N8N_URL}/webhook-test/search-aliments`, {
+            const res = await fetch(`${N8N_URL}/webhook/search-aliments`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
