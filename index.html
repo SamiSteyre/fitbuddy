@@ -1099,10 +1099,8 @@ function renderStepRow(num, desc = "", duree = "") {
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-2 text-[10px] font-black text-cyan-400/80 uppercase">
                         <i data-lucide="timer" class="w-3.5 h-3.5"></i>
-                        <input type="number" value="${parseInt(duree) || ''}" placeholder="0" class="bg-transparent focus:outline-none w-8 text-center"> min
-                    </div>
-                    <button onclick="this.closest('.group').remove()" class="text-white/10 hover:text-red-500 transition-colors"><i data-lucide="x-circle" class="w-4 h-4"></i></button>
-                </div>
+<input type="number" value="${parseInt(duree) || ''}" placeholder="0" oninput="recalculateDuration()" class="bg-transparent focus:outline-none w-8 text-center step-duration"> min                    </div>
+<button onclick="this.closest('.group').remove(); recalculateDuration();" class="text-white/10 hover:text-red-500 transition-colors">                </div>
             </div>
         </div>
     `;
@@ -1120,6 +1118,7 @@ function addStepRow() {
     const nextNum = container.children.length + 1;
     container.insertAdjacentHTML('beforeend', renderStepRow(nextNum));
     lucide.createIcons();
+    recalculateDuration();
 }
 
 
@@ -1570,6 +1569,15 @@ async function saveRecipeData(id) {
     document.getElementById('display-prot').innerText = (totalP / parts).toFixed(1);
     document.getElementById('display-glu').innerText = (totalG / parts).toFixed(1);
     document.getElementById('display-lip').innerText = (totalL / parts).toFixed(1);
+}
+
+    function recalculateDuration() {
+    let total = 0;
+    document.querySelectorAll('.step-duration').forEach(input => {
+        total += parseFloat(input.value) || 0;
+    });
+    const badge = document.querySelector('.info-circle span.text-white:not([id])');
+    if (badge) badge.innerText = total;
 }
 
     let searchTimeout;
