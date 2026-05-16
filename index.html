@@ -1012,9 +1012,12 @@ const formattedSteps = instructions.map((text, index) => {
                 <button onclick="openMacroPopup()" class="w-11 h-11 bg-purple-600/90 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-purple-400/30 shadow-2xl active:scale-90 transition-transform">
                     <i data-lucide="pie-chart" class="w-5 h-5 text-white"></i>
                 </button>
-                <button onclick="saveRecipeData('${recipe.id}')" class="w-11 h-11 bg-blue-600/90 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-blue-400/30 shadow-2xl active:scale-90 transition-transform">
-                    <i data-lucide="save" class="w-5 h-5 text-white"></i>
-                </button>
+                // À remplacer dans la grande chaîne HTML de la fonction openRecipe() :
+<button id="btn-save-recipe" onclick="saveRecipeData('${recipe.id}')" class="w-11 h-11 bg-blue-600/90 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-blue-400/30 shadow-2xl active:scale-90 transition-transform">
+    <i data-lucide="save" class="w-5 h-5 text-white"></i>
+</button>
+
+
             </div>
         </div>
 
@@ -1066,34 +1069,39 @@ const formattedSteps = instructions.map((text, index) => {
             </button>
         </div>
     `;
-    
+    checkRecipeValidity();
     modal.style.display = 'flex';
     lucide.createIcons();
 }
 // Affiche une ligne d'ingrédient avec quantité numérique
-function renderIngredientRow(nom = "", qte = "", ratios = {kcal:0, p:0, g:0, l:0}, compositionId = null) {
+function renderIngredientRow(nom = "", qte = "", ratios = {kcal:0, p:0, g:0, l:0}, compositionId = null, alimentId = "") {
+    // Si la ligne existe déjà dans Notion, on considère l'aliment comme valide au départ ("loaded")
+    const initialAlimentId = alimentId || (compositionId ? "loaded" : "");
     return `
         <div class="relative ingredient-row group" 
              data-rkcal="${ratios.kcal}" data-rp="${ratios.p}" data-rg="${ratios.g}" data-rl="${ratios.l}"
-             data-composition-id="${compositionId || ''}">
-            <div class="flex items-center gap-3 bg-white/[0.03] p-2 rounded-xl border border-white/5 mb-2">
-                <input type="number" value="${parseInt(qte) || ''}" 
-                       oninput="recalculateMacros()" 
-                       placeholder="0" 
-                       class="w-16 bg-cyan-500/10 border border-cyan-500/20 rounded-lg py-1.5 px-2 text-[10px] font-black text-cyan-400 outline-none text-center ingredient-qte">
-                
-                <div class="flex-1 relative">
-                    <input type="text" value="${nom}" 
-                           oninput="searchAliments(this)" 
-                           placeholder="Chercher un aliment..." 
-                           class="w-full bg-transparent text-[13px] text-white/80 outline-none ingredient-name">
-                    <!-- Liste de suggestions -->
-                    <div class="suggestions-list absolute left-0 right-0 top-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-xl hidden z-50 max-h-40 overflow-y-auto shadow-2xl"></div>
-                </div>
+             data-composition-id="${compositionId || ''}"
+             data-aliment-id="${initialAlimentId}">
+            <div class="ingredient-container flex flex-col mb-2 bg-white/[0.03] p-2 rounded-xl border border-white/5 transition-colors">
+                <div class="flex items-center gap-3">
+                    <input type="number" value="${parseInt(qte) || ''}" 
+                           oninput="recalculateMacros()" 
+                           placeholder="0" 
+                           class="w-16 bg-cyan-500/10 border border-cyan-500/20 rounded-lg py-1.5 px-2 text-[10px] font-black text-cyan-400 outline-none text-center ingredient-qte">
+                    
+                    <div class="flex-1 relative">
+                        <input type="text" value="${nom}" 
+                               oninput="handleIngredientNameInput(this)" 
+                               placeholder="Chercher un aliment..." 
+                               class="w-full bg-transparent text-[13px] text-white/80 outline-none ingredient-name">
+                        <div class="suggestions-list absolute left-0 right-0 top-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-xl hidden z-50 max-h-40 overflow-y-auto shadow-2xl"></div>
+                    </div>
 
-                <button onclick="const row = this.closest('.ingredient-row'); const cid = row.dataset.compositionId; if(cid) deletedIngredients.push(cid); row.remove(); recalculateMacros();"
-                    <i data-lucide="trash-2" class="w-4 h-4"></i>
-                </button>
+                    <button onclick="const row = this.closest('.ingredient-row'); const cid = row.dataset.compositionId; if(cid) deletedIngredients.push(cid); row.remove(); recalculateMacros(); checkRecipeValidity();" class="text-white/20 hover:text-red-500 transition-colors">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </div>
+                <div class="error-msg text-[9px] text-red-400 mt-1 hidden font-bold pl-2">⚠️ Cet aliment n'est pas lié à la base Notion Aliments.</div>
             </div>
         </div>
     `;
@@ -1672,12 +1680,12 @@ async function searchAliments(input) {
             const aliments = await res.json();
 
             if (aliments && aliments.length > 0) {
-                list.innerHTML = aliments.map(a => `
-                    <div class="px-4 py-2 hover:bg-cyan-500/20 cursor-pointer text-xs text-white border-b border-white/5"
-                         onclick="selectIngredient(this, '${a.nom.replace(/'/g, "\\'")}', ${a.kcal_100g}, ${a.prot_100g}, ${a.gluc_100g}, ${a.lip_100g})">
-                        ${a.nom} <span class="text-[8px] text-cyan-400 ml-2">${a.kcal_100g}kcal/100g</span>
-                    </div>
-                `).join('');
+             list.innerHTML = aliments.map(a => `
+    <div class="px-4 py-2 hover:bg-cyan-500/20 cursor-pointer text-xs text-white border-b border-white/5"
+         onclick="selectIngredient(this, '${a.id}', '${a.nom.replace(/'/g, "\\'")}', ${a.kcal_100g}, ${a.prot_100g}, ${a.gluc_100g}, ${a.lip_100g})">
+        ${a.nom} <span class="text-[8px] text-cyan-400 ml-2">${a.kcal_100g}kcal/100g</span>
+    </div>
+`).join('');
                 list.classList.remove('hidden');
             } else {
                 list.classList.add('hidden');
@@ -1688,24 +1696,69 @@ async function searchAliments(input) {
     }, 300);
 }
 
-function selectIngredient(element, nom, kcal100, p100, g100, l100) {
+function selectIngredient(element, id, nom, kcal100, p100, g100, l100) {
     const row = element.closest('.ingredient-row');
     const input = row.querySelector('.ingredient-name');
     const list = row.querySelector('.suggestions-list');
 
-    // Mise à jour du nom
     input.value = nom;
     list.classList.add('hidden');
 
-    // Mise à jour des RATIOS (on divise par 100 car Notion donne souvent les macros pour 100g)
+    // Sauvegarde de l'ID de l'aliment et recalculs
+    row.dataset.alimentId = id;
     row.dataset.rkcal = kcal100 / 100;
     row.dataset.rp = p100 / 100;
     row.dataset.rg = g100 / 100;
     row.dataset.rl = l100 / 100;
 
-    // Recalcul immédiat
     recalculateMacros();
+    checkRecipeValidity(); // <-- Lance la vérification immédiate
 }
+
+    // Gère la saisie manuelle dans le champ texte
+function handleIngredientNameInput(input) {
+    const row = input.closest('.ingredient-row');
+    row.dataset.alimentId = ""; // L'utilisateur tape du texte libre -> le lien Notion saute
+    searchAliments(input);
+    checkRecipeValidity();
+}
+
+// Scanne les lignes et verrouille/déverrouille le bouton
+function checkRecipeValidity() {
+    const saveBtn = document.getElementById('btn-save-recipe');
+    if (!saveBtn) return;
+
+    let allValid = true;
+
+    document.querySelectorAll('.ingredient-row').forEach(row => {
+        const nameInput = row.querySelector('.ingredient-name');
+        const nameValue = nameInput ? nameInput.value.trim() : "";
+        const alimentId = row.dataset.alimentId;
+        const container = row.querySelector('.ingredient-container');
+        const errorMsg = row.querySelector('.error-msg');
+
+        // Une ligne est en erreur si elle a du texte mais pas d'ID Notion valide attaché
+        if (nameValue.length > 0 && (!alimentId || alimentId === 'null' || alimentId === 'undefined')) {
+            allValid = false;
+            if (container) container.classList.add('border-red-500/50', 'bg-red-500/5');
+            if (errorMsg) errorMsg.classList.remove('hidden');
+        } else {
+            if (container) container.classList.remove('border-red-500/50', 'bg-red-500/5');
+            if (errorMsg) errorMsg.classList.add('hidden');
+        }
+    });
+
+    // Application du statut sur le bouton
+    saveBtn.disabled = !allValid;
+    if (!allValid) {
+        saveBtn.style.opacity = "0.3";
+        saveBtn.style.cursor = "not-allowed";
+    } else {
+        saveBtn.style.opacity = "1";
+        saveBtn.style.cursor = "pointer";
+    }
+}
+    
 </script>
 <!-- POPUP ENREGISTREMENT MACRO -->
 <div id="macro-log-modal" class="modal-overlay !justify-center !items-center p-6" style="background: rgba(0,0,0,0.95);">
