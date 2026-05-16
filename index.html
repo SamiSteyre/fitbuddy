@@ -1093,13 +1093,14 @@ function renderIngredientRow(nom = "", qte = "", ratios = {kcal:0, p:0, g:0, l:0
                            placeholder="0" 
                            class="w-16 bg-cyan-500/10 border border-cyan-500/20 rounded-lg py-1.5 px-2 text-[10px] font-black text-cyan-400 outline-none text-center ingredient-qte">
                     
-                    <div class="flex-1 relative">
-                        <input type="text" value="${nom}" 
-                               oninput="handleIngredientNameInput(this)" 
-                               placeholder="Chercher un aliment..." 
-                               class="w-full bg-transparent text-[13px] text-white/80 outline-none ingredient-name">
-                        <div class="suggestions-list absolute left-0 right-0 top-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-xl hidden z-50 max-h-40 overflow-y-auto shadow-2xl"></div>
-                    </div>
+<div class="flex-1 relative">
+    <input type="text" value="${nom}" 
+           oninput="handleIngredientNameInput(this)" 
+           onblur="handleIngredientBlur(this)"
+           placeholder="Chercher un aliment..." 
+           class="w-full bg-transparent text-[13px] text-white/80 outline-none ingredient-name">
+    <div class="suggestions-list absolute left-0 right-0 top-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-xl hidden z-50 max-h-40 overflow-y-auto shadow-2xl"></div>
+</div>
 
                     <button onclick="const row = this.closest('.ingredient-row'); const cid = row.dataset.compositionId; if(cid) deletedIngredients.push(cid); row.remove(); recalculateMacros(); checkRecipeValidity();" class="text-white/20 hover:text-red-500 transition-colors">
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
@@ -1753,36 +1754,59 @@ function selectIngredient(element, id, nom, kcal100, p100, g100, l100) {
     const row = element.closest('.ingredient-row');
     const input = row.querySelector('.ingredient-name');
     const list = row.querySelector('.suggestions-list');
+    const container = row.querySelector('.ingredient-container');
+    const errorMsg = row.querySelector('.error-msg');
 
     input.value = nom;
-    list.classList.add('hidden');
+    if (list) list.classList.add('hidden');
 
-    // 🕵️ SOS N8N : Si même après le scan automatique aucun ID n'est trouvé,
-    // on te met un message d'alerte très précis dans la console de ton navigateur (F12)
-    if (!id || id === 'undefined' || id === 'null' || id === '') {
-        console.error(`❌ Erreur FitBuddy : L'aliment "${nom}" n'a renvoyé aucun ID depuis n8n. Vérifie le format de ton webhook.`);
-    }
-
-    // Enregistrement des données dans les datasets de la ligne
+    // Sauvegarde des données
     row.dataset.alimentId = id;
     row.dataset.rkcal = kcal100 / 100;
     row.dataset.rp = p100 / 100;
     row.dataset.rg = g100 / 100;
     row.dataset.rl = l100 / 100;
 
-    // Relance les calculs globaux et nettoie l'affichage d'erreur
+    // ✨ NETTOYAGE VISUEL IMMÉDIAT
+    if (container) container.classList.remove('border-red-500/50', 'bg-red-500/5');
+    if (errorMsg) errorMsg.classList.add('hidden');
+
     recalculateMacros();
     checkRecipeValidity(); 
 }
-
     // Gère la saisie manuelle dans le champ texte
 function handleIngredientNameInput(input) {
     const row = input.closest('.ingredient-row');
     row.dataset.alimentId = ""; // L'utilisateur tape du texte libre -> le lien Notion saute
     searchAliments(input);
-    checkRecipeValidity();
 }
+function handleIngredientBlur(input) {
+    const row = input.closest('.ingredient-row');
+    const list = row.querySelector('.suggestions-list');
+    
+    // On attend un instant pour laisser le choix de l'aliment s'enregistrer
+    setTimeout(() => {
+        const nameValue = input.value.trim();
+        const alimentId = row.dataset.alimentId;
+        const container = row.querySelector('.ingredient-container');
+        const errorMsg = row.querySelector('.error-msg');
 
+        // L'avertissement ne s'affiche que si le texte n'est pas vide ET qu'aucun ID valide n'est présent
+        if (nameValue.length > 0 && (!alimentId || alimentId === 'null' || alimentId === 'undefined' || alimentId === '')) {
+            if (container) container.classList.add('border-red-500/50', 'bg-red-500/5');
+            if (errorMsg) errorMsg.classList.remove('hidden');
+        } else {
+            if (container) container.classList.remove('border-red-500/50', 'bg-red-500/5');
+            if (errorMsg) errorMsg.classList.add('hidden');
+        }
+        
+        // On ferme proprement la liste déroulante
+        if (list) list.classList.add('hidden');
+        
+        // On rafraîchit l'état du bouton de sauvegarde global
+        checkRecipeValidity();
+    }, 200);
+}
 // Scanne les lignes et verrouille/déverrouille le bouton
 function checkRecipeValidity() {
     const saveBtn = document.getElementById('btn-save-recipe');
@@ -1794,21 +1818,14 @@ function checkRecipeValidity() {
         const nameInput = row.querySelector('.ingredient-name');
         const nameValue = nameInput ? nameInput.value.trim() : "";
         const alimentId = row.dataset.alimentId;
-        const container = row.querySelector('.ingredient-container');
-        const errorMsg = row.querySelector('.error-msg');
 
-        // Une ligne est en erreur si elle a du texte mais pas d'ID Notion valide attaché
-        if (nameValue.length > 0 && (!alimentId || alimentId === 'null' || alimentId === 'undefined')) {
+        // Le bouton se bloque uniquement si un texte est écrit sans ID valide à côté
+        if (nameValue.length > 0 && (!alimentId || alimentId === 'null' || alimentId === 'undefined' || alimentId === '')) {
             allValid = false;
-            if (container) container.classList.add('border-red-500/50', 'bg-red-500/5');
-            if (errorMsg) errorMsg.classList.remove('hidden');
-        } else {
-            if (container) container.classList.remove('border-red-500/50', 'bg-red-500/5');
-            if (errorMsg) errorMsg.classList.add('hidden');
         }
     });
 
-    // Application du statut sur le bouton
+    // Gestion de l'état du bouton uniquement
     saveBtn.disabled = !allValid;
     if (!allValid) {
         saveBtn.style.opacity = "0.3";
