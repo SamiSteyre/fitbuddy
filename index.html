@@ -854,10 +854,12 @@ let deletedEtapes = [];      // IDs Notion des Etapes supprimées
                 
 
                 list.forEach(r => {
-
-                    const clean = r.photo || (r.nom ? r.nom.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".jpg" : "default-recipe.jpg");
-
-                    const path = clean.startsWith('http') ? clean : `images/recettes/${clean}`;
+    // On centralise la récupération du nom pour éviter les bugs si r.nom est vide
+    const recipeTitle = r.property_nom || r.nom || r.name || "";
+    
+    // Correction ici : on cherche d'abord property_photo, puis photo, puis le fallback
+    const clean = r.property_photo || r.photo || (recipeTitle ? recipeTitle.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".jpg" : "default-recipe.jpg");
+    const path = clean.startsWith('http') ? clean : `images/recettes/${clean}`;
 
                     
 
@@ -920,12 +922,14 @@ function openRecipe(id) {
     const body = document.getElementById('recipe-detail-body');
     const categories = ["Entrées", "Plats", "Desserts", "Autres", "Suggestions de Tyler", "Menu de la semaine"];
     
-    const recipeName = recipe.property_nom || recipe.name || "";
-    const currentCats = recipe.property_cat_gorie || "";
-    const partsValue = recipe.property_parts || 1;
-    const clean = recipe.photo || "default-recipe.jpg";
-    const path = clean.startsWith('http') ? clean : `images/recettes/${clean}`;
+ const recipeName = recipe.property_nom || recipe.name || "";
+const currentCats = recipe.property_cat_gorie || "";
+const partsValue = recipe.property_parts || 1;
 
+// Correction ici : prise en compte du préfixe de Notion + fallback intelligent
+const clean = recipe.property_photo || recipe.photo || (recipeName ? recipeName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".jpg" : "default-recipe.jpg");
+const path = clean.startsWith('http') ? clean : `images/recettes/${clean}`;
+    
     const kcal = parseFloat(recipe.property_kcal_part || 0).toFixed(1);
     const prot = parseFloat(recipe.property_p_part || 0).toFixed(1);
     const glu = parseFloat(recipe.property_g_part || 0).toFixed(1);
@@ -1521,8 +1525,10 @@ if (imgEl && imgEl.dataset.base64) {
         filename: photoFilename
     };
 } else if (imgEl && imgEl.src.includes('images/recettes/')) {
-    // Si l'image n'a pas changé, on garde le nom actuel du fichier
-    photoFilename = imgEl.src.split('/').pop();
+    // Si l'image n'a pas changé, on extrait son nom actuel
+    const currentFile = imgEl.src.split('/').pop();
+    // Sécurité : si c'est la photo par défaut, on renvoie du vide pour Notion
+    photoFilename = currentFile === 'default-recipe.jpg' ? "" : currentFile;
 }
     // Collecte des ingrédients
    const ingredients = [];
