@@ -176,15 +176,11 @@
 
 
 
-        @media (orientation: landscape) {
-
-            #main-content { flex-direction: row !important; }
-
-            #video-box:not(.video-mini-active) { width: 45% !important; height: 100% !important; border-bottom: none !important; border-right: 1px solid rgba(255,255,255,0.1); }
-
-            #chat-box { width: 55% !important; }
-
-        }
+   @media (orientation: landscape) {
+    #main-content { flex-direction: row !important; }
+    #video-box:not(.video-mini-active) { width: 45% !important; height: 100% !important; border-bottom: none !important; border-right: 1px solid rgba(255,255,255,0.1); }
+    #views-container { width: 55% !important; } /* Remplace #chat-box */
+}
 
 
 
@@ -387,38 +383,30 @@
     </header>
 
 
+<main id="main-content" class="flex-1 flex flex-col overflow-hidden relative">
+    <div id="video-box" class="flex-none h-[30dvh] bg-black relative border-b border-white/10">
+        <video id="agentVideo" class="w-full h-full object-contain" autoplay loop muted playsinline>
+            <source src="agent-avatar.mp4" type="video/mp4">
+        </video>
+    </div>
 
-    <main id="main-content" class="flex-1 flex flex-col overflow-hidden relative">
-
-        <div id="video-box" class="flex-none h-[30dvh] bg-black relative border-b border-white/10">
-
-            <video id="agentVideo" class="w-full h-full object-contain" autoplay loop muted playsinline>
-
-                <source src="agent-avatar.mp4" type="video/mp4">
-
-            </video>
-
-        </div>
-
-
-
-        <div id="chat-box" class="flex-1 flex flex-col overflow-hidden">
-
-            <div id="chat" class="flex-1 overflow-y-auto p-4 space-y-4 flex flex-col bg-black">
-
-                <div class="msg-agent p-4 max-w-[90%] shadow-lg">
-
-                    <p class="text-[8px] text-cyan-400 font-black mb-1 uppercase tracking-widest">System</p>
-
-                    <p id="system-status" class="text-xs text-gray-400">Prêt.</p>
-
-                </div>
-
+    <div id="views-container" class="flex-1 overflow-hidden relative">
+        
+        <div id="view-chat" class="absolute inset-0 flex flex-col overflow-y-auto p-4 space-y-4 bg-black">
+            <div class="msg-agent p-4 max-w-[90%] shadow-lg">
+                <p class="text-[8px] text-cyan-400 font-black mb-1 uppercase tracking-widest">System</p>
+                <p id="system-status" class="text-xs text-gray-400">Prêt.</p>
             </div>
-
         </div>
 
-    </main>
+        <div id="view-cooking" class="absolute inset-0 overflow-y-auto p-4 space-y-4 bg-black hidden"></div>
+
+        <div id="view-macros" class="absolute inset-0 overflow-y-auto p-4 space-y-4 bg-black hidden"></div>
+
+        <div id="view-shopping" class="absolute inset-0 overflow-y-auto p-4 space-y-4 bg-black hidden"></div>
+
+    </div>
+</main>
 
 
 
@@ -709,9 +697,11 @@ let deletedEtapes = [];      // IDs Notion des Etapes supprimées
 
     /* --- FONCTION CUISINE --- */
 
-    function switchToCooking(data) {
 
-        moveToHeader("agent-cook.mp4"); 
+function switchToCooking(data) {
+    moveToHeader("agent-cook.mp4"); 
+    showView('view-cooking'); // <--- Ajoute ça
+    const container = document.getElementById('view-cooking');
 
         const btnPlus = document.getElementById('floating-plus');
 
@@ -903,7 +893,7 @@ let deletedEtapes = [];      // IDs Notion des Etapes supprimées
 
         lucide.createIcons();
 
-        forceScrollTop();
+    setTimeout(() => { container.scrollTo({ top: 0, behavior: 'instant' }); }, 100);)
 
     }
 function openRecipe(id) {
@@ -1156,9 +1146,11 @@ function addStepRow() {
 
     /* --- MACROS --- */
 
-    function switchToMacros(data) {
 
-        moveToHeader("agent-eat.mp4");
+ function switchToMacros(data) {
+    moveToHeader("agent-eat.mp4");
+    showView('view-macros'); // <--- Ajoute ça
+    const container = document.getElementById('view-macros'); // <--- Remplace 'chat' par 'view-macros'
 
         document.getElementById('floating-plus').classList.add('hidden');
 
@@ -1282,7 +1274,7 @@ function addStepRow() {
 
         </div>`;
 
-        chat.innerHTML = html; lucide.createIcons(); forceScrollTop();
+        chat.innerHTML = html; lucide.createIcons(); setTimeout(() => { container.scrollTo({ top: 0, behavior: 'instant' }); }, 100);)
 
     }
 
@@ -1309,8 +1301,8 @@ function addStepRow() {
     /* --- COURSES --- */
 
     function switchToShopping(data) {
-
-        moveToHeader("agent-courses.mp4");
+moveToHeader("agent-courses.mp4");
+    showView('view-shopping');
 
         document.getElementById('floating-plus').classList.add('hidden');
 
@@ -1318,17 +1310,16 @@ function addStepRow() {
 
         currentList = items.map((i, idx) => ({ id: i.id || i.pageId || i.idNotion || `idx-${idx}`, nom: (i.nom || i.item || "Produit").trim(), quantite: i.quantite || "1", unite: i.unite || "", rayon: (i.rayon || i.category || "Autres").trim(), isPurchased: false }));
 
-        renderShopping(); forceScrollTop();
+        renderShopping(); setTimeout(() => { container.scrollTo({ top: 0, behavior: 'instant' }); }, 100);)
 
     }
 
 
 
-    function renderShopping() {
+  function renderShopping() {
+    const container = document.getElementById('view-shopping'); // <--- Remplace 'chat' par 'view-shopping'
+    container.innerHTML = `<div id="shopping-content" class="space-y-6"></div>`;
 
-        const chat = document.getElementById('chat');
-
-        chat.innerHTML = `<div id="shopping-content" class="space-y-6"></div>`;
 
         const content = document.getElementById('shopping-content');
 
@@ -1631,80 +1622,79 @@ async function saveRecipeData(id) {
     }
 }
 
+async function envoyerMessage() {
+    const input = document.getElementById('userInput');
+    const msg = input.value.trim();
+    if (!msg || !userEmail) return;
 
-    async function envoyerMessage() {
+    showView('view-chat'); 
 
-        const input = document.getElementById('userInput');
+    const chat = document.getElementById('view-chat');
+    chat.innerHTML += `<div class="msg-user p-4 max-w-[80%] text-xs shadow-lg animate-in slide-in-from-right-4 font-semibold">${msg}</div>`;
+    input.value = ''; chat.scrollTop = chat.scrollHeight;
 
-        const msg = input.value.trim();
+    try {
+        const res = await fetch(`${N8N_URL}/webhook/chat-agent`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ message: msg, email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') }) });
+        const responseData = await res.json();
+        const r = Array.isArray(responseData) ? responseData[0] : responseData;
+        
+        if (r.output) { chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl">${r.output}</div>`; }
+        if (r.audio_base64 && r.audio_base64 !== "empty") { new Audio("data:audio/mp3;base64," + r.audio_base64).play(); }
+        
+        let actionStr = (r.action || (r.data && r.data.action) || "").toLowerCase();
+        if (actionStr.includes("cuisine") || actionStr.includes("cook") || actionStr.includes("recette")) switchToCooking(r);
+        else if (actionStr.includes("macro") || actionStr.includes("dashboard") || actionStr.includes("switchtomacros")) switchToMacros(r);
+        else if (actionStr.includes("shopping") || actionStr.includes("course")) switchToShopping(r);
+        
+        chat.scrollTop = chat.scrollHeight;
+    } catch(e) {}
+}
 
-        if (!msg || !userEmail) return;
+function showView(viewId) {
+    const views = ['view-chat', 'view-cooking', 'view-macros', 'view-shopping'];
+    views.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            if (id === viewId) el.classList.remove('hidden');
+            else el.classList.add('hidden');
+        }
+    });
 
-        const chat = document.getElementById('chat');
-
-        chat.innerHTML += `<div class="msg-user p-4 max-w-[80%] text-xs shadow-lg animate-in slide-in-from-right-4 font-semibold">${msg}</div>`;
-
-        input.value = ''; chat.scrollTop = chat.scrollHeight;
-
-        try {
-
-            const res = await fetch(`${N8N_URL}/webhook/chat-agent`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ message: msg, email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') }) });
-
-            const responseData = await res.json();
-
-            const r = Array.isArray(responseData) ? responseData[0] : responseData;
-
-            if (r.output) { chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl">${r.output}</div>`; }
-
-            if (r.audio_base64 && r.audio_base64 !== "empty") { new Audio("data:audio/mp3;base64," + r.audio_base64).play(); }
-
-            
-
-            let actionStr = (r.action || (r.data && r.data.action) || "").toLowerCase();
-
-            
-
-            if (actionStr.includes("cuisine") || actionStr.includes("cook") || actionStr.includes("recette")) {
-
-                switchToCooking(r);
-
-            } 
-
-            else if (actionStr.includes("macro") || actionStr.includes("dashboard") || actionStr.includes("switchtomacros")) {
-
-                switchToMacros(r);
-
-            } 
-
-            else if (actionStr.includes("shopping") || actionStr.includes("course")) {
-
-                switchToShopping(r);
-
-            }
-
-            
-
-            chat.scrollTop = chat.scrollHeight;
-
-        } catch(e) {}
-
+    const btnPlus = document.getElementById('floating-plus');
+    if (btnPlus) {
+        if (viewId === 'view-cooking') { btnPlus.classList.remove('hidden'); btnPlus.style.display = 'flex'; }
+        else { btnPlus.classList.add('hidden'); btnPlus.style.display = 'none'; }
     }
+}
 
+async function triggerQuickAction(type) {
+    const targetViewId = type === 'cuisine' ? 'view-cooking' : (type === 'macros' ? 'view-macros' : 'view-shopping');
+    showView(targetViewId);
+    
+    const container = document.getElementById(targetViewId);
+    container.innerHTML = `
+        <div class="flex flex-col items-center justify-center h-full gap-3 text-cyan-400 text-xs tracking-widest uppercase animate-pulse">
+            <i data-lucide="loader" class="w-5 h-5 animate-spin"></i>
+            <span>Chargement FitBuddy...</span>
+        </div>`;
+    if (window.lucide) lucide.createIcons();
 
+    try {
+        const res = await fetch(`${N8N_URL}/webhook/quick-action`, { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json', "ngrok-skip-browser-warning": "69420" }, 
+            body: JSON.stringify({ action: type, email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') }) 
+        });
+        const responseData = await res.json();
+        const r = Array.isArray(responseData) ? responseData[0] : responseData;
 
-    function triggerQuickAction(type) {
-
-        const input = document.getElementById('userInput');
-
-        if (type === 'courses') { input.value = "Affiche ma liste de courses"; } 
-
-        else if (type === 'macros') { input.value = "Affiche mon dashboard de macros"; }
-
-        else if (type === 'cuisine') { input.value = "Affiche la cuisine"; }
-
-        envoyerMessage();
-
+        if (type === 'cuisine') switchToCooking(r);
+        else if (type === 'macros') switchToMacros(r);
+        else if (type === 'courses') switchToShopping(r);
+    } catch(e) {
+        container.innerHTML = `<div class="flex items-center justify-center h-full text-red-400 text-xs">⚠️ Erreur de chargement.</div>`;
     }
+}
 
     function recalculateMacros() {
     let totalKcal = 0, totalP = 0, totalG = 0, totalL = 0;
