@@ -387,39 +387,35 @@
     </header>
 
 
+<main id="main-content" class="flex-1 flex flex-col overflow-hidden relative">
+    <div id="video-box" class="flex-none h-[30dvh] bg-black relative border-b border-white/10">
+        <video id="agentVideo" class="w-full h-full object-contain" autoplay loop muted playsinline>
+            <source src="agent-avatar.mp4" type="video/mp4">
+        </video>
+    </div>
 
-    <main id="main-content" class="flex-1 flex flex-col overflow-hidden relative">
-
-        <div id="video-box" class="flex-none h-[30dvh] bg-black relative border-b border-white/10">
-
-            <video id="agentVideo" class="w-full h-full object-contain" autoplay loop muted playsinline>
-
-                <source src="agent-avatar.mp4" type="video/mp4">
-
-            </video>
-
-        </div>
-
-
-
-        <div id="chat-box" class="flex-1 flex flex-col overflow-hidden">
-
-            <div id="chat" class="flex-1 overflow-y-auto p-4 space-y-4 flex flex-col bg-black">
-
-                <div class="msg-agent p-4 max-w-[90%] shadow-lg">
-
-                    <p class="text-[8px] text-cyan-400 font-black mb-1 uppercase tracking-widest">System</p>
-
-                    <p id="system-status" class="text-xs text-gray-400">Prêt.</p>
-
-                </div>
-
+    <!-- Zone d'affichage dynamique des Vues -->
+    <div id="views-container" class="flex-1 overflow-hidden relative">
+        
+        <!-- 1. VUE CHAT (Active par défaut) -->
+        <div id="view-chat" class="absolute inset-0 flex flex-col overflow-y-auto p-4 space-y-4 bg-black">
+            <div class="msg-agent p-4 max-w-[90%] shadow-lg">
+                <p class="text-[8px] text-cyan-400 font-black mb-1 uppercase tracking-widest">System</p>
+                <p id="system-status" class="text-xs text-gray-400">Prêt.</p>
             </div>
-
         </div>
 
-    </main>
+        <!-- 2. VUE CUISINE (Cachée par défaut) -->
+        <div id="view-cooking" class="absolute inset-0 overflow-y-auto p-4 space-y-4 bg-black hidden"></div>
 
+        <!-- 3. VUE MACROS (Cachée par défaut) -->
+        <div id="view-macros" class="absolute inset-0 overflow-y-auto p-4 space-y-4 bg-black hidden"></div>
+
+        <!-- 4. VUE COURSES (Cachée par défaut) -->
+        <div id="view-shopping" class="absolute inset-0 overflow-y-auto p-4 space-y-4 bg-black hidden"></div>
+
+    </div>
+</main>
 
 
     <button id="floating-plus" class="floating-add-btn hidden" onclick="addNewRecipe()">
@@ -719,7 +715,7 @@ let deletedEtapes = [];      // IDs Notion des Etapes supprimées
 
         
 
-        const chat = document.getElementById('chat');
+       const container = document.getElementById('view-cooking');
 
         const d = data.data || data;
 
@@ -898,12 +894,11 @@ let deletedEtapes = [];      // IDs Notion des Etapes supprimées
 
 
         html += `</div>`;
+container.innerHTML = html; 
+lucide.createIcons();
+setTimeout(() => { container.scrollTo({ top: 0, behavior: 'instant' }); }, 100);
 
-        chat.innerHTML = html;
-
-        lucide.createIcons();
-
-        forceScrollTop();
+      //  forceScrollTop();
 
     }
 function openRecipe(id) {
@@ -1164,7 +1159,7 @@ function addStepRow() {
 
         const d = (data.data) ? data.data : data;
 
-        const chat = document.getElementById('chat');
+        const container = document.getElementById('view-macros');
 
         let listeAliments = [];
 
@@ -1282,7 +1277,9 @@ function addStepRow() {
 
         </div>`;
 
-        chat.innerHTML = html; lucide.createIcons(); forceScrollTop();
+       container.innerHTML = html; 
+lucide.createIcons();
+setTimeout(() => { container.scrollTo({ top: 0, behavior: 'instant' }); }, 100);
 
     }
 
@@ -1326,11 +1323,10 @@ function addStepRow() {
 
     function renderShopping() {
 
-        const chat = document.getElementById('chat');
+    const container = document.getElementById('view-shopping'); // Cible modifiée
+    container.innerHTML = `<div id="shopping-content" class="space-y-6"></div>`;
+    const content = document.getElementById('shopping-content');
 
-        chat.innerHTML = `<div id="shopping-content" class="space-y-6"></div>`;
-
-        const content = document.getElementById('shopping-content');
 
         RAYONS.forEach(r => {
 
@@ -1630,7 +1626,60 @@ async function saveRecipeData(id) {
         if(btnSave) { btnSave.disabled = false; btnSave.innerHTML = '<i data-lucide="save" class="w-5 h-5 text-white"></i>'; lucide.createIcons(); }
     }
 }
+// Fonction centrale pour masquer/afficher la bonne vue instantanément
+function showView(viewId) {
+    const views = ['view-chat', 'view-cooking', 'view-macros', 'view-shopping'];
+    views.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            if (id === viewId) {
+                el.classList.remove('hidden');
+            } else {
+                el.classList.add('hidden');
+            }
+        }
+    });
 
+    // Gestion intelligente du bouton "+" flottant (uniquement visible en cuisine)
+    const btnPlus = document.getElementById('floating-plus');
+    if (btnPlus) {
+        if (viewId === 'view-cooking') {
+            btnPlus.classList.remove('hidden');
+            btnPlus.style.display = 'flex';
+        } else {
+            btnPlus.classList.add('hidden');
+            btnPlus.style.display = 'none';
+        }
+    }
+}
+
+// Ta fonction de Header modifiée pour un fetch discret en arrière-plan
+async function triggerQuickAction(type) {
+    // 1. On détermine la vue cible et on met un état de chargement localisé
+    const targetViewId = type === 'cuisine' ? 'view-cooking' : (type === 'macros' ? 'view-macros' : 'view-shopping');
+    showView(targetViewId);
+    document.getElementById(targetViewId).innerHTML = `<div class="flex items-center justify-center h-full text-cyan-400 text-xs tracking-widest uppercase animate-pulse">Chargement FitBuddy...</div>`;
+
+    // 2. On prépare l'instruction système pour n8n
+    let systemMessage = `[SYSTEM] Affiche ${type}`;
+
+    try {
+        const res = await fetch(`${N8N_URL}/webhook/chat-agent`, { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'}, 
+            body: JSON.stringify({ message: systemMessage, email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') }) 
+        });
+        const responseData = await res.json();
+        const r = Array.isArray(responseData) ? responseData[0] : responseData;
+
+        // 3. On envoie la donnée reçue à tes fonctions de rendu actuelles
+        if (type === 'cuisine') switchToCooking(r);
+        if (type === 'macros') switchToMacros(r);
+        if (type === 'courses') switchToShopping(r);
+    } catch(e) {
+        document.getElementById(targetViewId).innerHTML = `<div class="flex items-center justify-center h-full text-red-400 text-xs">⚠️ Erreur de connexion au serveur.</div>`;
+    }
+}
 
     async function envoyerMessage() {
 
@@ -1639,8 +1688,8 @@ async function saveRecipeData(id) {
         const msg = input.value.trim();
 
         if (!msg || !userEmail) return;
-
-        const chat = document.getElementById('chat');
+showView('view-chat');
+        const chat = document.getElementById('view-chat');
 
         chat.innerHTML += `<div class="msg-user p-4 max-w-[80%] text-xs shadow-lg animate-in slide-in-from-right-4 font-semibold">${msg}</div>`;
 
