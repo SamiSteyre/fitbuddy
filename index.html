@@ -1727,13 +1727,15 @@ async function searchAliments(input) {
 
             if (aliments && aliments.length > 0) {
                 list.innerHTML = aliments.map(a => {
-                    // 🛡️ Sécurité : On attrape l'ID peu importe le nom donné par ton workflow n8n
-                    const actualId = a.id || a.pageId || a.idNotion || '';
+                    // 🔍 DÉTECTEUR AUTOMATIQUE D'ID :
+                    // On cherche n'importe quelle clé qui contient "id" (ex: pageId, idNotion, id_aliment...)
+                    const dynamicIdKey = Object.keys(a).find(k => k.toLowerCase().includes('id'));
+                    const actualId = dynamicIdKey ? a[dynamicIdKey] : '';
                     
                     return `
                         <div class="px-4 py-2 hover:bg-cyan-500/20 cursor-pointer text-xs text-white border-b border-white/5"
-                             onclick="selectIngredient(this, '${actualId}', '${a.nom.replace(/'/g, "\\'")}', ${a.kcal_100g}, ${a.prot_100g}, ${a.gluc_100g}, ${a.lip_100g})">
-                            ${a.nom} <span class="text-[8px] text-cyan-400 ml-2">${a.kcal_100g}kcal/100g</span>
+                             onclick="selectIngredient(this, '${actualId}', '${a.nom.replace(/'/g, "\\'")}', ${a.kcal_100g || 0}, ${a.prot_100g || 0}, ${a.gluc_100g || 0}, ${a.lip_100g || 0})">
+                            ${a.nom} <span class="text-[8px] text-cyan-400 ml-2">${a.kcal_100g || 0}kcal/100g</span>
                         </div>
                     `;
                 }).join('');
@@ -1755,20 +1757,22 @@ function selectIngredient(element, id, nom, kcal100, p100, g100, l100) {
     input.value = nom;
     list.classList.add('hidden');
 
-    // 🕵️ Diagnostic : Si l'ID reçu est toujours "undefined" ou vide, on te prévient en console
+    // 🕵️ SOS N8N : Si même après le scan automatique aucun ID n'est trouvé,
+    // on te met un message d'alerte très précis dans la console de ton navigateur (F12)
     if (!id || id === 'undefined' || id === 'null' || id === '') {
-        console.warn(`⚠️ FitBuddy : L'aliment "${nom}" n'a pas renvoyé d'ID valide. Vérifie le formatage dans ton nœud n8n /search-aliments.`);
+        console.error(`❌ Erreur FitBuddy : L'aliment "${nom}" n'a renvoyé aucun ID depuis n8n. Vérifie le format de ton webhook.`);
     }
 
-    // Sauvegarde de l'ID de l'aliment et recalculs
+    // Enregistrement des données dans les datasets de la ligne
     row.dataset.alimentId = id;
     row.dataset.rkcal = kcal100 / 100;
     row.dataset.rp = p100 / 100;
     row.dataset.rg = g100 / 100;
     row.dataset.rl = l100 / 100;
 
+    // Relance les calculs globaux et nettoie l'affichage d'erreur
     recalculateMacros();
-    checkRecipeValidity(); // Lance la vérification pour débloquer le bouton
+    checkRecipeValidity(); 
 }
 
     // Gère la saisie manuelle dans le champ texte
