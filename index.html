@@ -1727,19 +1727,13 @@ async function searchAliments(input) {
             const aliments = await res.json();
 
             if (aliments && aliments.length > 0) {
-                list.innerHTML = aliments.map(a => {
-                    // 🔍 DÉTECTEUR AUTOMATIQUE D'ID :
-                    // On cherche n'importe quelle clé qui contient "id" (ex: pageId, idNotion, id_aliment...)
-                    const dynamicIdKey = Object.keys(a).find(k => k.toLowerCase().includes('id'));
-                    const actualId = dynamicIdKey ? a[dynamicIdKey] : '';
-                    
-                    return `
-                        <div class="px-4 py-2 hover:bg-cyan-500/20 cursor-pointer text-xs text-white border-b border-white/5"
-                             onclick="selectIngredient(this, '${actualId}', '${a.nom.replace(/'/g, "\\'")}', ${a.kcal_100g || 0}, ${a.prot_100g || 0}, ${a.gluc_100g || 0}, ${a.lip_100g || 0})">
-                            ${a.nom} <span class="text-[8px] text-cyan-400 ml-2">${a.kcal_100g || 0}kcal/100g</span>
-                        </div>
-                    `;
-                }).join('');
+                // ⚡ ICI : on utilise onmousedown à la place d'onclick pour griller la priorité au blur
+                list.innerHTML = aliments.map(a => `
+                    <div class="px-4 py-2 hover:bg-cyan-500/20 cursor-pointer text-xs text-white border-b border-white/5"
+                         onmousedown="selectIngredient(this, '${a.id}', '${a.nom.replace(/'/g, "\\'")}', ${a.kcal_100g}, ${a.prot_100g}, ${a.gluc_100g}, ${a.lip_100g})">
+                        ${a.nom} <span class="text-[8px] text-cyan-400 ml-2">${a.kcal_100g}kcal/100g</span>
+                    </div>
+                `).join('');
                 list.classList.remove('hidden');
             } else {
                 list.classList.add('hidden');
@@ -1754,22 +1748,16 @@ function selectIngredient(element, id, nom, kcal100, p100, g100, l100) {
     const row = element.closest('.ingredient-row');
     const input = row.querySelector('.ingredient-name');
     const list = row.querySelector('.suggestions-list');
-    const container = row.querySelector('.ingredient-container');
-    const errorMsg = row.querySelector('.error-msg');
 
     input.value = nom;
     if (list) list.classList.add('hidden');
 
-    // Sauvegarde des données
+    // Sauvegarde immédiate des données d'origine
     row.dataset.alimentId = id;
     row.dataset.rkcal = kcal100 / 100;
     row.dataset.rp = p100 / 100;
     row.dataset.rg = g100 / 100;
     row.dataset.rl = l100 / 100;
-
-    // ✨ NETTOYAGE VISUEL IMMÉDIAT
-    if (container) container.classList.remove('border-red-500/50', 'bg-red-500/5');
-    if (errorMsg) errorMsg.classList.add('hidden');
 
     recalculateMacros();
     checkRecipeValidity(); 
@@ -1784,14 +1772,13 @@ function handleIngredientBlur(input) {
     const row = input.closest('.ingredient-row');
     const list = row.querySelector('.suggestions-list');
     
-    // On attend un instant pour laisser le choix de l'aliment s'enregistrer
+    // Un mini-délai pour laisser la liste se fermer proprement si on clique à côté
     setTimeout(() => {
         const nameValue = input.value.trim();
         const alimentId = row.dataset.alimentId;
         const container = row.querySelector('.ingredient-container');
         const errorMsg = row.querySelector('.error-msg');
 
-        // L'avertissement ne s'affiche que si le texte n'est pas vide ET qu'aucun ID valide n'est présent
         if (nameValue.length > 0 && (!alimentId || alimentId === 'null' || alimentId === 'undefined' || alimentId === '')) {
             if (container) container.classList.add('border-red-500/50', 'bg-red-500/5');
             if (errorMsg) errorMsg.classList.remove('hidden');
@@ -1800,12 +1787,9 @@ function handleIngredientBlur(input) {
             if (errorMsg) errorMsg.classList.add('hidden');
         }
         
-        // On ferme proprement la liste déroulante
         if (list) list.classList.add('hidden');
-        
-        // On rafraîchit l'état du bouton de sauvegarde global
         checkRecipeValidity();
-    }, 200);
+    }, 150);
 }
 // Scanne les lignes et verrouille/déverrouille le bouton
 function checkRecipeValidity() {
