@@ -1787,15 +1787,19 @@ function selectIngredient(element, id, nom, kcal100, p100, g100, l100) {
     input.value = nom;
     if (list) list.classList.add('hidden');
 
-    // Sauvegarde immédiate des données d'origine
     row.dataset.alimentId = id;
     row.dataset.rkcal = kcal100 / 100;
     row.dataset.rp = p100 / 100;
     row.dataset.rg = g100 / 100;
     row.dataset.rl = l100 / 100;
 
+    // Nettoyage du visuel d'erreur
+    const container = row.querySelector('.ingredient-container');
+    const errorMsg = row.querySelector('.error-msg');
+    if (container) container.classList.remove('border-red-500/50', 'bg-red-500/5');
+    if (errorMsg) errorMsg.classList.add('hidden');
+
     recalculateMacros();
-    checkRecipeValidity(); 
 }
     // Gère la saisie manuelle dans le champ texte
 function handleIngredientNameInput(input) {
@@ -1810,44 +1814,26 @@ function handleIngredientNameInput(input) {
 function handleIngredientBlur(input) {
     const row = input.closest('.ingredient-row');
     const list = row.querySelector('.suggestions-list');
-    
-    // Un mini-délai pour laisser la liste se fermer proprement si on clique à côté
     setTimeout(() => {
+        if (list) list.classList.add('hidden');
+        // On affiche juste le rouge, on ne touche plus au bouton save
         const nameValue = input.value.trim();
         const alimentId = row.dataset.alimentId;
         const container = row.querySelector('.ingredient-container');
         const errorMsg = row.querySelector('.error-msg');
-
-        if (nameValue.length > 0 && (!alimentId || alimentId === 'null' || alimentId === 'undefined' || alimentId === '')) {
+        const isUnlinked = !alimentId || alimentId === '' || alimentId === 'null';
+        if (nameValue.length > 0 && isUnlinked) {
             if (container) container.classList.add('border-red-500/50', 'bg-red-500/5');
             if (errorMsg) errorMsg.classList.remove('hidden');
         } else {
             if (container) container.classList.remove('border-red-500/50', 'bg-red-500/5');
             if (errorMsg) errorMsg.classList.add('hidden');
         }
-        
-        if (list) list.classList.add('hidden');
-        checkRecipeValidity();
     }, 150);
 }
 // Scanne les lignes et verrouille/déverrouille le bouton
 function checkRecipeValidity() {
-    const saveBtn = document.getElementById('btn-save-recipe');
-    if (!saveBtn) return;
-
-    let hasError = false;
-    document.querySelectorAll('.ingredient-row').forEach(row => {
-        const nameValue = row.querySelector('.ingredient-name')?.value.trim();
-        const alimentId = row.dataset.alimentId;
-        const isUnlinked = !alimentId || alimentId === '' || alimentId === 'null' || alimentId === 'undefined';
-        if (nameValue && nameValue.length > 0 && isUnlinked) {
-            hasError = true;
-        }
-    });
-
-    saveBtn.disabled = hasError;
-    saveBtn.style.opacity = hasError ? "0.4" : "1";
-    saveBtn.style.cursor = hasError ? "not-allowed" : "pointer";
+    // Validation déléguée à saveRecipeData, on ne bloque rien ici
 }
     
 </script>
