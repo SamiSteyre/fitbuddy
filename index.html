@@ -1395,9 +1395,12 @@ function handlePhotoUpload(input) {
     if (input.files && input.files[0]) {
         const reader = new FileReader();
         reader.onload = function(e) {
-            document.getElementById('recipe-preview-img').src = e.target.result;
-            // Ici tu pourras ajouter l'appel fetch pour envoyer l'image à n8n
-            console.log("Photo prête à être envoyée");
+            const img = document.getElementById('recipe-preview-img');
+            img.src = e.target.result;
+            
+            // On stocke le Base64 pur (sans le préfixe data:image/...) et l'extension
+            img.dataset.base64 = e.target.result.split(',')[1];
+            img.dataset.extension = input.files[0].name.split('.').pop();
         };
         reader.readAsDataURL(input.files[0]);
     }
@@ -1484,12 +1487,49 @@ async function saveRecipeData(id) {
     
     // Collecte des catégories actives
     const categories = [...document.querySelectorAll('.category-chip.active')].map(c => c.textContent.trim());
+
+    // --- GESTION DE LA PHOTO ET DU NOMMAGE STRICT ---
+const imgEl = document.getElementById('recipe-preview-img');
+let photoUploadPayload = null;
+let photoFilename = "";
+
+if (imgEl && imgEl.dataset.base64) {
+    const recipeName = document.getElementById('recipe-name-input').value || "recette";
     
+    // Règle de nommage (Slugification) alignée sur la ligne 186 de ton HTML
+    const cleanName = recipeName
+        .toLowerCase()
+        .normalize("NFD")                    // Sépare les accents des lettres
+        .replace(/[\u0300-\u036f]/g, "")     // Supprime les accents (â -> a, é -> e)
+        .replace(/[^a-z0-9]+/g, "-")         // Remplace les espaces/caractères spéciaux par un seul tiret
+        .replace(/^-|-$/g, "");              // Nettoie les tirets au début et à la fin
+
+    const ext = imgEl.dataset.extension || 'jpg';
+    
+    /* 💡 ASTUCE SÉCURITÉ & CACHE :
+      Si tu gardes uniquement "${cleanName}.${ext}", GitHub va bloquer (Erreur 409) 
+      si tu essaies de remplacer une image existante (car il demande un code "SHA").
+      De plus, le Service Worker de ton téléphone va garder l'ancienne image en cache.
+      
+      En ajoutant un timestamp unique (ex: boeuf-hache-a-la-tomate-171584.jpg),
+      on esquive TOUS ces bugs d'un coup !
+    */
+    photoFilename = `${cleanName}-${Date.now()}.${ext}`;
+    
+    photoUploadPayload = {
+        base64: imgEl.dataset.base64,
+        filename: photoFilename
+    };
+} else if (imgEl && imgEl.src.includes('images/recettes/')) {
+    // Si l'image n'a pas changé, on garde le nom actuel du fichier
+    photoFilename = imgEl.src.split('/').pop();
+}
     // Collecte des ingrédients
-    const ingredients = [];
+   const ingredients = [];
     document.querySelectorAll('.ingredient-row').forEach(row => {
         ingredients.push({
             id: row.dataset.compositionId || null,
+            alimentId: row.dataset.alimentId !== 'loaded' ? (row.dataset.alimentId || null) : null,
             nom: row.querySelector('.ingredient-name').value,
             quantite: parseFloat(row.querySelector('.ingredient-qte').value) || 0
         });
@@ -1506,19 +1546,21 @@ async function saveRecipeData(id) {
         });
     });
 
-    const payload = {
+   const payload = {
         email: userEmail,
         recette: {
             id: id,
             nom: document.getElementById('recipe-name-input').value,
             parts: parseInt(document.getElementById('recipe-parts-select').value),
             categories: categories,
-            duree: etapes.reduce((sum, e) => sum + e.duree, 0)
+            duree: etapes.reduce((sum, e) => sum + e.duree, 0),
+            photo: photoFilename // 📸 ICI : Pour mettre à jour le nom du fichier dans la colonne Notion
         },
         ingredients: ingredients,
         etapes: etapes,
         ingredients_supprimes: deletedIngredients,
-        etapes_supprimees: deletedEtapes
+        etapes_supprimees: deletedEtapes,
+        photo_upload: photoUploadPayload // 🚀 ICI : Le bloc complet avec le Base64 pour ton nœud n8n GitHub
     };
 
     try {
