@@ -296,12 +296,24 @@
 
         }
 
-        .category-chip.active {
-
+       .category-chip.active {
             background: rgba(34, 211, 238, 0.2); border-color: #22d3ee; color: #22d3ee;
-
         }
 
+        /* --- TRAINING --- */
+        .coach-card { flex: 0 0 100px; scroll-snap-align: start; cursor: pointer; transition: transform 0.2s; }
+        .coach-card:active { transform: scale(0.93); }
+        .coach-card.selected .coach-avatar-wrap { border-color: #22d3ee; box-shadow: 0 0 0 2px rgba(34,211,238,0.3), 0 8px 24px rgba(0,0,0,0.5); }
+        .coach-avatar-wrap { width: 72px; height: 72px; border-radius: 20px; border: 2px solid rgba(255,255,255,0.08); overflow: hidden; background: #111; transition: border-color 0.2s, box-shadow 0.2s; }
+        .coach-avatar-wrap img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+        .training-stat-ring { position: relative; width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+        .exercise-pill { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 10px 14px; cursor: pointer; transition: background 0.15s, border-color 0.15s; }
+        .exercise-pill:active { background: rgba(34,211,238,0.08); border-color: rgba(34,211,238,0.3); }
+        .exercise-pill.done { opacity: 0.35; text-decoration: line-through; }
+        .other-program-row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 16px; cursor: pointer; transition: background 0.15s; }
+        .other-program-row:active { background: rgba(34,211,238,0.06); }
+        .other-program-row.active-prog { border-color: rgba(34,211,238,0.35); }
+    </style>
     </style>
 
 </head>
@@ -374,9 +386,9 @@
 
             </button>
 
-            <div class="w-[1px] h-4 bg-white/10 mx-1"></div>
-
-            <i data-lucide="dumbbell" class="text-purple-500 w-5 h-5 cursor-pointer" onclick="if(typeof switchToTraining === 'function') switchToTraining()"></i>
+         <button onclick="triggerQuickAction('training')" class="p-2 bg-purple-500/10 border border-purple-500/30 rounded-lg active:scale-90 transition-transform">
+                <i data-lucide="dumbbell" class="w-4 h-4 text-purple-400"></i>
+            </button>
 
         </div>
 
@@ -401,6 +413,7 @@
 <div id="view-cooking" class="absolute inset-0 flex flex-col overflow-y-auto p-4 space-y-4 bg-black hidden"></div>
 <div id="view-macros" class="absolute inset-0 flex flex-col overflow-y-auto p-4 space-y-4 bg-black hidden"></div>
 <div id="view-shopping" class="absolute inset-0 flex flex-col overflow-y-auto p-4 space-y-4 bg-black hidden"></div>
+<div id="view-training" class="absolute inset-0 flex flex-col overflow-y-auto bg-black hidden"></div>
 
     </div>
 </main>
@@ -1471,7 +1484,8 @@ async function envoyerMessage() {
 }
 
 function showView(viewId) {
-    const views = ['view-chat', 'view-cooking', 'view-macros', 'view-shopping'];
+  const views = ['view-chat', 'view-cooking', 'view-macros', 'view-shopping', 'view-training'];
+
     views.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
@@ -1487,7 +1501,7 @@ function showView(viewId) {
     }
 }
 async function triggerQuickAction(type) {
-    const targetViewId = type === 'cuisine' ? 'view-cooking' : (type === 'macros' ? 'view-macros' : 'view-shopping');
+const targetViewId = type === 'cuisine' ? 'view-cooking' : type === 'macros' ? 'view-macros' : type === 'training' ? 'view-training' : 'view-shopping';
     showView(targetViewId);
     
     const container = document.getElementById(targetViewId);
@@ -1513,9 +1527,10 @@ async function triggerQuickAction(type) {
         const responseData = await res.json();
         const r = Array.isArray(responseData) ? responseData[0] : responseData;
 
-        if (type === 'cuisine') switchToCooking(r);
+  if (type === 'cuisine') switchToCooking(r);
         else if (type === 'macros') switchToMacros(r);
         else if (type === 'courses') switchToShopping(r);
+        else if (type === 'training') switchToTraining(r);
     } catch(e) {
         container.innerHTML = `<div class="flex items-center justify-center h-full text-red-400 text-xs">⚠️ Erreur de chargement.</div>`;
     }
@@ -1648,7 +1663,191 @@ function handleIngredientBlur(input) {
 function checkRecipeValidity() {
     // Validation déléguée à saveRecipeData, on ne bloque rien ici
 }
-    
+function switchToTraining(data) {
+    moveToHeader("agent-training.mp4");
+    showView('view-training');
+    document.getElementById('floating-plus').classList.add('hidden');
+
+    const container = document.getElementById('view-training');
+    const d = data.data || data;
+
+  const utilisateurs     = d.utilisateurs || [];
+    const prog             = d.programme_actif || {};
+    const autresProgrammes = d.autres_programmes || [];
+    const exercices        = prog.exercices || [];
+    const progres          = Math.min(Math.max(parseFloat(prog.progres) || 0, 0), 100);
+    const intensite        = prog.intensite || "—";
+    const nomProg          = prog.nom || "Programme";
+
+    const typeIcon = { musculation: "dumbbell", cardio: "heart-pulse", yoga: "flame", natation: "waves" };
+    const R = 32, CIRC = 2 * Math.PI * R;
+    const dash = (progres / 100) * CIRC;
+    const intensiteColor = { Faible: "#22c55e", Moyenne: "#f59e0b", "Élevée": "#ef4444", Maximale: "#a855f7" };
+    const iColor = intensiteColor[intensite] || "#22d3ee";
+
+const coachesHtml = utilisateurs.length > 0 ? `
+    <section class="px-4 pb-2">
+        <p class="text-[9px] font-black text-white/30 uppercase tracking-widest mb-3">Utilisateur</p>
+        <div class="flex gap-3 overflow-x-auto no-scrollbar snap-x">
+            ${utilisateurs.map(u => {
+                const initiales = u.nom.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+                const colors = { Djibril: '#6366f1', Maxime: '#22d3ee', Sami: '#f59e0b' };
+                const bg = colors[u.nom] || '#6b7280';
+                return `<div class="coach-card flex flex-col items-center gap-2 ${u.selected ? 'selected' : ''}" onclick="selectUtilisateur('${u.nom}', this)">
+                    <div class="coach-avatar-wrap flex items-center justify-center" style="background: ${bg}22; border-color: ${u.selected ? bg : 'rgba(255,255,255,0.08)'};">
+                        <span class="text-[18px] font-black" style="color: ${bg}">${initiales}</span>
+                    </div>
+                    <p class="text-[9px] font-bold text-center leading-tight whitespace-nowrap" style="color: ${u.selected ? bg : 'rgba(255,255,255,0.4)'}">${u.nom}</p>
+                    ${u.selected ? `<div class="w-1 h-1 rounded-full" style="background: ${bg}"></div>` : ''}
+                </div>`;
+            }).join('')}
+        </div>
+    </section>` : '';
+
+    const exercicesHtml = exercices.length > 0 ? exercices.map(ex => `
+        <div id="ex-${ex.id}" class="exercise-pill ${ex.fait ? 'done' : ''}" onclick="toggleExercise('${ex.id}', '${prog.id}')">
+            <div class="w-8 h-8 rounded-xl flex items-center justify-center flex-none" style="background: rgba(34,211,238,0.08); border: 1px solid rgba(34,211,238,0.15);">
+                <i data-lucide="dumbbell" class="w-3.5 h-3.5 text-cyan-400"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="text-[12px] font-bold text-white/90 leading-tight">${ex.nom}</p>
+                <p class="text-[9px] text-white/40 font-medium">${ex.series} séries × ${ex.reps} reps</p>
+            </div>
+            <div id="check-${ex.id}" class="w-5 h-5 rounded-lg flex items-center justify-center transition-colors ${ex.fait ? 'bg-cyan-500' : 'border border-white/15'}">
+                ${ex.fait ? '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>' : ''}
+            </div>
+        </div>`).join('') : `<p class="text-[10px] text-white/20 text-center py-4 italic">Aucun exercice défini</p>`;
+
+    const autresHtml = autresProgrammes.length > 0 ? autresProgrammes.map(p => {
+        const icon = typeIcon[p.type] || "list";
+        return `<div class="other-program-row ${p.actif ? 'active-prog' : ''}" onclick="activerProgramme('${p.id}', '${p.nom}')">
+            <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-none" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);">
+                <i data-lucide="${icon}" class="w-4 h-4 ${p.actif ? 'text-cyan-400' : 'text-white/40'}"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="text-[12px] font-bold ${p.actif ? 'text-cyan-400' : 'text-white/80'} leading-tight truncate">${p.nom}</p>
+                <p class="text-[9px] font-medium capitalize" style="color: rgba(255,255,255,0.3)">${p.type || 'programme'}</p>
+            </div>
+            ${p.actif
+                ? '<span class="text-[8px] font-black text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 px-2 py-0.5 rounded-md uppercase">Actif</span>'
+                : '<i data-lucide="chevron-right" class="w-4 h-4 text-white/20 flex-none"></i>'
+            }
+        </div>`;
+    }).join('') : '';
+
+    container.innerHTML = `
+    <div class="space-y-6 pb-28 animate-in fade-in duration-500">
+        ${coachesHtml}
+        <section class="mx-4">
+            <div class="flex justify-between items-center mb-3 px-1">
+                <div class="category-badge">
+                    <i data-lucide="dumbbell" class="w-3.5 h-3.5 text-purple-400"></i>
+                    <h2 class="text-[10px] font-black text-white uppercase tracking-[0.15em]">Training actuel</h2>
+                </div>
+            </div>
+            <div class="rounded-2xl overflow-hidden border border-white/10 bg-[#0a0a0a]">
+                <div class="p-4 space-y-2.5">${exercicesHtml}</div>
+                <div class="flex items-center border-t border-white/5">
+                    <div class="flex-1 flex flex-col items-center py-4 border-r border-white/5">
+                        <p class="text-[8px] font-black text-white/30 uppercase tracking-widest mb-2">Progrès total</p>
+                        <div class="training-stat-ring">
+                            <svg width="80" height="80" viewBox="0 0 80 80">
+                                <circle cx="40" cy="40" r="${R}" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="6"/>
+                                <circle cx="40" cy="40" r="${R}" fill="none" stroke="#22d3ee" stroke-width="6"
+                                    stroke-dasharray="${dash} ${CIRC}" stroke-linecap="round" transform="rotate(-90 40 40)"/>
+                            </svg>
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <span class="text-[18px] font-black text-white">${Math.round(progres)}%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex-1 flex flex-col items-center justify-center py-4 border-r border-white/5 gap-1.5">
+                        <p class="text-[8px] font-black text-white/30 uppercase tracking-widest">Intensité</p>
+                        <span class="text-[15px] font-black" style="color: ${iColor}">${intensite}</span>
+                        <div class="flex gap-1 mt-1">
+                            ${['Faible','Moyenne','Élevée','Maximale'].map((l, i) => {
+                                const levels = ['Faible','Moyenne','Élevée','Maximale'];
+                                const filled = levels.indexOf(intensite) >= i;
+                                return `<div class="w-5 h-1 rounded-full" style="background: ${filled ? iColor : 'rgba(255,255,255,0.08)'}"></div>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                    <div class="flex-1 flex flex-col items-center justify-center py-4 gap-1.5 px-2 text-center">
+                        <p class="text-[8px] font-black text-white/30 uppercase tracking-widest">Séance du jour</p>
+                        <p class="text-[11px] font-black text-white leading-tight">${nomProg}</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+        ${autresHtml ? `
+        <section class="mx-4">
+            <div class="flex justify-between items-center mb-3 px-1">
+                <div class="category-badge">
+                    <i data-lucide="layout-list" class="w-3.5 h-3.5 text-white/50"></i>
+                    <h2 class="text-[10px] font-black text-white/70 uppercase tracking-[0.15em]">Autres trainings</h2>
+                </div>
+            </div>
+            <div class="space-y-2">${autresHtml}</div>
+        </section>` : ''}
+        <div class="mx-4">
+            <button onclick="creerNouveauTraining()" class="w-full py-5 rounded-2xl flex items-center justify-center gap-3 border border-cyan-500/40 bg-cyan-500/5 active:scale-95 transition-transform">
+                <i data-lucide="plus-circle" class="w-5 h-5 text-cyan-400"></i>
+                <span class="text-[13px] font-black text-cyan-400 uppercase tracking-widest">Créer un nouveau training</span>
+            </button>
+        </div>
+    </div>`;
+
+    lucide.createIcons();
+    setTimeout(() => { container.scrollTo({ top: 0, behavior: 'instant' }); }, 100);
+}
+
+function selectUtilisateur(nom, el) {
+    const colors = { Djibril: '#6366f1', Maxime: '#22d3ee', Sami: '#f59e0b' };
+    const bg = colors[nom] || '#6b7280';
+
+    document.querySelectorAll('.coach-card').forEach(c => {
+        c.classList.remove('selected');
+        const dot = c.querySelector('[style*="rounded-full"]');
+        if (dot) dot.remove();
+    });
+    el.classList.add('selected');
+    el.insertAdjacentHTML('beforeend', `<div class="w-1 h-1 rounded-full" style="background: ${bg}"></div>`);
+
+    /* Réutilise la logique existante de changement d'utilisateur */
+    selectUser(nom);
+}
+
+function toggleExercise(exerciceId, programmeId) {
+    const pill  = document.getElementById(`ex-${exerciceId}`);
+    const check = document.getElementById(`check-${exerciceId}`);
+    if (!pill) return;
+    const isDone = !pill.classList.contains('done');
+    pill.classList.toggle('done', isDone);
+    if (check) {
+        check.className = `w-5 h-5 rounded-lg flex items-center justify-center transition-colors ${isDone ? 'bg-cyan-500' : 'border border-white/15'}`;
+        check.innerHTML = isDone ? '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>' : '';
+    }
+    fetch(`${N8N_URL}/webhook/training-action`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: isDone ? 'exercice_fait' : 'exercice_annule', exerciceId, programmeId, email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') })
+    }).catch(() => {});
+}
+
+function activerProgramme(programmeId, programmeNom) {
+    if (!confirm(`Activer le programme "${programmeNom}" ?`)) return;
+    fetch(`${N8N_URL}/webhook/training-action`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'activer_programme', programmeId, programmeNom, email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') })
+    }).then(() => triggerQuickAction('training')).catch(() => {});
+}
+
+function creerNouveauTraining() {
+    const nomProg = prompt("Nom du nouveau programme :");
+    if (!nomProg || !nomProg.trim()) return;
+    const input = document.getElementById('userInput');
+    if (input) { input.value = `Crée-moi un programme de training appelé "${nomProg.trim()}"`; envoyerMessage(); }
+}
+
 </script>
 <!-- POPUP ENREGISTREMENT MACRO -->
 <div id="macro-log-modal" class="modal-overlay !justify-center !items-center p-6" style="background: rgba(0,0,0,0.95);">
