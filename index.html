@@ -1764,7 +1764,7 @@ async function searchAliments(input) {
             if (aliments && aliments.length > 0) {
                 list.innerHTML = aliments.map(a => `
                     <div class="px-4 py-2 hover:bg-cyan-500/20 cursor-pointer text-xs text-white border-b border-white/5"
-                         onmousedown="selectIngredient(this, '${a.id}', '${a.nom.replace(/'/g, "\\'")}', ${a.kcal_100g}, ${a.prot_100g}, ${a.gluc_100g}, ${a.lip_100g})">
+                         onmousedown="event.preventDefault(); selectIngredient(this, '${a.id}', '${a.nom.replace(/'/g, "\\'")}', ${a.kcal_100g}, ${a.prot_100g}, ${a.gluc_100g}, ${a.lip_100g})">
                         ${a.nom} <span class="text-[8px] text-cyan-400 ml-2">${a.kcal_100g}kcal/100g</span>
                     </div>
                 `).join('');
@@ -1833,11 +1833,20 @@ function handleIngredientBlur(input) {
 function checkRecipeValidity() {
     const saveBtn = document.getElementById('btn-save-recipe');
     if (!saveBtn) return;
-    
-    // Le bouton reste toujours cliquable par défaut
-    saveBtn.disabled = false;
-    saveBtn.style.opacity = "1";
-    saveBtn.style.cursor = "pointer";
+
+    let hasError = false;
+    document.querySelectorAll('.ingredient-row').forEach(row => {
+        const nameValue = row.querySelector('.ingredient-name')?.value.trim();
+        const alimentId = row.dataset.alimentId;
+        const isUnlinked = !alimentId || alimentId === '' || alimentId === 'null' || alimentId === 'undefined';
+        if (nameValue && nameValue.length > 0 && isUnlinked) {
+            hasError = true;
+        }
+    });
+
+    saveBtn.disabled = hasError;
+    saveBtn.style.opacity = hasError ? "0.4" : "1";
+    saveBtn.style.cursor = hasError ? "not-allowed" : "pointer";
 }
     
 </script>
