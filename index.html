@@ -1505,8 +1505,12 @@ async function saveRecipeData(id) {
         if (errorMsg) errorMsg.classList.add('hidden');
 
         // Si la ligne contient du texte mais n'a pas d'ID Notion valide lié
-        if (nameValue.length > 0 && (!alimentId || alimentId === 'null' || alimentId === 'undefined' || alimentId === '')) {
-            if (!firstInvalidRowName) firstInvalidRowName = nameValue;
+     const hasRatios = row.dataset.rkcal !== "" && row.dataset.rkcal !== undefined;
+if (nameValue.length > 0 && !hasRatios) {
+    if (!firstInvalidRowName) firstInvalidRowName = nameValue;
+    if (container) container.classList.add('border-red-500/50', 'bg-red-500/5');
+    if (errorMsg) errorMsg.classList.remove('hidden');
+}
             
             // On cible visuellement la ligne qui pose problème
             if (container) container.classList.add('border-red-500/50', 'bg-red-500/5');
