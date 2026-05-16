@@ -1493,30 +1493,24 @@ async function saveRecipeData(id) {
     // 🛡️ CONTRÔLE STRICT DES INGRÉDIENTS AVANT ENVOI
     let firstInvalidRowName = null;
     
-    document.querySelectorAll('.ingredient-row').forEach(row => {
-        const nameInput = row.querySelector('.ingredient-name');
-        const nameValue = nameInput ? nameInput.value.trim() : "";
-        const alimentId = row.dataset.alimentId;
-        const container = row.querySelector('.ingredient-container');
-        const errorMsg = row.querySelector('.error-msg');
+ document.querySelectorAll('.ingredient-row').forEach(row => {
+    const nameInput = row.querySelector('.ingredient-name');
+    const nameValue = nameInput ? nameInput.value.trim() : "";
+    const container = row.querySelector('.ingredient-container');
+    const errorMsg = row.querySelector('.error-msg');
 
-        // Reset des styles d'erreur à chaque tentative de sauvegarde
-        if (container) container.classList.remove('border-red-500/50', 'bg-red-500/5');
-        if (errorMsg) errorMsg.classList.add('hidden');
+    // Reset visuel à chaque tentative
+    if (container) container.classList.remove('border-red-500/50', 'bg-red-500/5');
+    if (errorMsg) errorMsg.classList.add('hidden');
 
-        // Si la ligne contient du texte mais n'a pas d'ID Notion valide lié
-     const hasRatios = row.dataset.rkcal !== "" && row.dataset.rkcal !== undefined;
-if (nameValue.length > 0 && !hasRatios) {
-    if (!firstInvalidRowName) firstInvalidRowName = nameValue;
-    if (container) container.classList.add('border-red-500/50', 'bg-red-500/5');
-    if (errorMsg) errorMsg.classList.remove('hidden');
-}
-            
-            // On cible visuellement la ligne qui pose problème
-            if (container) container.classList.add('border-red-500/50', 'bg-red-500/5');
-            if (errorMsg) errorMsg.classList.remove('hidden');
-        }
-    });
+    // Vérification via les ratios (source de vérité fiable)
+    const hasRatios = row.dataset.rkcal !== "" && row.dataset.rkcal !== undefined;
+    if (nameValue.length > 0 && !hasRatios) {
+        if (!firstInvalidRowName) firstInvalidRowName = nameValue;
+        if (container) container.classList.add('border-red-500/50', 'bg-red-500/5');
+        if (errorMsg) errorMsg.classList.remove('hidden');
+    }
+});
 
     // Si on a trouvé un intrus non lié, on stoppe net l'exécution !
     if (firstInvalidRowName) {
