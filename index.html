@@ -989,7 +989,7 @@ function renderIngredientRow(nom = "", qte = "", ratios = {kcal:0, p:0, g:0, l:0
     // Si la ligne existe déjà dans Notion, on considère l'aliment comme valide au départ ("loaded")
     const initialAlimentId = alimentId || (compositionId ? "loaded" : "");
     return `
-        <div class="relative ingredient-row group" 
+<div class="relative ingredient-row group" 
              data-rkcal="${ratios.kcal}" data-rp="${ratios.p}" data-rg="${ratios.g}" data-rl="${ratios.l}"
              data-composition-id="${compositionId || ''}"
              data-aliment-id="${initialAlimentId}">
@@ -1000,14 +1000,19 @@ function renderIngredientRow(nom = "", qte = "", ratios = {kcal:0, p:0, g:0, l:0
                            placeholder="0" 
                            class="w-16 bg-cyan-500/10 border border-cyan-500/20 rounded-lg py-1.5 px-2 text-[10px] font-black text-cyan-400 outline-none text-center ingredient-qte">
                     
-<div class="flex-1 relative">
-    <input type="text" value="${nom}" 
-           oninput="handleIngredientNameInput(this)" 
-           onblur="handleIngredientBlur(this)"
-           placeholder="Chercher un aliment..." 
-           class="w-full bg-transparent text-[13px] text-white/80 outline-none ingredient-name">
-    <div class="suggestions-list absolute left-0 right-0 top-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-xl hidden z-50 max-h-40 overflow-y-auto shadow-2xl"></div>
-</div>
+                    <div class="flex-1 relative">
+                        <input type="text" value="${nom}" 
+                               oninput="handleIngredientNameInput(this)" 
+                               onblur="handleIngredientBlur(this)"
+                               placeholder="Chercher un aliment..." 
+                               class="w-full bg-transparent text-[13px] text-white/80 outline-none ingredient-name">
+                        <div class="suggestions-list absolute left-0 right-0 top-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-xl hidden z-50 max-h-40 overflow-y-auto shadow-2xl"></div>
+                    </div>
+
+                    <!-- 🛒 NOUVEAU : Bouton Panier de ligne -->
+                    <button onclick="sendRowToCart(this)" class="text-white/20 hover:text-amber-500 transition-colors">
+                        <i data-lucide="shopping-cart" class="w-4 h-4"></i>
+                    </button>
 
                     <button onclick="const row = this.closest('.ingredient-row'); const cid = row.dataset.compositionId; if(cid) deletedIngredients.push(cid); row.remove(); recalculateMacros(); checkRecipeValidity();" class="text-white/20 hover:text-red-500 transition-colors">
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
@@ -1017,6 +1022,7 @@ function renderIngredientRow(nom = "", qte = "", ratios = {kcal:0, p:0, g:0, l:0
             </div>
         </div>
     `;
+
 }
 
 // Affiche une ligne d'étape avec durée numérique
