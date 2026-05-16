@@ -1764,7 +1764,8 @@ async function searchAliments(input) {
             if (aliments && aliments.length > 0) {
                 list.innerHTML = aliments.map(a => `
                     <div class="px-4 py-2 hover:bg-cyan-500/20 cursor-pointer text-xs text-white border-b border-white/5"
-                         onmousedown="event.preventDefault(); selectIngredient(this, '${a.id}', '${a.nom.replace(/'/g, "\\'")}', ${a.kcal_100g}, ${a.prot_100g}, ${a.gluc_100g}, ${a.lip_100g})">
+                         onpointerdown="event.preventDefault(); selectIngredient(this, '${a.id}', '${a.nom.replace(/'/g, "\\'")}', ${a.kcal_100g}, ${a.prot_100g}, ${a.gluc_100g}, ${a.lip_100g})"
+>
                         ${a.nom} <span class="text-[8px] text-cyan-400 ml-2">${a.kcal_100g}kcal/100g</span>
                     </div>
                 `).join('');
