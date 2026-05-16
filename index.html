@@ -398,12 +398,9 @@
                 <p id="system-status" class="text-xs text-gray-400">Prêt.</p>
             </div>
         </div>
-
-        <div id="view-cooking" class="absolute inset-0 overflow-y-auto p-4 space-y-4 bg-black hidden"></div>
-
-        <div id="view-macros" class="absolute inset-0 overflow-y-auto p-4 space-y-4 bg-black hidden"></div>
-
-        <div id="view-shopping" class="absolute inset-0 overflow-y-auto p-4 space-y-4 bg-black hidden"></div>
+<div id="view-cooking" class="absolute inset-0 flex flex-col overflow-y-auto p-4 space-y-4 bg-black hidden"></div>
+<div id="view-macros" class="absolute inset-0 flex flex-col overflow-y-auto p-4 space-y-4 bg-black hidden"></div>
+<div id="view-shopping" class="absolute inset-0 flex flex-col overflow-y-auto p-4 space-y-4 bg-black hidden"></div>
 
     </div>
 </main>
@@ -697,7 +694,6 @@ let deletedEtapes = [];      // IDs Notion des Etapes supprimées
 
     /* --- FONCTION CUISINE --- */
 
-
 /* --- FONCTION CUISINE --- */
 function switchToCooking(data) {
     moveToHeader("agent-cook.mp4"); 
@@ -788,7 +784,7 @@ function switchToCooking(data) {
                                 <i data-lucide="clock" class="w-2.5 h-2.5 text-cyan-400"></i> ${r.temps || r.property_dur_e || 0} min
                             </div>
                         </div>
-                        <p class="text-[10px] font-bold text-white/90 px-1 leading-tight line-clamp-2">${r.nom || r.name}</p>
+                        <p class="text-[10px] font-bold text-white/90 px-1 leading-tight line-clamp-2">${recipeTitle}</p>
                     </div>`;
             });
             html += `</div></section>`;
@@ -1047,11 +1043,7 @@ function addStepRow() {
 }
 
 
-
-    /* --- MACROS --- */
-
-
- /* --- MACROS --- */
+/* --- MACROS --- */
 function switchToMacros(data) {
     moveToHeader("agent-eat.mp4");
     showView('view-macros'); 
@@ -1143,8 +1135,6 @@ function switchToMacros(data) {
 
 
 
-    /* --- COURSES --- */
-
  /* --- COURSES --- */
 function switchToShopping(data) {
     moveToHeader("agent-courses.mp4");
@@ -1158,7 +1148,6 @@ function switchToShopping(data) {
     renderShopping(); 
     setTimeout(() => { container.scrollTo({ top: 0, behavior: 'instant' }); }, 100);
 }
-
 function renderShopping() {
     const container = document.getElementById('view-shopping'); 
     container.innerHTML = `<div id="shopping-content" class="space-y-6"></div>`;
@@ -1497,7 +1486,6 @@ function showView(viewId) {
         else { btnPlus.classList.add('hidden'); btnPlus.style.display = 'none'; }
     }
 }
-
 async function triggerQuickAction(type) {
     const targetViewId = type === 'cuisine' ? 'view-cooking' : (type === 'macros' ? 'view-macros' : 'view-shopping');
     showView(targetViewId);
@@ -1511,10 +1499,16 @@ async function triggerQuickAction(type) {
     if (window.lucide) lucide.createIcons();
 
     try {
+        const currentName = localStorage.getItem('fitbuddy_user_name');
         const res = await fetch(`${N8N_URL}/webhook/quick-action`, { 
             method: 'POST', 
             headers: { 'Content-Type': 'application/json', "ngrok-skip-browser-warning": "69420" }, 
-            body: JSON.stringify({ action: type, email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') }) 
+            body: JSON.stringify({ 
+                action: type, 
+                email: userEmail, 
+                userName: currentName,
+                nom: currentName // 🌟 Source de vérité pour ton nœud n8n Macro
+            }) 
         });
         const responseData = await res.json();
         const r = Array.isArray(responseData) ? responseData[0] : responseData;
