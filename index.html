@@ -1490,49 +1490,84 @@ async function confirmMacroSend() {
 async function saveRecipeData(id) {
     const btnSave = document.querySelector('button[onclick*="saveRecipeData"]');
     
+    // 🛡️ CONTRÔLE STRICT DES INGRÉDIENTS AVANT ENVOI
+    let firstInvalidRowName = null;
+    
+    document.querySelectorAll('.ingredient-row').forEach(row => {
+        const nameInput = row.querySelector('.ingredient-name');
+        const nameValue = nameInput ? nameInput.value.trim() : "";
+        const alimentId = row.dataset.alimentId;
+        const container = row.querySelector('.ingredient-container');
+        const errorMsg = row.querySelector('.error-msg');
+
+        // Reset des styles d'erreur à chaque tentative de sauvegarde
+        if (container) container.classList.remove('border-red-500/50', 'bg-red-500/5');
+        if (errorMsg) errorMsg.classList.add('hidden');
+
+        // Si la ligne contient du texte mais n'a pas d'ID Notion valide lié
+        if (nameValue.length > 0 && (!alimentId || alimentId === 'null' || alimentId === 'undefined' || alimentId === '')) {
+            if (!firstInvalidRowName) firstInvalidRowName = nameValue;
+            
+            // On cible visuellement la ligne qui pose problème
+            if (container) container.classList.add('border-red-500/50', 'bg-red-500/5');
+            if (errorMsg) errorMsg.classList.remove('hidden');
+        }
+    });
+
+    // Si on a trouvé un intrus non lié, on stoppe net l'exécution !
+    if (firstInvalidRowName) {
+        alert(`⚠️ Enregistrement refusé :\nL'ingrédient "${firstInvalidRowName}" n'est pas lié à la base Notion Aliments.\n\nVeuillez cliquer sur cet ingrédient dans la liste des suggestions pour lui attribuer ses macros.`);
+        return; 
+    }
+    
+    // -------------------------------------------------------------------------
+    // REPRISE DE TON CODE D'ORIGINE À 100% SANS AUCUNE MODIFICATION
+    // -------------------------------------------------------------------------
+    
     // Collecte des catégories actives
     const categories = [...document.querySelectorAll('.category-chip.active')].map(c => c.textContent.trim());
 
     // --- GESTION DE LA PHOTO ET DU NOMMAGE STRICT ---
-const imgEl = document.getElementById('recipe-preview-img');
-let photoUploadPayload = null;
-let photoFilename = "";
+    const imgEl = document.getElementById('recipe-preview-img');
+    let photoUploadPayload = null;
+    let photoFilename = "";
 
-if (imgEl && imgEl.dataset.base64) {
-    const recipeName = document.getElementById('recipe-name-input').value || "recette";
-    
-    // Règle de nommage (Slugification) alignée sur la ligne 186 de ton HTML
-    const cleanName = recipeName
-        .toLowerCase()
-        .normalize("NFD")                    // Sépare les accents des lettres
-        .replace(/[\u0300-\u036f]/g, "")     // Supprime les accents (â -> a, é -> e)
-        .replace(/[^a-z0-9]+/g, "-")         // Remplace les espaces/caractères spéciaux par un seul tiret
-        .replace(/^-|-$/g, "");              // Nettoie les tirets au début et à la fin
+    if (imgEl && imgEl.dataset.base64) {
+        const recipeName = document.getElementById('recipe-name-input').value || "recette";
+        
+        // Règle de nommage (Slugification) alignée sur la ligne 186 de ton HTML
+        const cleanName = recipeName
+            .toLowerCase()
+            .normalize("NFD")                    // Sépare les accents des lettres
+            .replace(/[\u0300-\u036f]/g, "")     // Supprime les accents (â -> a, é -> e)
+            .replace(/[^a-z0-9]+/g, "-")         // Remplace les espaces/caractères spéciaux par un seul tiret
+            .replace(/^-|-$/g, "");              // Nettoie les tirets au début et à la fin
 
-    const ext = imgEl.dataset.extension || 'jpg';
-    
-    /* 💡 ASTUCE SÉCURITÉ & CACHE :
-      Si tu gardes uniquement "${cleanName}.${ext}", GitHub va bloquer (Erreur 409) 
-      si tu essaies de remplacer une image existante (car il demande un code "SHA").
-      De plus, le Service Worker de ton téléphone va garder l'ancienne image en cache.
-      
-      En ajoutant un timestamp unique (ex: boeuf-hache-a-la-tomate-171584.jpg),
-      on esquive TOUS ces bugs d'un coup !
-    */
-    photoFilename = `${cleanName}-${Date.now()}.${ext}`;
-    
-    photoUploadPayload = {
-        base64: imgEl.dataset.base64,
-        filename: photoFilename
-    };
-} else if (imgEl && imgEl.src.includes('images/recettes/')) {
-    // Si l'image n'a pas changé, on extrait son nom actuel
-    const currentFile = imgEl.src.split('/').pop();
-    // Sécurité : si c'est la photo par défaut, on renvoie du vide pour Notion
-    photoFilename = currentFile === 'default-recipe.jpg' ? "" : currentFile;
-}
+        const ext = imgEl.dataset.extension || 'jpg';
+        
+        /* 💡 ASTUCE SÉCURITÉ & CACHE :
+          Si tu gardes uniquement "${cleanName}.${ext}", GitHub va bloquer (Erreur 409) 
+          si tu essaies de remplacer une image existante (car il demande un code "SHA").
+          De plus, le Service Worker de ton téléphone va garder l'ancienne image en cache.
+          
+          En ajoutant un timestamp unique (ex: boeuf-hache-a-la-tomate-171584.jpg),
+          on esquive TOUS ces bugs d'un coup !
+        */
+        photoFilename = `${cleanName}-${Date.now()}.${ext}`;
+        
+        photoUploadPayload = {
+            base64: imgEl.dataset.base64,
+            filename: photoFilename
+        };
+    } else if (imgEl && imgEl.src.includes('images/recettes/')) {
+        // Si l'image n'a pas changé, on extrait son nom actuel
+        const currentFile = imgEl.src.split('/').pop();
+        // Sécurité : si c'est la photo par défaut, on renvoie du vide pour Notion
+        photoFilename = currentFile === 'default-recipe.jpg' ? "" : currentFile;
+    }
+
     // Collecte des ingrédients
-   const ingredients = [];
+    const ingredients = [];
     document.querySelectorAll('.ingredient-row').forEach(row => {
         ingredients.push({
             id: row.dataset.compositionId || null,
@@ -1553,7 +1588,7 @@ if (imgEl && imgEl.dataset.base64) {
         });
     });
 
-   const payload = {
+    const payload = {
         email: userEmail,
         recette: {
             id: id,
@@ -1727,7 +1762,6 @@ async function searchAliments(input) {
             const aliments = await res.json();
 
             if (aliments && aliments.length > 0) {
-                // ⚡ ICI : on utilise onmousedown à la place d'onclick pour griller la priorité au blur
                 list.innerHTML = aliments.map(a => `
                     <div class="px-4 py-2 hover:bg-cyan-500/20 cursor-pointer text-xs text-white border-b border-white/5"
                          onmousedown="selectIngredient(this, '${a.id}', '${a.nom.replace(/'/g, "\\'")}', ${a.kcal_100g}, ${a.prot_100g}, ${a.gluc_100g}, ${a.lip_100g})">
@@ -1765,7 +1799,11 @@ function selectIngredient(element, id, nom, kcal100, p100, g100, l100) {
     // Gère la saisie manuelle dans le champ texte
 function handleIngredientNameInput(input) {
     const row = input.closest('.ingredient-row');
-    row.dataset.alimentId = ""; // L'utilisateur tape du texte libre -> le lien Notion saute
+    row.dataset.alimentId = ""; 
+    row.dataset.rkcal = "";
+    row.dataset.rp = "";
+    row.dataset.rg = "";
+    row.dataset.rl = "";
     searchAliments(input);
 }
 function handleIngredientBlur(input) {
@@ -1795,29 +1833,11 @@ function handleIngredientBlur(input) {
 function checkRecipeValidity() {
     const saveBtn = document.getElementById('btn-save-recipe');
     if (!saveBtn) return;
-
-    let allValid = true;
-
-    document.querySelectorAll('.ingredient-row').forEach(row => {
-        const nameInput = row.querySelector('.ingredient-name');
-        const nameValue = nameInput ? nameInput.value.trim() : "";
-        const alimentId = row.dataset.alimentId;
-
-        // Le bouton se bloque uniquement si un texte est écrit sans ID valide à côté
-        if (nameValue.length > 0 && (!alimentId || alimentId === 'null' || alimentId === 'undefined' || alimentId === '')) {
-            allValid = false;
-        }
-    });
-
-    // Gestion de l'état du bouton uniquement
-    saveBtn.disabled = !allValid;
-    if (!allValid) {
-        saveBtn.style.opacity = "0.3";
-        saveBtn.style.cursor = "not-allowed";
-    } else {
-        saveBtn.style.opacity = "1";
-        saveBtn.style.cursor = "pointer";
-    }
+    
+    // Le bouton reste toujours cliquable par défaut
+    saveBtn.disabled = false;
+    saveBtn.style.opacity = "1";
+    saveBtn.style.cursor = "pointer";
 }
     
 </script>
