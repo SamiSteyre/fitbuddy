@@ -1305,19 +1305,30 @@ setTimeout(() => { container.scrollTo({ top: 0, behavior: 'instant' }); }, 100);
 
     /* --- COURSES --- */
 
-    function switchToShopping(data) {
+function switchToShopping(data) {
+    moveToHeader("agent-courses.mp4");
+    
+    // 1. Force l'affichage de la vue shopping (utile si déclenché par l'agent)
+    showView('view-shopping');
 
-        moveToHeader("agent-courses.mp4");
+    let items = (Array.isArray(data)) ? data : (data.items || data.data || []);
+    currentList = items.map((i, idx) => ({ 
+        id: i.id || i.pageId || i.idNotion || `idx-${idx}`, 
+        nom: (i.nom || i.item || "Produit").trim(), 
+        quantite: i.quantite || "1", 
+        unite: i.unite || "", 
+        rayon: (i.rayon || i.category || "Autres").trim(), 
+        isPurchased: false 
+    }));
 
-        document.getElementById('floating-plus').classList.add('hidden');
-
-        let items = (Array.isArray(data)) ? data : (data.items || data.data || []);
-
-        currentList = items.map((i, idx) => ({ id: i.id || i.pageId || i.idNotion || `idx-${idx}`, nom: (i.nom || i.item || "Produit").trim(), quantite: i.quantite || "1", unite: i.unite || "", rayon: (i.rayon || i.category || "Autres").trim(), isPurchased: false }));
-
-        renderShopping(); forceScrollTop();
-
+    renderShopping(); 
+    
+    // 2. Remplace forceScrollTop() pour cibler le bon conteneur de manière isolée
+    const container = document.getElementById('view-shopping');
+    if (container) { 
+        setTimeout(() => { container.scrollTo({ top: 0, behavior: 'instant' }); }, 100); 
     }
+}
 
 
 
