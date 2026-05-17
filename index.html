@@ -1867,7 +1867,7 @@ async function sendRowToCart(buttonEl) {
     const quantiteGrames = parseFloat(qteInput ? qteInput.value : 0) || 0;
 
     if (!nomProduit || quantiteGrames <= 0) {
-        alert("⚠️ L'ingrédient doit avoir un nom et une quantité supérieure à 0.");
+        showNotification("L'ingrédient doit avoir un nom et une quantité supérieure à 0.", "error");
         return;
     }
 
@@ -1878,6 +1878,9 @@ async function sendRowToCart(buttonEl) {
             { produit: nomProduit, quantite: quantiteGrames }
         ]
     };
+
+    // ⏳ Déclenchement de l'état "En cours"
+    const loadingToast = showNotification(`Ajout de ${quantiteGrames}g de ${nomProduit} au panier...`, "loading");
 
     try {
         buttonEl.disabled = true;
@@ -1890,18 +1893,26 @@ async function sendRowToCart(buttonEl) {
             body: JSON.stringify(payload)
         });
 
+        // Suppression immédiate de la notification de chargement
+        if (loadingToast) loadingToast.remove();
+
         if (res.ok) {
-            const chat = document.getElementById('chat');
+            // 🎉 État "Succès"
+            showNotification(`Ajouté au panier : ${quantiteGrames}g de ${nomProduit}`, "success");
+            
+            const chat = document.getElementById('view-chat') || document.getElementById('chat');
             if (chat) {
                 chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl animate-in fade-in">🛒 Ajouter au panier : <b>${quantiteGrames}g de ${nomProduit}</b></div>`;
                 chat.scrollTop = chat.scrollHeight;
             }
         } else {
-            alert("Erreur lors de l'ajout au panier.");
+            showNotification("Erreur de traitement côté serveur.", "error");
         }
     } catch (e) {
         console.error(e);
-        alert("Impossible de joindre le serveur FitBuddy.");
+        if (loadingToast) loadingToast.remove();
+        // ❌ État "Souci technique"
+        showNotification("Impossible de joindre le serveur FitBuddy.", "error");
     } finally {
         buttonEl.disabled = false;
         buttonEl.innerHTML = '<i data-lucide="shopping-cart" class="w-4 h-4"></i>';
@@ -1926,16 +1937,20 @@ async function sendRecipeToCart() {
     });
 
     if (items.length === 0) {
-        alert("⚠️ Aucun ingrédient valide à envoyer dans le panier.");
+        showNotification("Aucun ingrédient valide à envoyer dans le panier.", "error");
         return;
     }
 
+    const recipeName = document.getElementById('recipe-name-input').value || "Recette sans nom";
     const payload = {
         email: userEmail,
         userName: localStorage.getItem('fitbuddy_user_name') || "Utilisateur",
-        recipeName: document.getElementById('recipe-name-input').value || "Recette sans nom",
+        recipeName: recipeName,
         items: items
     };
+
+    // ⏳ Déclenchement de l'état "En cours global"
+    const loadingToast = showNotification(`Génération du panier pour "${recipeName}"...`, "loading");
 
     try {
         if (btnGlobal) {
@@ -1950,19 +1965,25 @@ async function sendRecipeToCart() {
             body: JSON.stringify(payload)
         });
 
+        if (loadingToast) loadingToast.remove();
+
         if (res.ok) {
             closeRecipe();
-            const chat = document.getElementById('chat');
+            // 🎉 État "Succès global"
+            showNotification(`Les ${items.length} ingrédients ont été dispatchés dans Notion !`, "success");
+            
+            const chat = document.getElementById('view-chat') || document.getElementById('chat');
             if (chat) {
                 chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl animate-in fade-in">🛒 Les <b>${items.length} ingrédients</b> de la recette ont été ajoutés au panier !</div>`;
                 chat.scrollTop = chat.scrollHeight;
             }
         } else {
-            alert("Erreur lors du traitement du panier global.");
+            showNotification("Le serveur a refusé l'importation de la liste.", "error");
         }
     } catch (e) {
         console.error(e);
-        alert("Impossible de joindre le serveur FitBuddy.");
+        if (loadingToast) loadingToast.remove();
+        showNotification("Échec de la connexion réseau avec l'agent.", "error");
     } finally {
         if (btnGlobal) {
             btnGlobal.disabled = false;
@@ -1971,6 +1992,51 @@ async function sendRecipeToCart() {
         }
     }
 }
+    // 🔔 SYSTÈME DE NOTIFICATION TOAST ULTRA-FLUIDE
+function showNotification(message, type = 'info') {
+    let toastContainer = document.getElementById('toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        // Positionné juste sous le header de 14 (top-16)
+        toastContainer.className = 'fixed top-16 left-4 right-4 z-[99999] flex flex-col gap-2 pointer-events-none';
+        document.body.appendChild(toastContainer);
+    }
+    
+    const toast = document.createElement('div');
+    toast.style.transition = "all 0.3s ease-out";
+    toast.className = 'p-4 rounded-2xl text-xs font-bold shadow-2xl border backdrop-blur-xl pointer-events-auto flex items-center gap-3 opacity-0 transform -translate-y-2';
+    
+    let bg, border, text, icon;
+    if (type === 'success') {
+        bg = 'bg-emerald-500/10'; border = 'border-emerald-500/30'; text = 'text-emerald-400'; icon = 'check-circle';
+    } else if (type === 'error') {
+        bg = 'bg-red-500/10'; border = 'border-red-500/30'; text = 'text-red-400'; icon = 'x-circle';
+    } else { // En cours / Chargement
+        bg = 'bg-amber-500/10'; border = 'border-amber-500/30'; text = 'text-amber-400'; icon = 'loader';
+    }
+    
+    toast.className += ` ${bg} ${border} ${text}`;
+    toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 ${icon === 'loader' ? 'animate-spin' : ''}"></i> <span class="flex-1">${message}</span>`;
+    
+    toastContainer.appendChild(toast);
+    if (window.lucide) lucide.createIcons();
+    
+    // Animation d'apparition
+    setTimeout(() => {
+        toast.classList.remove('opacity-0', '-translate-y-2');
+    }, 10);
+    
+    // Si ce n'est pas un chargement, on le supprime automatiquement après 3 secondes
+    if (type !== 'loading') {
+        setTimeout(() => {
+            toast.classList.add('opacity-0', '-translate-y-2');
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+    return toast; // On retourne l'élément pour pouvoir le supprimer manuellement plus tard
+}
+    
 </script>
 <!-- POPUP ENREGISTREMENT MACRO -->
 <div id="macro-log-modal" class="modal-overlay !justify-center !items-center p-6" style="background: rgba(0,0,0,0.95);">
