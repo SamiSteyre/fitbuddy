@@ -2298,15 +2298,22 @@ async function logSelectedRecipes() {
                 <input type="number" id="macro-portions" value="1" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-cyan-400 font-black outline-none focus:border-cyan-500">
             </div>
             
-       <div class="space-y-2">
-    <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Attribuer au profil</label>
-    <select id="macro-user-select" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white font-bold outline-none appearance-none cursor-pointer">
-        <option value="Djibril" class="bg-[#111] text-white">Djibril</option>
-        <option value="Maxime" class="bg-[#111] text-white">Maxime</option>
-        <option value="Sami" class="bg-[#111] text-white">Sami</option>
-    </select>
-</div>
+            <div class="space-y-2">
+                <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Attribuer au profil</label>
+                <select id="macro-user-select" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white font-bold outline-none appearance-none cursor-pointer">
+                    <option value="Djibril" class="bg-[#111] text-white">Djibril</option>
+                    <option value="Maxime" class="bg-[#111] text-white">Maxime</option>
+                    <option value="Sami" class="bg-[#111] text-white">Sami</option>
+                </select>
+            </div>
 
+            <div class="flex gap-2">
+                <button onclick="closeMacroPopup()" class="flex-1 py-3 text-[10px] font-black text-white/40 uppercase">Annuler</button>
+                <button onclick="confirmMacroSend()" class="flex-1 bg-emerald-500 py-3 rounded-xl text-[10px] font-black text-black uppercase">Confirmer</button>
+            </div>
+        </div>
+    </div>
+</div> <!-- <-- CETTE BALISE REFERME PROPREMENT TA MODAL MACRO -->
         <div class="flex gap-2">
             <button onclick="closeMacroPopup()" class="flex-1 py-3 text-[10px] font-black text-white/40 uppercase">Annuler</button>
             <button onclick="confirmMacroSend()" class="flex-1 bg-emerald-500 py-3 rounded-xl text-[10px] font-black text-black uppercase">Confirmer</button>
