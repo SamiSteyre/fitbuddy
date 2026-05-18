@@ -1010,6 +1010,12 @@ function openRecipe(id) {
                 </div>
             </div>
 
+            <!-- Bouton Évaluation de Tyler -->
+            <button id="btn-tyler-eval" onclick="demanderEvaluationTyler()" class="w-full mb-3 bg-purple-950/40 border border-purple-500/40 py-4 rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-transform">
+                <i data-lucide="sparkles" class="w-5 h-5 text-purple-400"></i>
+                <span class="text-xs font-black text-purple-400 uppercase tracking-widest">Évaluation et suggestion de Tyler</span>
+            </button>
+
             <button class="w-full bg-cyan-500 py-5 rounded-2xl flex items-center justify-center gap-4 active:scale-95 transition-transform">
                 <i data-lucide="flame" class="w-6 h-6 text-black"></i>
                 <span class="text-base font-black text-black uppercase tracking-widest">Cuisiner !</span>
@@ -1522,7 +1528,83 @@ async function saveRecipeData(id) {
         if(btnSave) { btnSave.disabled = false; btnSave.innerHTML = '<i data-lucide="save" class="w-5 h-5 text-white"></i>'; lucide.createIcons(); }
     }
 }
+async function demanderEvaluationTyler() {
+    const btn = document.getElementById('btn-tyler-eval');
+    const originalContent = btn.innerHTML;
+    
+    // 1. Récupération des données de la recette depuis les inputs du DOM
+    const recipeName = document.getElementById('recipe-name-input').value || "Recette sans nom";
+    const parts = document.getElementById('recipe-parts-select').value;
+    const categories = [...document.querySelectorAll('.category-chip.active')].map(c => c.textContent.trim()).join(', ');
+    
+    const ingredients = [];
+    document.querySelectorAll('.ingredient-row').forEach(row => {
+        const nom = row.querySelector('.ingredient-name').value.trim();
+        const qte = row.querySelector('.ingredient-qte').value;
+        if (nom) ingredients.push(`- ${qte ? qte + 'g de ' : ''}${nom}`);
+    });
 
+    const etapes = [];
+    document.querySelectorAll('#steps-container .group').forEach((row, idx) => {
+        const desc = row.querySelector('textarea').value.trim();
+        const duree = row.querySelector('.step-duration').value;
+        if (desc) etapes.push(`${idx + 1}. ${desc} (${duree || 0} min)`);
+    });
+
+    // 2. Construction du prompt structuré pour l'agent
+    const messageTyler = `[SYSTEM_ACTION] Évalue la recette suivante et fais tes suggestions :
+NOM : ${recipeName}
+PARTS : ${parts}
+CATÉGORIES : ${categories}
+INGRÉDIENTS :
+${ingredients.join('\n')}
+
+PRÉPARATION :
+${etapes.join('\n')}`;
+
+    // 3. Changement visuel d'état (Chargement)
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin text-purple-400"></i> <span class="text-xs font-black text-purple-400 uppercase tracking-widest">Analyse de Tyler...</span>';
+    if (window.lucide) lucide.createIcons();
+
+    // Fermeture de la modal recette et basculement sur la vue Chat
+    closeRecipe();
+    showView('view-chat');
+
+    const chat = document.getElementById('view-chat');
+    chat.innerHTML += `
+        <div class="msg-user p-4 max-w-[80%] text-xs shadow-lg animate-in slide-in-from-right-4 font-semibold">
+            ✨ Demande d'évaluation nutritionnelle pour "${recipeName}"
+        </div>`;
+    chat.scrollTop = chat.scrollHeight;
+
+    // 4. Envoi à l'agent via le webhook existant
+    try {
+        const res = await fetch(`${N8N_URL}/webhook/chat-agent`, { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'}, 
+            body: JSON.stringify({ message: messageTyler, email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') }) 
+        });
+        
+        const responseData = await res.json();
+        const r = Array.isArray(responseData) ? responseData[0] : responseData;
+        
+        if (r.output) { 
+            chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl">${r.output}</div>`; 
+        }
+        if (r.audio_base64 && r.audio_base64 !== "empty") { 
+            new Audio("data:audio/mp3;base64," + r.audio_base64).play(); 
+        }
+        chat.scrollTop = chat.scrollHeight;
+    } catch(e) {
+        chat.innerHTML += `<div class="text-red-400 text-xs italic p-2">⚠️ Échec de la communication avec Tyler.</div>`;
+    } finally {
+        // Restauration du bouton pour la prochaine ouverture
+        btn.disabled = false;
+        btn.innerHTML = originalContent;
+        if (window.lucide) lucide.createIcons();
+    }
+}
 async function envoyerMessage() {
     const input = document.getElementById('userInput');
     const msg = input.value.trim();
