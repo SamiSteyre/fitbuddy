@@ -1295,6 +1295,9 @@ function handlePhotoUpload(input) {
 
 // GESTION DES MACROS
 function openMacroPopup() {
+    const currentUser = localStorage.getItem('fitbuddy_user_name') || "";
+    const select = document.getElementById('macro-user-select');
+    if (select && currentUser) select.value = currentUser;
     document.getElementById('macro-log-modal').style.display = 'flex';
 }
 
