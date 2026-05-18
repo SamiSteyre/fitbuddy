@@ -1066,12 +1066,24 @@ function renderStepRow(num, desc = "", duree = "", etapeId = null) {
 // Fonctions d'ajout
 function addIngredientRow() {
     const container = document.getElementById('ingredients-container');
+    
+    // 🧹 Si le placeholder est encore là (aucune vraie ligne d'ingrédient), on vide le conteneur
+    if (!container.querySelector('.ingredient-row')) {
+        container.innerHTML = '';
+    }
+    
     container.insertAdjacentHTML('beforeend', renderIngredientRow());
     lucide.createIcons();
 }
 
 function addStepRow() {
     const container = document.getElementById('steps-container');
+    
+    // 🧹 Si le placeholder est encore là (aucune vraie étape), on vide le conteneur
+    if (!container.querySelector('.group')) {
+        container.innerHTML = '';
+    }
+    
     const nextNum = container.children.length + 1;
     container.insertAdjacentHTML('beforeend', renderStepRow(nextNum));
     lucide.createIcons();
