@@ -782,24 +782,34 @@ function switchToCooking(data) {
                 </div>
                 <div class="flex gap-4 overflow-x-auto no-scrollbar snap-x px-1">`;
             
-            list.forEach(r => {
-                const recipeTitle = r.property_nom || r.nom || r.name || "";
-                const clean = r.property_photo || r.photo || (recipeTitle ? recipeTitle.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".jpg" : "default-recipe.jpg");
-                const path = clean.startsWith('http') ? clean : `images/recettes/${clean}`;
+        list.forEach(r => {
+    const recipeTitle = r.property_nom || r.nom || r.name || "";
+    
+    // 📸 Extraction sécurisée de la photo (gère chaînes, tableaux n8n et objets Notion)
+    let photoRaw = r.property_photo || r.photo;
+    let photoStr = "";
+    if (photoRaw) {
+        let item = Array.isArray(photoRaw) ? photoRaw[0] : photoRaw;
+        if (typeof item === 'string') photoStr = item.trim();
+        else if (item && typeof item === 'object') photoStr = item.name || (item.file ? item.file.url : (item.external ? item.external.url : ""));
+    }
 
-                html += `
-                    <div class="recipe-card snap-start" onclick="openRecipe('${r.id}')">
-                        <div class="relative aspect-[4/5] rounded-2xl overflow-hidden border border-white/10 mb-2.5 bg-white/5 shadow-2xl">
-                            <img src="${path}" class="w-full h-full object-cover" onerror="this.onerror=null; this.src='images/recettes/default-recipe.jpg';">
-                            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
-                            ${r.label ? `<div class="absolute top-2.5 left-2.5 bg-cyan-500 text-black font-black text-[7px] px-2 py-0.5 rounded-md uppercase shadow-lg shadow-cyan-500/20">${r.label}</div>` : ''}
-                            <div class="absolute bottom-2.5 left-2.5 flex items-center gap-1.5 bg-black/40 backdrop-blur-md px-2 py-1 rounded-lg text-[8px] text-white border border-white/10">
-                                <i data-lucide="clock" class="w-2.5 h-2.5 text-cyan-400"></i> ${r.temps || r.property_dur_e || 0} min
-                            </div>
-                        </div>
-                        <p class="text-[10px] font-bold text-white/90 px-1 leading-tight line-clamp-2">${recipeTitle}</p>
-                    </div>`;
-            });
+    const clean = photoStr || (recipeTitle ? recipeTitle.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".jpg" : "default-recipe.jpg");
+    const path = clean.startsWith('http') ? clean : `images/recettes/${clean}`;
+
+    html += `
+        <div class="recipe-card snap-start" onclick="openRecipe('${r.id}')">
+            <div class="relative aspect-[4/5] rounded-2xl overflow-hidden border border-white/10 mb-2.5 bg-white/5 shadow-2xl">
+                <img src="${path}" class="w-full h-full object-cover" onerror="this.onerror=null; this.src='images/recettes/default-recipe.jpg';">
+                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+                ${r.label ? `<div class="absolute top-2.5 left-2.5 bg-cyan-500 text-black font-black text-[7px] px-2 py-0.5 rounded-md uppercase shadow-lg shadow-cyan-500/20">${r.label}</div>` : ''}
+                <div class="absolute bottom-2.5 left-2.5 flex items-center gap-1.5 bg-black/40 backdrop-blur-md px-2 py-1 rounded-lg text-[8px] text-white border border-white/10">
+                    <i data-lucide="clock" class="w-2.5 h-2.5 text-cyan-400"></i> ${r.temps || r.property_dur_e || 0} min
+                </div>
+            </div>
+            <p class="text-[10px] font-bold text-white/90 px-1 leading-tight line-clamp-2">${recipeTitle}</p>
+        </div>`;
+});
             html += `</div></section>`;
         }
     });
@@ -825,12 +835,20 @@ function openRecipe(id) {
     const body = document.getElementById('recipe-detail-body');
     const categories = ["Entrées", "Plats", "Desserts", "Autres", "Suggestions de Tyler", "Menu de la semaine"];
     
- const recipeName = recipe.property_nom || recipe.name || "";
+const recipeName = recipe.property_nom || recipe.name || "";
 const currentCats = recipe.property_cat_gorie || "";
 const partsValue = recipe.property_parts || 1;
 
-// Correction ici : prise en compte du préfixe de Notion + fallback intelligent
-const clean = recipe.property_photo || recipe.photo || (recipeName ? recipeName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".jpg" : "default-recipe.jpg");
+// 📸 Extraction sécurisée de la photo (gère chaînes, tableaux n8n et objets Notion)
+let photoRaw = recipe.property_photo || recipe.photo;
+let photoStr = "";
+if (photoRaw) {
+    let item = Array.isArray(photoRaw) ? photoRaw[0] : photoRaw;
+    if (typeof item === 'string') photoStr = item.trim();
+    else if (item && typeof item === 'object') photoStr = item.name || (item.file ? item.file.url : (item.external ? item.external.url : ""));
+}
+
+const clean = photoStr || (recipeName ? recipeName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".jpg" : "default-recipe.jpg");
 const path = clean.startsWith('http') ? clean : `images/recettes/${clean}`;
     
     const kcal = parseFloat(recipe.property_kcal_part || 0).toFixed(1);
@@ -884,8 +902,7 @@ const formattedSteps = instructions.map((text, index) => {
     body.innerHTML = `
         <div class="relative w-full h-[45dvh] overflow-hidden group">
             <input type="file" id="recipe-photo-input" class="hidden" accept="image/*" onchange="handlePhotoUpload(this)">
-            <img id="recipe-preview-img" src="${path}" class="w-full h-full object-cover" onerror="this.src='images/recettes/default-recipe.jpg';">
-            <div onclick="document.getElementById('recipe-photo-input').click()" class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10">
+<img id="recipe-preview-img" src="${path}" class="w-full h-full object-cover" onerror="this.onerror=null; this.src='images/recettes/default-recipe.jpg';">            <div onclick="document.getElementById('recipe-photo-input').click()" class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10">
                 <div class="bg-white/10 backdrop-blur-md p-4 rounded-full border border-white/20">
                     <i data-lucide="camera" class="w-6 h-6 text-white"></i>
                 </div>
