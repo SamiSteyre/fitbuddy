@@ -1510,12 +1510,16 @@ async function saveRecipeData(id) {
             body: JSON.stringify(payload)
         });
 
-        if (res.ok) {
+   if (res.ok) {
             // Reset des tableaux après sauvegarde réussie
             deletedIngredients = [];
             deletedEtapes = [];
             closeRecipe();
-           const chat = document.getElementById('view-chat') || document.getElementById('chat');
+            
+            // ✨ AJOUTE CETTE LIGNE ICI pour recharger l'onglet Cuisine :
+            await triggerQuickAction('cuisine');
+
+            const chat = document.getElementById('view-chat') || document.getElementById('chat');
             chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl animate-in fade-in">✅ Recette "<b>${payload.recette.nom}</b>" sauvegardée dans Notion !</div>`;
             chat.scrollTop = chat.scrollHeight;
         } else {
