@@ -820,7 +820,9 @@ function switchToCooking(data) {
     setTimeout(() => { container.scrollTo({ top: 0, behavior: 'instant' }); }, 100);
 }
 function openRecipe(id) {
-    const recipe = recipesCache.find(r => String(r.id) === String(id)) || {
+    // 🛡️ Isolation complète du mode "Nouvelle Recette" pour éviter les interférences du cache
+    const isNew = (!id || id === 'null');
+    const recipe = isNew ? {
         property_nom: "",
         name: "",
         property_ingredients: [],
@@ -829,84 +831,97 @@ function openRecipe(id) {
         property_dur_es: [],
         property_parts: 1,
         property_cat_gorie: "Autres"
-    };
+    } : (recipesCache.find(r => String(r.id) === String(id)) || {
+        property_nom: "",
+        name: "",
+        property_ingredients: [],
+        property_quantites: [],
+        property_instructions: [],
+        property_dur_es: [],
+        property_parts: 1,
+        property_cat_gorie: "Autres"
+    });
 
     const modal = document.getElementById('recipe-modal');
     const body = document.getElementById('recipe-detail-body');
     const categories = ["Entrées", "Plats", "Desserts", "Autres", "Suggestions de Tyler", "Menu de la semaine"];
     
-const recipeName = recipe.property_nom || recipe.name || "";
-const currentCats = recipe.property_cat_gorie || "";
-const partsValue = recipe.property_parts || 1;
+    const recipeName = recipe.property_nom || recipe.name || "";
+    const currentCats = recipe.property_cat_gorie || "";
+    const partsValue = recipe.property_parts || 1;
 
-// 📸 Extraction sécurisée de la photo (gère chaînes, tableaux n8n et objets Notion)
-let photoRaw = recipe.property_photo || recipe.photo;
-let photoStr = "";
-if (photoRaw) {
-    let item = Array.isArray(photoRaw) ? photoRaw[0] : photoRaw;
-    if (typeof item === 'string') photoStr = item.trim();
-    else if (item && typeof item === 'object') photoStr = item.name || (item.file ? item.file.url : (item.external ? item.external.url : ""));
-}
+    // 📸 Extraction de la photo (uniquement si ce n'est pas une nouvelle recette)
+    let photoStr = "";
+    if (!isNew) {
+        let photoRaw = recipe.property_photo || recipe.photo;
+        if (photoRaw) {
+            let item = Array.isArray(photoRaw) ? photoRaw[0] : photoRaw;
+            if (typeof item === 'string') photoStr = item.trim();
+            else if (item && typeof item === 'object') photoStr = item.name || (item.file ? item.file.url : (item.external ? item.external.url : ""));
+        }
+    }
 
-const clean = photoStr || (recipeName ? recipeName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".jpg" : "default-recipe.jpg");
-const path = clean.startsWith('http') ? clean : `images/recettes/${clean}`;
+    // 💡 Si nouvelle recette : pixel transparent invisible. Sinon : calcul du chemin classique.
+    const path = isNew ? "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" : (photoStr || (recipeName ? recipeName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".jpg" : "default-recipe.jpg"));
+    const finalPath = path.startsWith('http') || path.startsWith('data:') ? path : `images/recettes/${path}`;
     
     const kcal = parseFloat(recipe.property_kcal_part || 0).toFixed(1);
     const prot = parseFloat(recipe.property_p_part || 0).toFixed(1);
     const glu = parseFloat(recipe.property_g_part || 0).toFixed(1);
     const lip = parseFloat(recipe.property_l_part || 0).toFixed(1);
     
-const parseNotionList = (val, separator) => {
-    if (!val) return [];
-    if (Array.isArray(val)) {
-        if (val.length === 0) return [];
-        if (val.length > 1) return val.filter(s => s !== undefined && s !== null);
-        val = val[0];
-    }
-    if (val === undefined || val === null || String(val).trim() === "") return [];
-    if (typeof val !== 'string') return [val];
-    return val.split(separator).map(s => s.trim()).filter(s => s.length > 0);
-};
+    const parseNotionList = (val, separator) => {
+        if (!val) return [];
+        if (Array.isArray(val)) {
+            if (val.length === 0) return [];
+            if (val.length > 1) return val.filter(s => s !== undefined && s !== null);
+            val = val[0];
+        }
+        if (val === undefined || val === null || String(val).trim() === "") return [];
+        if (typeof val !== 'string') return [val];
+        return val.split(separator).map(s => s.trim()).filter(s => s.length > 0);
+    };
 
     // --- CALCUL DES RATIOS DES INGRÉDIENTS ---
-const names = parseNotionList(recipe.property_ingredients, ',');
-const quants = parseNotionList(recipe.property_quantites, ',');
-const compositionIds = recipe.property_composition_recette || [];
-const etapeIds = recipe.property_etapes_de_cuisine || [];
+    const names = parseNotionList(recipe.property_ingredients, ',');
+    const quants = parseNotionList(recipe.property_quantites, ',');
+    const compositionIds = recipe.property_composition_recette || [];
+    const etapeIds = recipe.property_etapes_de_cuisine || [];
     const k_list = parseNotionList(recipe.property_kcal, ',');
     const p_list = parseNotionList(recipe.property_p, ',');
     const g_list = parseNotionList(recipe.property_g, ',');
     const l_list = parseNotionList(recipe.property_l, ',');
 
-const formattedIngredients = names.map((nom, index) => {
-    const qOriginale = parseFloat(quants[index]) || 1;
-    return { 
-        nom: nom, 
-        quantite: qOriginale,
-        compositionId: compositionIds[index] || null,
-        ratios: {
-            kcal: (parseFloat(k_list[index]) || 0) / qOriginale,
-            p: (parseFloat(p_list[index]) || 0) / qOriginale,
-            g: (parseFloat(g_list[index]) || 0) / qOriginale,
-            l: (parseFloat(l_list[index]) || 0) / qOriginale
-        }
-    };
-});
+    const formattedIngredients = names.map((nom, index) => {
+        const qOriginale = parseFloat(quants[index]) || 1;
+        return { 
+            nom: nom, 
+            quantite: qOriginale,
+            compositionId: compositionIds[index] || null,
+            ratios: {
+                kcal: (parseFloat(k_list[index]) || 0) / qOriginale,
+                p: (parseFloat(p_list[index]) || 0) / qOriginale,
+                g: (parseFloat(g_list[index]) || 0) / qOriginale,
+                l: (parseFloat(l_list[index]) || 0) / qOriginale
+            }
+        };
+    });
 
- const instructions = parseNotionList(recipe.property_instructions, '|||');
-const durations = parseNotionList(recipe.property_dur_es, '|||');
-   // Reset des tableaux de suppression à chaque ouverture
-deletedIngredients = [];
-deletedEtapes = [];
+    const instructions = parseNotionList(recipe.property_instructions, '|||');
+    const durations = parseNotionList(recipe.property_dur_es, '|||');
+    
+    deletedIngredients = [];
+    deletedEtapes = [];
 
-const formattedSteps = instructions.map((text, index) => {
-    return { desc: text, duree: durations[index] || 0, etapeId: etapeIds[index] || null };
-});
+    const formattedSteps = instructions.map((text, index) => {
+        return { desc: text, duree: durations[index] || 0, etapeId: etapeIds[index] || null };
+    });
+
 
     body.innerHTML = `
         <div class="relative w-full h-[45dvh] overflow-hidden group">
             <input type="file" id="recipe-photo-input" class="hidden" accept="image/*" onchange="handlePhotoUpload(this)">
-<img id="recipe-preview-img" src="${path}" class="w-full h-full object-cover" onerror="this.onerror=null; this.src='images/recettes/default-recipe.jpg';">            <div onclick="document.getElementById('recipe-photo-input').click()" class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10">
+<img id="recipe-preview-img" src="${finalPath}" class="w-full h-full object-cover" onerror="this.onerror=null; this.src='images/recettes/default-recipe.jpg';">            <div onclick="document.getElementById('recipe-photo-input').click()" class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10">
                 <div class="bg-white/10 backdrop-blur-md p-4 rounded-full border border-white/20">
                     <i data-lucide="camera" class="w-6 h-6 text-white"></i>
                 </div>
