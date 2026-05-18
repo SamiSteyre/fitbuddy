@@ -2278,8 +2278,6 @@ async function logSelectedRecipes() {
         closeRecipePicker();
         showNotification(`${items.length} repas enregistré(s) ✓`, "success");
 
-        // 🔄 RECHARGE LE DASHBOARD DES MACROS AUTOMATIQUEMENT
-        // On met un mini-délai de 300ms pour laisser le temps à Notion/n8n d'écrire en BDD
         setTimeout(() => {
             triggerQuickAction('macros');
         }, 300);
@@ -2292,8 +2290,10 @@ async function logSelectedRecipes() {
         }
     } catch (e) {
         showNotification("Impossible d'enregistrer les macros.", "error");
-        if (floatBtn) floatBtn.style.pointerEvents = 'auto';
         if (floatLbl) floatLbl.textContent = 'Réessayer';
+    } finally {
+        // 🔓 ON DÉVERROUILLE QUOI QU'IL ARRIVE (Succès ou Échec) pour la prochaine ouverture
+        if (floatBtn) floatBtn.style.pointerEvents = 'auto';
     }
 }
 </script>
