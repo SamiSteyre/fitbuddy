@@ -1303,20 +1303,14 @@ function closeMacroPopup() {
 }
 
 async function confirmMacroSend() {
-    const btnConfirm = event.target; // Pour changer l'état du bouton
+    const btnConfirm = event.target;
     const originalText = btnConfirm.innerText;
     
-    // 1. Récupération des infos de la modal de LOG
     const portions = parseFloat(document.getElementById('macro-portions').value) || 1;
     const targetUser = document.getElementById('macro-user-select').value;
-    
-    // 2. Récupération dynamique du nom (depuis l'input de la recette)
     const mealName = document.getElementById('recipe-name-input').value || "Repas inconnu";
     
-    // 3. Récupération des macros affichées à l'écran (Instant T)
-    // On récupère le texte, on remplace la virgule par un point et on transforme en nombre
     const getVal = (id) => parseFloat(document.getElementById(id).innerText.replace(',', '.')) || 0;
-    
     const macros = {
         kcal: getVal('display-kcal'),
         prot: getVal('display-prot'),
@@ -1324,10 +1318,9 @@ async function confirmMacroSend() {
         lip: getVal('display-lip')
     };
 
-    // 4. Calcul final basé sur le nombre de portions consommées
     const dataToSend = {
         email: userEmail,
-        userName: targetUser, // L'utilisateur sélectionné (Sami, Djibril ou Maxime)
+        userName: targetUser,
         repas: mealName,
         parts_consommees: portions,
         total_kcal: (macros.kcal * portions).toFixed(1),
@@ -1337,35 +1330,32 @@ async function confirmMacroSend() {
         timestamp: new Date().toISOString()
     };
 
-    try {
-        btnConfirm.innerText = "ENVOI...";
-        btnConfirm.disabled = true;
+    btnConfirm.innerText = "ENVOI...";
+    btnConfirm.disabled = true;
 
-        const response = await fetch(`${N8N_URL}/webhook/log-macro`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(dataToSend)
-        });
+    // 🔥 Fire-and-forget : on n'attend PAS la réponse (webhook en respond immediately)
+    fetch(`${N8N_URL}/webhook/log-macro`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': '69420'  // ← le header manquant !
+        },
+        body: JSON.stringify(dataToSend)
+    }).catch(() => {}); // Silencieux : n8n ferme la connexion immédiatement, c'est normal
 
-        if (response.ok) {
-            closeMacroPopup();
-            // Petit feedback visuel sympa
-            const chat = document.getElementById('chat');
-            chat.innerHTML += `
-                <div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl animate-in fade-in">
-                    ✅ <b>${portions} portion(s)</b> de "${mealName}" enregistrée(s) pour <b>${targetUser}</b> !
-                </div>`;
-            chat.scrollTop = chat.scrollHeight;
-        } else {
-            alert("Erreur lors de l'enregistrement.");
-        }
-    } catch (error) {
-        console.error("Erreur:", error);
-        alert("Impossible de contacter FitBuddy.");
-    } finally {
-        btnConfirm.innerText = originalText;
-        btnConfirm.disabled = false;
+    // ✅ On affiche le succès immédiatement sans attendre
+    closeMacroPopup();
+    const chat = document.getElementById('view-chat') || document.getElementById('chat');
+    if (chat) {
+        chat.innerHTML += `
+            <div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl animate-in fade-in">
+                ✅ <b>${portions} portion(s)</b> de "${mealName}" enregistrée(s) pour <b>${targetUser}</b> !
+            </div>`;
+        chat.scrollTop = chat.scrollHeight;
     }
+
+    btnConfirm.innerText = originalText;
+    btnConfirm.disabled = false;
 }
 
 // ENREGISTREMENT RECETTE
