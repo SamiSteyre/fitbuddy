@@ -2278,6 +2278,12 @@ async function logSelectedRecipes() {
         closeRecipePicker();
         showNotification(`${items.length} repas enregistré(s) ✓`, "success");
 
+        // 🔄 RECHARGE LE DASHBOARD DES MACROS AUTOMATIQUEMENT
+        // On met un mini-délai de 300ms pour laisser le temps à Notion/n8n d'écrire en BDD
+        setTimeout(() => {
+            triggerQuickAction('macros');
+        }, 300);
+
         const chat = document.getElementById('view-chat');
         if (chat) {
             const recap = items.map(i => `<b>${i.parts_consommees}× ${i.nom}</b>`).join(', ');
