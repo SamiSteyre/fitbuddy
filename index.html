@@ -1302,8 +1302,8 @@ function closeMacroPopup() {
     document.getElementById('macro-log-modal').style.display = 'none';
 }
 
-async function confirmMacroSend() {
-    const btnConfirm = event.target; // Pour changer l'état du bouton
+async function confirmMacroSend(btnConfirm) {
+    if (!btnConfirm) return;
     const originalText = btnConfirm.innerText;
     
     // 1. Récupération des infos de la modal de LOG
@@ -1349,6 +1349,8 @@ async function confirmMacroSend() {
 
         if (response.ok) {
             closeMacroPopup();
+            closeRecipe(); // Ferme la fiche recette 
+    showView('view-macros'); /
             // Petit feedback visuel sympa
             const chat = document.getElementById('chat');
             chat.innerHTML += `
@@ -2116,8 +2118,7 @@ function showNotification(message, type = 'info') {
 
         <div class="flex gap-2">
             <button onclick="closeMacroPopup()" class="flex-1 py-3 text-[10px] font-black text-white/40 uppercase">Annuler</button>
-            <button onclick="confirmMacroSend()" class="flex-1 bg-emerald-500 py-3 rounded-xl text-[10px] font-black text-black uppercase">Confirmer</button>
-        </div>
+<button onclick="confirmMacroSend(this)" class="flex-1 bg-emerald-500 py-3 rounded-xl text-[10px] font-black text-black uppercase">Confirmer</button>        </div>
     </div>
 </div>
 </body>
