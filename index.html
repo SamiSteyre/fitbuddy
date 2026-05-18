@@ -856,13 +856,17 @@ const path = clean.startsWith('http') ? clean : `images/recettes/${clean}`;
     const glu = parseFloat(recipe.property_g_part || 0).toFixed(1);
     const lip = parseFloat(recipe.property_l_part || 0).toFixed(1);
     
-    const parseNotionList = (val, separator) => {
-        if (!val) return [];
-        if (Array.isArray(val) && val.length > 1) return val;
-        let str = Array.isArray(val) ? val[0] : val;
-        if (typeof str !== 'string') return [str];
-        return str.split(separator).map(s => s.trim()).filter(s => s.length > 0);
-    };
+const parseNotionList = (val, separator) => {
+    if (!val) return [];
+    if (Array.isArray(val)) {
+        if (val.length === 0) return [];
+        if (val.length > 1) return val.filter(s => s !== undefined && s !== null);
+        val = val[0];
+    }
+    if (val === undefined || val === null || String(val).trim() === "") return [];
+    if (typeof val !== 'string') return [val];
+    return val.split(separator).map(s => s.trim()).filter(s => s.length > 0);
+};
 
     // --- CALCUL DES RATIOS DES INGRÉDIENTS ---
 const names = parseNotionList(recipe.property_ingredients, ',');
@@ -954,11 +958,11 @@ const formattedSteps = instructions.map((text, index) => {
             
             <div class="space-y-6 mb-10">
                 <div class="flex items-center justify-between bg-white/5 p-4 rounded-2xl border border-white/10">
-                    <span class="text-[11px] font-black text-white/70 uppercase tracking-widest">Nombre de parts</span>
-                    <select id="recipe-parts-select" onchange="recalculateMacros()" class="custom-select font-black text-cyan-400">
-                        ${[1,2,3,4,5,6,7,8,9,10].map(n => `<option value="${n}" ${n == partsValue ? 'selected' : ''}>${n}</option>`).join('')}
-                    </select>
-                </div>
+    <span class="text-[11px] font-black text-white/70 uppercase tracking-widest">Nombre de parts</span>
+    <select id="recipe-parts-select" onchange="recalculateMacros()" class="custom-select font-black text-cyan-400">
+        ${Array.from({length: 50}, (_, i) => i + 1).map(n => `<option value="${n}" ${n == partsValue ? 'selected' : ''}>${n}</option>`).join('')}
+    </select>
+</div>
                 <div class="flex flex-wrap gap-2">
                     ${categories.map(c => `<button class="category-chip ${currentCats.includes(c) ? 'active' : ''}" onclick="this.classList.toggle('active')">${c}</button>`).join('')}
                 </div>
@@ -1415,26 +1419,34 @@ async function saveRecipeData(id) {
         photoFilename = currentFile === 'default-recipe.jpg' ? "" : currentFile;
     }
 
-    // Collecte des ingrédients
+   
+// Collecte des ingrédients (uniquement ceux qui ont un nom)
     const ingredients = [];
     document.querySelectorAll('.ingredient-row').forEach(row => {
-        ingredients.push({
-            id: row.dataset.compositionId || null,
-            alimentId: row.dataset.alimentId !== 'loaded' ? (row.dataset.alimentId || null) : null,
-            nom: row.querySelector('.ingredient-name').value,
-            quantite: parseFloat(row.querySelector('.ingredient-qte').value) || 0
-        });
+        const nomValue = row.querySelector('.ingredient-name').value.trim();
+        if (nomValue) { // N'embarque pas la ligne si le nom est vide
+            ingredients.push({
+                id: row.dataset.compositionId || null,
+                alimentId: row.dataset.alimentId !== 'loaded' ? (row.dataset.alimentId || null) : null,
+                nom: nomValue,
+                quantite: parseFloat(row.querySelector('.ingredient-qte').value) || 0
+            });
+        }
     });
 
     // Collecte des étapes
+// Collecte des étapes (uniquement celles qui ont une description)
     const etapes = [];
-    document.querySelectorAll('#steps-container .group').forEach((row, idx) => {
-        etapes.push({
-            id: row.dataset.etapeId || null,
-            description: row.querySelector('textarea').value,
-            duree: parseFloat(row.querySelector('.step-duration').value) || 0,
-            ordre: idx + 1
-        });
+    document.querySelectorAll('#steps-container .group').forEach((row) => {
+        const descValue = row.querySelector('textarea').value.trim();
+        if (descValue) { // N'embarque pas l'étape si la description est vide
+            etapes.push({
+                id: row.dataset.etapeId || null,
+                description: descValue,
+                duree: parseFloat(row.querySelector('.step-duration').value) || 0,
+                ordre: etapes.length + 1 // Maintient une suite logique 1, 2, 3 sans saut d'index
+            });
+        }
     });
 
     const payload = {
