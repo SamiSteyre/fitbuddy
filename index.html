@@ -1181,6 +1181,11 @@ function switchToMacros(data) {
                 }).join('')}
             </div>
         </div>` : ''}
+         <button onclick="openRecipePicker()" 
+            class="w-full flex items-center justify-center gap-3 p-4 rounded-2xl border border-cyan-500/30 bg-cyan-500/5 active:scale-95 transition-transform mt-2">
+        <i data-lucide="utensils" class="w-4 h-4 text-cyan-400"></i>
+        <span class="text-[11px] font-black text-cyan-400 uppercase tracking-widest">Ajouter un repas aux macros</span>
+    </button>
     </div>`;
     container.innerHTML = html; 
     lucide.createIcons(); 
@@ -2085,7 +2090,202 @@ function showNotification(message, type = 'info') {
     }
     return toast; // On retourne l'élément pour pouvoir le supprimer manuellement plus tard
 }
-    
+    /* =========================================================
+   RECIPE PICKER — Sélecteur de repas pour les macros
+   ========================================================= */
+let recipePortions = {};   // { recipeId: nbParts (multiple de 0.5) }
+
+function openRecipePicker() {
+    recipePortions = {};
+    document.getElementById('recipe-picker-modal').style.display = 'flex';
+
+    if (recipesCache && recipesCache.length > 0) {
+        renderRecipePicker();
+    } else {
+        // Cache vide : on charge la liste cuisine en background
+        document.getElementById('recipe-picker-body').innerHTML = `
+            <div class="flex flex-col items-center justify-center h-full gap-3 text-cyan-400 py-16">
+                <i data-lucide="loader" class="w-5 h-5 animate-spin"></i>
+                <span class="text-[10px] tracking-widest uppercase">Chargement des recettes…</span>
+            </div>`;
+        lucide.createIcons();
+
+        fetch(`${N8N_URL}/webhook/quick-action`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '69420' },
+            body: JSON.stringify({ action: 'cuisine', email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') })
+        })
+        .then(r => r.json())
+        .then(data => {
+            const r = Array.isArray(data) ? data[0] : data;
+            const d = r.data || r;
+            recipesCache = Array.isArray(d) ? d : (d.recipes || []);
+            renderRecipePicker();
+        })
+        .catch(() => {
+            document.getElementById('recipe-picker-body').innerHTML =
+                `<div class="text-center text-red-400 text-xs py-12">⚠️ Impossible de charger les recettes.</div>`;
+        });
+    }
+}
+
+function closeRecipePicker() {
+    document.getElementById('recipe-picker-modal').style.display = 'none';
+    recipePortions = {};
+}
+
+function renderRecipePicker() {
+    const body = document.getElementById('recipe-picker-body');
+
+    // Dédoublonnage
+    const unique = [];
+    const seen   = new Set();
+    recipesCache.forEach(r => {
+        const id = String(r.id);
+        if (!seen.has(id) && (r.property_nom || r.name || r.nom)) {
+            seen.add(id); unique.push(r);
+        }
+    });
+
+    if (unique.length === 0) {
+        body.innerHTML = `<p class="text-center text-white/30 text-xs py-12">Aucune recette disponible</p>`;
+        return;
+    }
+
+    body.innerHTML = `<div class="grid grid-cols-2 gap-3 p-4 pb-6">${unique.map(r => {
+        const id   = String(r.id);
+        const name = r.property_nom || r.name || r.nom || "Recette";
+        const kcal = parseFloat(r.property_kcal_part || 0).toFixed(0);
+
+        // Photo
+        let photoRaw = r.property_photo || r.photo;
+        let photoStr = "";
+        if (photoRaw) {
+            let item = Array.isArray(photoRaw) ? photoRaw[0] : photoRaw;
+            if (typeof item === 'string') photoStr = item.trim();
+            else if (item && typeof item === 'object')
+                photoStr = item.name || (item.file ? item.file.url : (item.external ? item.external.url : ""));
+        }
+        const cleanName = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+        const path = photoStr
+            ? (photoStr.startsWith('http') ? photoStr : `images/recettes/${photoStr}`)
+            : `images/recettes/${cleanName}.jpg`;
+
+        return `
+        <div id="picker-card-${id}" 
+             class="relative aspect-[3/4] rounded-2xl overflow-hidden border border-white/10 bg-black shadow-xl transition-all duration-200">
+            <img src="${path}" 
+                 class="absolute inset-0 w-full h-full object-cover" 
+                 onerror="this.onerror=null;this.src='images/recettes/default-recipe.jpg'">
+            <div class="absolute inset-0 bg-gradient-to-t from-black/95 via-black/30 to-transparent"></div>
+
+            <!-- Nom + kcal -->
+            <div class="absolute bottom-14 left-0 right-0 px-2.5 text-center">
+                <p class="text-[10px] font-bold text-white leading-tight line-clamp-2">${name}</p>
+                <p class="text-[8px] text-cyan-400/70 mt-0.5">${kcal} kcal / part</p>
+            </div>
+
+            <!-- Contrôles −  0  + -->
+            <div class="absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-between gap-1">
+                <button onclick="adjustPortion('${id}', -0.5)" 
+                        class="w-9 h-9 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center text-white font-black text-lg active:scale-90 transition-transform leading-none">
+                    −
+                </button>
+                <span id="portion-${id}" 
+                      class="text-sm font-black text-cyan-400 min-w-[28px] text-center tabular-nums">
+                    0
+                </span>
+                <button onclick="adjustPortion('${id}', 0.5)" 
+                        class="w-9 h-9 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400 font-black text-lg active:scale-90 transition-transform leading-none">
+                    +
+                </button>
+            </div>
+        </div>`;
+    }).join('')}</div>`;
+
+    lucide.createIcons();
+}
+
+function adjustPortion(id, delta) {
+    const current = recipePortions[id] || 0;
+    const newVal  = Math.max(0, Math.round((current + delta) * 10) / 10);
+    recipePortions[id] = newVal;
+
+    // Mise à jour compteur
+    const display = document.getElementById(`portion-${id}`);
+    if (display) display.textContent = newVal > 0 ? newVal : '0';
+
+    // Highlight de la carte si sélectionnée
+    const card = document.getElementById(`picker-card-${id}`);
+    if (card) {
+        card.style.outline       = newVal > 0 ? '2px solid #22d3ee' : 'none';
+        card.style.outlineOffset = '2px';
+        card.style.boxShadow     = newVal > 0 ? '0 0 20px rgba(34,211,238,0.25)' : 'none';
+    }
+
+    // Bouton flottant
+    const selected  = Object.values(recipePortions).filter(v => v > 0).length;
+    const floatWrap = document.getElementById('picker-float-btn');
+    const floatLbl  = document.getElementById('picker-float-label');
+    if (floatWrap) {
+        floatWrap.style.display = selected > 0 ? 'block' : 'none';
+        if (floatLbl) {
+            const totalKcal = Object.entries(recipePortions)
+                .filter(([, v]) => v > 0)
+                .reduce((sum, [rid, parts]) => {
+                    const r = recipesCache.find(x => String(x.id) === rid);
+                    return sum + (r ? parseFloat(r.property_kcal_part || 0) * parts : 0);
+                }, 0);
+            floatLbl.textContent = `Enregistrer ${selected} repas · ${Math.round(totalKcal)} kcal`;
+        }
+    }
+}
+
+async function logSelectedRecipes() {
+    const selected = Object.entries(recipePortions).filter(([, parts]) => parts > 0);
+    if (selected.length === 0) { showNotification("Sélectionne au moins une recette.", "error"); return; }
+
+    const userName = localStorage.getItem('fitbuddy_user_name') || "Utilisateur";
+    const items = selected.map(([id, parts]) => {
+        const r = recipesCache.find(x => String(x.id) === id) || {};
+        return {
+            recipeId:         id,
+            nom:              r.property_nom || r.name || r.nom || "Recette",
+            parts_consommees: parts,
+            total_kcal:       (parseFloat(r.property_kcal_part || 0) * parts).toFixed(1),
+            total_prot:       (parseFloat(r.property_p_part    || 0) * parts).toFixed(1),
+            total_glu:        (parseFloat(r.property_g_part    || 0) * parts).toFixed(1),
+            total_lip:        (parseFloat(r.property_l_part    || 0) * parts).toFixed(1),
+        };
+    });
+
+    const floatBtn = document.getElementById('picker-float-btn');
+    const floatLbl = document.getElementById('picker-float-label');
+    if (floatBtn) floatBtn.style.pointerEvents = 'none';
+    if (floatLbl) floatLbl.textContent = 'Envoi en cours…';
+
+    try {
+        await fetch(`${N8N_URL}/webhook/log-macro-batch`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '69420' },
+            body:    JSON.stringify({ email: userEmail, userName, items, timestamp: new Date().toISOString() })
+        });
+
+        closeRecipePicker();
+        showNotification(`${items.length} repas enregistré(s) ✓`, "success");
+
+        const chat = document.getElementById('view-chat');
+        if (chat) {
+            const recap = items.map(i => `<b>${i.parts_consommees}× ${i.nom}</b>`).join(', ');
+            chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl animate-in fade-in">🍽️ Macros enregistrées : ${recap}</div>`;
+            chat.scrollTop = chat.scrollHeight;
+        }
+    } catch (e) {
+        showNotification("Impossible d'enregistrer les macros.", "error");
+        if (floatBtn) floatBtn.style.pointerEvents = 'auto';
+        if (floatLbl) floatLbl.textContent = 'Réessayer';
+    }
+}
 </script>
 <!-- POPUP ENREGISTREMENT MACRO -->
 <div id="macro-log-modal" class="modal-overlay !justify-center !items-center p-6" style="background: rgba(0,0,0,0.95);">
@@ -2111,6 +2311,38 @@ function showNotification(message, type = 'info') {
             <button onclick="closeMacroPopup()" class="flex-1 py-3 text-[10px] font-black text-white/40 uppercase">Annuler</button>
             <button onclick="confirmMacroSend()" class="flex-1 bg-emerald-500 py-3 rounded-xl text-[10px] font-black text-black uppercase">Confirmer</button>
         </div>
+    </div>
+</div>
+    <!-- MODAL SÉLECTEUR DE RECETTES POUR MACROS -->
+<div id="recipe-picker-modal" class="modal-overlay" onclick="if(event.target===this)closeRecipePicker()">
+    <div class="modal-content no-scrollbar flex flex-col" style="height:92dvh; overflow:hidden;">
+        
+        <!-- Header sticky -->
+        <div class="flex-none flex items-center justify-between px-5 pt-5 pb-4 border-b border-white/10">
+            <div>
+                <h3 class="text-[11px] font-black text-white uppercase tracking-widest">Ajouter un repas</h3>
+                <p class="text-[9px] text-white/30 mt-0.5">Appuie sur + pour sélectionner les parts</p>
+            </div>
+            <button onclick="closeRecipePicker()" 
+                    class="w-9 h-9 bg-white/5 border border-white/10 rounded-full flex items-center justify-center">
+                <i data-lucide="x" class="w-4 h-4 text-white"></i>
+            </button>
+        </div>
+
+        <!-- Grille des recettes (scrollable) -->
+        <div id="recipe-picker-body" class="flex-1 overflow-y-auto no-scrollbar"></div>
+
+        <!-- Bouton flottant confirmation (masqué par défaut) -->
+        <div id="picker-float-btn" 
+             class="flex-none p-4 border-t border-white/10 bg-black/80 backdrop-blur-xl" 
+             style="display:none;">
+            <button onclick="logSelectedRecipes()" 
+                    class="w-full bg-cyan-500 py-4 rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-transform shadow-lg shadow-cyan-500/20">
+                <i data-lucide="flame" class="w-5 h-5 text-black"></i>
+                <span id="picker-float-label" class="text-sm font-black text-black uppercase tracking-widest">Ajouter aux macros</span>
+            </button>
+        </div>
+
     </div>
 </div>
 </body>
