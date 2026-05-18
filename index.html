@@ -250,7 +250,7 @@
                 </button>
             </div>
         </div>
-    </footer >
+    </footer>
 </div>
 
 <div id="recipe-modal" class="modal-overlay" onclick="if(event.target === this) closeRecipe()">
@@ -358,7 +358,7 @@
 
     function toggleMic() { if (!recognition) return; (isListening) ? recognition.stop() : recognition.start(); }
 
-    window.moveToHeader = function(videoSrc) {
+    function moveToHeader(videoSrc) {
         const vBox = document.getElementById('video-box');
         const miniSlot = document.getElementById('mini-video-slot');
         const video = document.getElementById('agentVideo');
@@ -747,7 +747,7 @@
         lucide.createIcons();
     }
 
-    style = function addStepRow() {
+    function addStepRow() {
         const container = document.getElementById('steps-container');
         if (!container.querySelector('.group')) {
             container.innerHTML = '';
@@ -841,7 +841,7 @@
         const isDeleting = !el.classList.contains('food-deleted');
         if (isDeleting) { el.classList.add('food-deleted'); document.getElementById('journal-container').appendChild(el); } 
         else { el.classList.remove('food-deleted'); document.getElementById('journal-container').prepend(el); }
-        try { fetch(`${N8N_URL}/webhook/food-action`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: isDeleting ? "delete" : "restore", alimentId: id, nom: name, calories: cal, proteines: prot, glucides: glu, lipides: lip, email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') }) }); } catch(e) {}
+        try { fetch(`${N8N_URL}/webhook/food-action`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: isDeleting ? "delete" : "restore", alimentId: id, nom: name, calories: cal, proteines: prot, glucides: glu, lipides: lip, email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') }) }); } catch(e){}
     }
 
     /* --- COURSES --- */
@@ -969,7 +969,7 @@
         } catch (error) {
             console.error("Erreur:", error);
             alert("Impossible de contacter FitBuddy.");
-        } finally {
+        } finaly {
             btnConfirm.innerText = originalText;
             btnConfirm.disabled = false;
         }
@@ -1532,7 +1532,7 @@
             console.error(e);
             if (loadingToast) loadingToast.remove();
             showNotification("Impossible de joindre le serveur FitBuddy.", "error");
-        } finaly {
+        } finally {
             buttonEl.disabled = false;
             buttonEl.innerHTML = '<i data-lucide="shopping-cart" class="w-4 h-4"></i>';
             if (window.lucide) lucide.createIcons();
