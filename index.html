@@ -2494,7 +2494,8 @@ async function generateRecipeImage() {
             throw new Error(`Erreur HTTP: ${res.status}`);
         }
 
-        const data = await res.json();
+  const raw = await res.json();
+const data = Array.isArray(raw) ? raw[0] : raw;
         
         // Nettoyage de la notification de chargement
         if (loadingToast) loadingToast.remove();
