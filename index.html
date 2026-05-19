@@ -2467,18 +2467,22 @@ async function generateRecipeImage() {
         return;
     }
 
-    // On récupère les ingrédients pour affiner la génération de l'image
+    // Récupération des ingrédients pour le contexte
     const ingredients = [];
     document.querySelectorAll('.ingredient-row .ingredient-name').forEach(input => {
         if (input.value.trim()) ingredients.push(input.value.trim());
     });
 
+    // Affichage notification de chargement
     const loadingToast = showNotification(`Génération d'une image pour "${recipeName}"...`, "loading");
 
     try {
         const res = await fetch(`${N8N_URL}/webhook/generate-recipe-image`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '69420' },
+            headers: { 
+                'Content-Type': 'application/json', 
+                'ngrok-skip-browser-warning': '69420' 
+            },
             body: JSON.stringify({
                 email: userEmail,
                 recipeName: recipeName,
@@ -2486,22 +2490,40 @@ async function generateRecipeImage() {
             })
         });
 
-const data = await res.json();
-    if (loadingToast) loadingToast.remove();
+        if (!res.ok) {
+            throw new Error(`Erreur HTTP: ${res.status}`);
+        }
 
-    if (data && data.base64) {
-        const img = document.getElementById('recipe-preview-img');
-        const ext = data.extension || 'jpg';
+        const data = await res.json();
         
-        // Nettoyage au cas où le Base64 contiendrait déjà le header
-        let cleanBase64 = data.base64.replace(/^data:image\/\w+;base64,/, "");
-        
-        img.src = `data:image/${ext};base64,${cleanBase64}`;
-        img.dataset.base64 = cleanBase64;
-        img.dataset.extension = ext;
-        
-        showNotification("Image générée avec succès ! ✨", "success");
-    }}
+        // Nettoyage de la notification de chargement
+        if (loadingToast) loadingToast.remove();
+
+        // Vérification que les données sont bien là
+        if (data && data.base64) {
+            const img = document.getElementById('recipe-preview-img');
+            const ext = data.extension || 'jpg';
+            
+            // Nettoyage crucial : on enlève le préfixe si n8n l'a inclus par erreur
+            const cleanBase64 = data.base64.replace(/^data:image\/\w+;base64,/, "");
+            
+            // Mise à jour de l'image
+            img.src = `data:image/${ext};base64,${cleanBase64}`;
+            
+            // Stockage pour sauvegarde future
+            img.dataset.base64 = cleanBase64;
+            img.dataset.extension = ext;
+            
+            showNotification("Image générée avec succès ! ✨", "success");
+        } else {
+            console.error("Réponse invalide de n8n:", data);
+            showNotification("L'IA n'a pas retourné d'image.", "error");
+        }
+    } catch (e) {
+        console.error("Erreur complète :", e);
+        if (loadingToast) loadingToast.remove();
+        showNotification("Impossible de contacter le générateur IA.", "error");
+    }
 }
 </script>
 <!-- POPUP ENREGISTREMENT MACRO -->
