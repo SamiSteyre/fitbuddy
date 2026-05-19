@@ -2493,12 +2493,18 @@ async function generateRecipeImage() {
         if (!res.ok) {
             throw new Error(`Erreur HTTP: ${res.status}`);
         }
+if (loadingToast) loadingToast.remove(); // ← ici, avant le parse
 
-  const raw = await res.json();
+const text = await res.text();
+if (!text || text.trim() === "") {
+    throw new Error("Réponse vide de n8n");
+}
+const raw = JSON.parse(text);
+const data = Array.isArray(raw) ? raw[0] : raw;
+const raw = JSON.parse(text);
 const data = Array.isArray(raw) ? raw[0] : raw;
         
-        // Nettoyage de la notification de chargement
-        if (loadingToast) loadingToast.remove();
+      
 
         // Vérification que les données sont bien là
 if (data && (data.base64 || data.url)) {
