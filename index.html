@@ -2486,26 +2486,21 @@ async function generateRecipeImage() {
             })
         });
 
-        const data = await res.json();
-        if (loadingToast) loadingToast.remove();
+const data = await res.json();
+    if (loadingToast) loadingToast.remove();
 
-        if (data && data.base64) {
-            const img = document.getElementById('recipe-preview-img');
-            const ext = data.extension || 'jpg';
-            
-            // On met à jour l'image affichée et le dataset pour la sauvegarde Notion
-            img.src = `data:image/${ext};base64,${data.base64}`;
-            img.dataset.base64 = data.base64;
-            img.dataset.extension = ext;
-            
-            showNotification("Image instagrammable générée avec succès ! ✨", "success");
-        } else {
-            showNotification("L'IA n'a pas pu générer l'image.", "error");
-        }
-    } catch (e) {
-        console.error(e);
-        if (loadingToast) loadingToast.remove();
-        showNotification("Impossible de contacter le générateur IA.", "error");
+    if (data && data.base64) {
+        const img = document.getElementById('recipe-preview-img');
+        const ext = data.extension || 'jpg';
+        
+        // Nettoyage au cas où le Base64 contiendrait déjà le header
+        let cleanBase64 = data.base64.replace(/^data:image\/\w+;base64,/, "");
+        
+        img.src = `data:image/${ext};base64,${cleanBase64}`;
+        img.dataset.base64 = cleanBase64;
+        img.dataset.extension = ext;
+        
+        showNotification("Image générée avec succès ! ✨", "success");
     }
 }
 </script>
