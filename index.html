@@ -925,10 +925,17 @@ function openRecipe(id) {
     body.innerHTML = `
         <div class="relative w-full h-[45dvh] overflow-hidden group">
             <input type="file" id="recipe-photo-input" class="hidden" accept="image/*" onchange="handlePhotoUpload(this)">
-<img id="recipe-preview-img" src="${finalPath}" class="w-full h-full object-cover" onerror="this.onerror=null; this.src='images/recettes/default-recipe.jpg';">            <div onclick="document.getElementById('recipe-photo-input').click()" class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10">
-                <div class="bg-white/10 backdrop-blur-md p-4 rounded-full border border-white/20">
-                    <i data-lucide="camera" class="w-6 h-6 text-white"></i>
-                </div>
+<img id="recipe-preview-img" src="${finalPath}" class="w-full h-full object-cover" onerror="this.onerror=null; this.src='images/recettes/default-recipe.jpg';">          
+<div class="absolute inset-0 bg-black/60 flex items-center justify-center gap-6 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+    <!-- Bouton Upload (Existant) -->
+    <div onclick="document.getElementById('recipe-photo-input').click()" class="cursor-pointer bg-white/10 backdrop-blur-md p-4 rounded-full border border-white/20 hover:scale-110 transition-transform" title="Uploader une photo">
+        <i data-lucide="camera" class="w-6 h-6 text-white"></i>
+    </div>
+    <!-- Nouveau Bouton IA -->
+    <div onclick="generateRecipeImage()" class="cursor-pointer bg-purple-600/40 backdrop-blur-md p-4 rounded-full border border-purple-400/50 shadow-[0_0_20px_rgba(168,85,247,0.4)] hover:scale-110 transition-transform" title="Générer avec l'IA">
+        <i data-lucide="sparkles" class="w-6 h-6 text-purple-300"></i>
+    </div>
+</div>
             </div>
             <div class="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent pointer-events-none z-0"></div>
 
