@@ -2500,22 +2500,24 @@ async function generateRecipeImage() {
         if (loadingToast) loadingToast.remove();
 
         // Vérification que les données sont bien là
-        if (data && data.base64) {
-            const img = document.getElementById('recipe-preview-img');
-            const ext = data.extension || 'jpg';
-            
-            // Nettoyage crucial : on enlève le préfixe si n8n l'a inclus par erreur
-            const cleanBase64 = data.base64.replace(/^data:image\/\w+;base64,/, "");
-            
-            // Mise à jour de l'image
-            img.src = `data:image/${ext};base64,${cleanBase64}`;
-            
-            // Stockage pour sauvegarde future
-            img.dataset.base64 = cleanBase64;
-            img.dataset.extension = ext;
-            
-            showNotification("Image générée avec succès ! ✨", "success");
-        } else {
+if (data && (data.base64 || data.url)) {
+    const img = document.getElementById('recipe-preview-img');
+    const ext = data.extension || 'jpg';
+
+    if (data.url) {
+        // URL directe — plus simple, pas de base64 nécessaire
+        img.src = data.url;
+        img.dataset.base64 = ""; // sera uploadé au moment du save
+        img.dataset.extension = ext;
+        img.dataset.remoteUrl = data.url; // garde l'URL pour usage futur
+    } else {
+        const cleanBase64 = data.base64.replace(/^data:image\/\w+;base64,/, "");
+        img.src = `data:image/${ext};base64,${cleanBase64}`;
+        img.dataset.base64 = cleanBase64;
+        img.dataset.extension = ext;
+    }
+    showNotification("Image générée avec succès ! ✨", "success");
+}else {
             console.error("Réponse invalide de n8n:", data);
             showNotification("L'IA n'a pas retourné d'image.", "error");
         }
