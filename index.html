@@ -2458,7 +2458,56 @@ async function logSelectedRecipes() {
     lucide.createIcons();
     setTimeout(() => { container.scrollTo({ top: 0, behavior: 'instant' }); }, 100);
 }
+    // GESTION DE LA GÉNÉRATION D'IMAGE IA
+async function generateRecipeImage() {
+    const recipeName = document.getElementById('recipe-name-input').value.trim();
     
+    if (!recipeName) {
+        showNotification("Donne d'abord un nom à ta recette pour inspirer l'IA !", "error");
+        return;
+    }
+
+    // On récupère les ingrédients pour affiner la génération de l'image
+    const ingredients = [];
+    document.querySelectorAll('.ingredient-row .ingredient-name').forEach(input => {
+        if (input.value.trim()) ingredients.push(input.value.trim());
+    });
+
+    const loadingToast = showNotification(`Génération d'une image pour "${recipeName}"...`, "loading");
+
+    try {
+        const res = await fetch(`${N8N_URL}/webhook/generate-recipe-image`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '69420' },
+            body: JSON.stringify({
+                email: userEmail,
+                recipeName: recipeName,
+                ingredients: ingredients
+            })
+        });
+
+        const data = await res.json();
+        if (loadingToast) loadingToast.remove();
+
+        if (data && data.base64) {
+            const img = document.getElementById('recipe-preview-img');
+            const ext = data.extension || 'jpg';
+            
+            // On met à jour l'image affichée et le dataset pour la sauvegarde Notion
+            img.src = `data:image/${ext};base64,${data.base64}`;
+            img.dataset.base64 = data.base64;
+            img.dataset.extension = ext;
+            
+            showNotification("Image instagrammable générée avec succès ! ✨", "success");
+        } else {
+            showNotification("L'IA n'a pas pu générer l'image.", "error");
+        }
+    } catch (e) {
+        console.error(e);
+        if (loadingToast) loadingToast.remove();
+        showNotification("Impossible de contacter le générateur IA.", "error");
+    }
+}
 </script>
 <!-- POPUP ENREGISTREMENT MACRO -->
 <div id="macro-log-modal" class="modal-overlay !justify-center !items-center p-6" style="background: rgba(0,0,0,0.95);">
