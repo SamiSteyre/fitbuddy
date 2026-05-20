@@ -1427,41 +1427,40 @@ async function saveRecipeData(id) {
     const categories = [...document.querySelectorAll('.category-chip.active')].map(c => c.textContent.trim());
 
     // --- GESTION DE LA PHOTO ET DU NOMMAGE STRICT ---
+ // --- GESTION DE LA PHOTO ET DU NOMMAGE STRICT ---
     const imgEl = document.getElementById('recipe-preview-img');
     let photoUploadPayload = null;
     let photoFilename = "";
 
-    if (imgEl && imgEl.dataset.base64) {
-        const recipeName = document.getElementById('recipe-name-input').value || "recette";
-        
-        // Règle de nommage (Slugification) alignée sur la ligne 186 de ton HTML
-        const cleanName = recipeName
-            .toLowerCase()
-            .normalize("NFD")                    // Sépare les accents des lettres
-            .replace(/[\u0300-\u036f]/g, "")     // Supprime les accents (â -> a, é -> e)
-            .replace(/[^a-z0-9]+/g, "-")         // Remplace les espaces/caractères spéciaux par un seul tiret
-            .replace(/^-|-$/g, "");              // Nettoie les tirets au début et à la fin
+    const recipeName = document.getElementById('recipe-name-input').value || "recette";
+    const cleanName = recipeName
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
 
+    if (imgEl && imgEl.dataset.base64) {
+        // CAS 1 : Photo uploadée manuellement
         const ext = imgEl.dataset.extension || 'jpg';
-        
-        /* 💡 ASTUCE SÉCURITÉ & CACHE :
-          Si tu gardes uniquement "${cleanName}.${ext}", GitHub va bloquer (Erreur 409) 
-          si tu essaies de remplacer une image existante (car il demande un code "SHA").
-          De plus, le Service Worker de ton téléphone va garder l'ancienne image en cache.
-          
-          En ajoutant un timestamp unique (ex: boeuf-hache-a-la-tomate-171584.jpg),
-          on esquive TOUS ces bugs d'un coup !
-        */
         photoFilename = `${cleanName}-${Date.now()}.${ext}`;
-        
         photoUploadPayload = {
             base64: imgEl.dataset.base64,
             filename: photoFilename
         };
+
+    } else if (imgEl && imgEl.dataset.remoteUrl) {
+        // CAS 2 : Photo générée par IA
+        const ext = imgEl.dataset.extension || 'jpg';
+        photoFilename = `${cleanName}-${Date.now()}.${ext}`;
+        photoUploadPayload = {
+            remoteUrl: imgEl.dataset.remoteUrl,
+            filename: photoFilename
+        };
+
     } else if (imgEl && imgEl.src.includes('images/recettes/')) {
-        // Si l'image n'a pas changé, on extrait son nom actuel
+        // CAS 3 : Photo inchangée
         const currentFile = imgEl.src.split('/').pop();
-        // Sécurité : si c'est la photo par défaut, on renvoie du vide pour Notion
         photoFilename = currentFile === 'default-recipe.jpg' ? "" : currentFile;
     }
 
@@ -2505,13 +2504,12 @@ if (data && (data.base64 || data.url)) {
     const img = document.getElementById('recipe-preview-img');
     const ext = data.extension || 'jpg';
 
-    if (data.url) {
-        // URL directe — plus simple, pas de base64 nécessaire
-        img.src = data.url;
-        img.dataset.base64 = ""; // sera uploadé au moment du save
-        img.dataset.extension = ext;
-        img.dataset.remoteUrl = data.url; // garde l'URL pour usage futur
-    } else {
+   if (data.url) {
+    img.src = data.url;
+    img.dataset.base64 = "";          // vide volontairement
+    img.dataset.extension = ext;
+    img.dataset.remoteUrl = data.url; // ← source de vérité pour le save
+} else {
         const cleanBase64 = data.base64.replace(/^data:image\/\w+;base64,/, "");
         img.src = `data:image/${ext};base64,${cleanBase64}`;
         img.dataset.base64 = cleanBase64;
