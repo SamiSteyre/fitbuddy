@@ -171,6 +171,14 @@
         .other-program-row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 16px; cursor: pointer; transition: background 0.15s; }
         .other-program-row:active { background: rgba(34,211,238,0.06); }
         .other-program-row.active-prog { border-color: rgba(34,211,238,0.35); }
+
+        /* --- PERSO SLIDER IA --- */
+        .ai-slider {
+            -webkit-appearance: none; width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 999px; outline: none;
+        }
+        .ai-slider::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #a855f7; border: 2px solid #22d3ee; cursor: pointer; box-shadow: 0 0 10px rgba(34,211,238,0.6);
+        }
     </style>
 </head>
 
@@ -268,6 +276,46 @@
     </div>
 </div>
 
+<!-- MODAL GÉNÉRATION DE RECETTE IA (SOUS-MODALE) -->
+<div id="ai-generation-modal" class="modal-overlay !justify-center !items-center p-6" style="background: rgba(0,0,0,0.95); z-index: 11000;">
+    <div class="bg-[#111] border border-white/10 w-full max-w-sm rounded-3xl p-6 space-y-6 shadow-2xl relative">
+        <button onclick="closeAiGenerationModal()" class="absolute top-4 right-4 w-8 h-8 bg-white/5 rounded-full flex items-center justify-center border border-white/5">
+            <i data-lucide="x" class="w-4 h-4 text-white/60"></i>
+        </button>
+        
+        <div class="text-center">
+            <div class="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 mx-auto mb-3">
+                <i data-lucide="sparkles" class="w-6 h-6"></i>
+            </div>
+            <h4 class="text-white font-black uppercase text-xs tracking-widest">Générateur Assistant IA</h4>
+            <p class="text-[10px] text-white/40 mt-1">Tyler conçoit ta recette sur-mesure</p>
+        </div>
+
+        <div class="space-y-4">
+            <div class="space-y-2">
+                <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Qu'as-tu envie de manger ? (instructions, ingrédients requis, objectifs...)</label>
+                <textarea id="ai-prompt-input" rows="3" placeholder="Ex: Un bowl à base de poulet et d'avocat, faible en glucides mais très gourmand..." class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-white outline-none focus:border-purple-500 resize-none"></textarea>
+            </div>
+            
+            <div class="space-y-3 bg-white/[0.02] p-3 rounded-xl border border-white/5">
+                <div class="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider">
+                    <span class="text-cyan-400">Priorité Fit</span>
+                    <span id="ai-slider-values" class="text-white/80 font-mono">Fit: 50% | Goût: 50%</span>
+                    <span class="text-amber-400">Priorité Goût</span>
+                </div>
+                <input type="range" id="ai-priority-slider" min="0" max="100" value="50" oninput="updateAiSliderLabels(this.value)" class="ai-slider">
+            </div>
+
+            <div class="flex gap-2 pt-2">
+                <button onclick="closeAiGenerationModal()" class="flex-1 py-3 text-[10px] font-black text-white/40 uppercase tracking-widest">Annuler</button>
+                <button id="btn-confirm-ai-gen" onclick="submitAiRecipeGeneration()" class="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest shadow-lg shadow-purple-500/20 flex items-center justify-center gap-2">
+                    <i data-lucide="wand-2" class="w-3.5 h-3.5"></i> Générer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- POPUP ENREGISTREMENT MACRO -->
 <div id="macro-log-modal" class="modal-overlay !justify-center !items-center p-6" style="background: rgba(0,0,0,0.95);">
     <div class="bg-[#111] border border-white/10 w-full max-w-xs rounded-3xl p-6 space-y-6 shadow-2xl">
@@ -321,7 +369,7 @@
     let userEmail = localStorage.getItem('fitbuddy_email');
     let storedName = localStorage.getItem('fitbuddy_user_name');
     const N8N_URL = "https://greedily-submarine-prance.ngrok-free.dev";
-    const RAYONS = ["Frais", "Boulangerie & Viennoiserie", "Fruits & Légumes frais", "Boucherie & Volaille", "Poissonnerie", "Pâtes Riz & féculents", "Conserves de Légumes & Plats Cuisinés", "Conserves de Poisson", "Huiles Vinaigres Epices & Sauces", "Apéritif", "Petit-déjeuner", "Biscuits & Gâteaux", "Confiserie & Chocolat", "Confitures Miels & Pâtes à tartiner", "Aide à la pâtisserie", "Lait & Oeufs", "Produits laitiers", "Surgelés", "Boissons", "Hygiène", "Entretien de la maison", "Animalerie", "Loisirs", "Autres"];
+    const RAYONS = ["Frais", "Boulangerie & Viennoiserie", "Fruits & Légumes frais", "Boucherie & Volaille", "Poissonnerie", "Pâtes Riz & féculents", "Conserves de Légumes & Plats Cuisinés", "Conserves de Poisson", "Huiles Vinaigres Epices & Sauces", "Apéritif", "Petit-déjeuner", "Biscuits & Gâteaux", "Confiserie & Chocolat", "Confitures Miels & Pâtes à tantiner", "Aide à la pâtisserie", "Lait & Oeufs", "Produits laitiers", "Surgelés", "Boissons", "Hygiène", "Entretien de la maison", "Animalerie", "Loisirs", "Autres"];
 
     let currentList = [];
     let isListening = false;
@@ -359,6 +407,8 @@
             else { updateUserNameUI("Utilisateur"); }
         } catch (e) { if (storedName) updateUserNameUI(storedName); else updateUserNameUI("Invité"); }
     }
+
+    document.getElementById('macro-user-select')
 
     function updateUserNameUI(name) {
         const el = document.getElementById('current-user-name');
@@ -432,120 +482,110 @@
         if (chat) { setTimeout(() => { chat.scrollTo({ top: 0, behavior: 'instant' }); }, 100); }
     }
 
-    /* --- FONCTION CALENDRIER DES REPAS --- */
-/* --- FONCTION CALENDRIER DES REPAS OPTIMISÉE --- */
-function switchToCalendar(data) {
-    moveToHeader("agent-avatar.mp4");
-    showView('view-calendar');
-    const container = document.getElementById('view-calendar');
-    document.getElementById('floating-plus').classList.add('hidden');
+    function switchToCalendar(data) {
+        moveToHeader("agent-avatar.mp4");
+        showView('view-calendar');
+        const container = document.getElementById('view-calendar');
+        document.getElementById('floating-plus').classList.add('hidden');
 
-    const rows = Array.isArray(data) ? data : (data.data || data.items || []);
+        const rows = Array.isArray(data) ? data : (data.data || data.items || []);
 
-    if (rows.length < 2) {
-        container.innerHTML = `
-            <div class="flex flex-col items-center justify-center h-full gap-4 text-center p-6">
-                <div class="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 mb-2">
-                    <i data-lucide="calendar-days" class="w-8 h-8"></i>
+        if (rows.length < 2) {
+            container.innerHTML = `
+                <div class="flex flex-col items-center justify-center h-full gap-4 text-center p-6">
+                    <div class="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 mb-2">
+                        <i data-lucide="calendar-days" class="w-8 h-8"></i>
+                    </div>
+                    <h3 class="text-sm font-black text-white uppercase tracking-wider">Données insuffisantes</h3>
+                </div>`;
+            lucide.createIcons();
+            return;
+        }
+
+        const ancienneLigne = rows[0];
+        const recenteLigne = rows[1];
+        const jours = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+        
+        let html = `
+        <div class="p-2 space-y-6 animate-in fade-in duration-500 pb-24">
+            <div class="category-badge mb-2">
+                <i data-lucide="calendar" class="w-3.5 h-3.5 text-rose-400"></i>
+                <h2 class="text-[10px] font-black text-white uppercase tracking-[0.15em]">Planning de la semaine</h2>
+            </div>
+            <div class="space-y-4">`;
+
+        jours.forEach(j => {
+            const source = (j === "Lundi") ? ancienneLigne : recenteLigne;
+            const midiId = source[`${j.toLowerCase()}_midi`] || "";
+            const soirId = source[`${j.toLowerCase()}_soir`] || "";
+            
+            const findInCache = (id) => {
+                if (!id) return null;
+                const cleanId = String(id).replace(/-/g, '').toLowerCase();
+                return recipesCache.find(r => String(r.id).replace(/-/g, '').toLowerCase() === cleanId);
+            };
+
+            const recetteMidi = findInCache(midiId);
+            const recetteSoir = findInCache(soirId);
+
+            const midiNom = recetteMidi ? (recetteMidi.property_nom || recetteMidi.name || recetteMidi.nom) : "Non défini";
+            const soirNom = recetteSoir ? (recetteSoir.property_nom || recetteSoir.name || recetteSoir.nom) : "Non défini";
+
+            const getImagePath = (recette, backupPhotoColumn) => {
+                let photoRaw = recette ? (recette.property_photo || recette.photo) : backupPhotoColumn;
+                if (!photoRaw) return 'images/recettes/default-recipe.jpg';
+                
+                let item = Array.isArray(photoRaw) ? photoRaw[0] : photoRaw;
+                let pathStr = "";
+                if (typeof item === 'string') pathStr = item.trim();
+                else if (item && typeof item === 'object') {
+                    pathStr = item.name || (item.file ? item.file.url : (item.external ? item.external.url : ""));
+                }
+                return pathStr.startsWith('http') || pathStr.startsWith('data:') ? pathStr : `images/recettes/${pathStr}`;
+            };
+
+            const imgMidi = getImagePath(recetteMidi, source[`photo_${j.toLowerCase()}_midi`]);
+            const imgSoir = getImagePath(recetteSoir, source[`photo_${j.toLowerCase()}_soir`]);
+
+            html += `
+            <div class="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3 shadow-xl">
+                <h3 class="text-xs font-black text-rose-400 uppercase tracking-wider border-b border-white/10 pb-1.5">${j}</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    
+                    <div class="space-y-2 bg-white/[0.02] p-2.5 rounded-xl border border-white/5 flex flex-col justify-between">
+                        <div class="space-y-1.5">
+                            <div class="flex items-center gap-1.5 text-[9px] font-black text-cyan-400 uppercase tracking-widest">
+                                <i data-lucide="sun" class="w-3 h-3"></i> Midi
+                            </div>
+                            <p class="text-xs font-bold text-white leading-snug line-clamp-2">${midiNom}</p>
+                        </div>
+                        <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden border border-white/10 bg-white/5 mt-1">
+                            <img src="${imgMidi}" class="w-full h-full object-cover" onerror="this.onerror=null; this.src='images/recettes/default-recipe.jpg';">
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-2 bg-white/[0.02] p-2.5 rounded-xl border border-white/5 flex flex-col justify-between">
+                        <div class="space-y-1.5">
+                            <div class="flex items-center gap-1.5 text-[9px] font-black text-indigo-400 uppercase tracking-widest">
+                                <i data-lucide="moon" class="w-3 h-3"></i> Soir
+                            </div>
+                            <p class="text-xs font-bold text-white leading-snug line-clamp-2">${soirNom}</p>
+                        </div>
+                        <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden border border-white/10 bg-white/5 mt-1">
+                            <img src="${imgSoir}" class="w-full h-full object-cover" onerror="this.onerror=null; this.src='images/recettes/default-recipe.jpg';">
+                        </div>
+                    </div>
+                    
                 </div>
-                <h3 class="text-sm font-black text-white uppercase tracking-wider">Données insuffisantes</h3>
             </div>`;
+        });
+
+        html += `</div></div>`;
+        container.innerHTML = html;
         lucide.createIcons();
-        return;
+        setTimeout(() => { container.scrollTo({ top: 0, behavior: 'instant' }); }, 100);
     }
 
-    const ancienneLigne = rows[0];
-    const recenteLigne = rows[1];
-    const jours = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
-    
-    let html = `
-    <div class="p-2 space-y-6 animate-in fade-in duration-500 pb-24">
-        <div class="category-badge mb-2">
-            <i data-lucide="calendar" class="w-3.5 h-3.5 text-rose-400"></i>
-            <h2 class="text-[10px] font-black text-white uppercase tracking-[0.15em]">Planning de la semaine</h2>
-        </div>
-        <div class="space-y-4">`;
-
-    jours.forEach(j => {
-        // Lundi sur l'ancienne ligne, le reste sur la récente
-        const source = (j === "Lundi") ? ancienneLigne : recenteLigne;
-        
-        // 1. Récupération des IDs de relation envoyés par n8n (ex: "3604b8e3-...")
-        const midiId = source[`${j.toLowerCase()}_midi`] || "";
-        const soirId = source[`${j.toLowerCase()}_soir`] || "";
-        
-        // 2. Recherche de la recette correspondante dans le cache global de ton app
-        // On nettoie les tirets éventuels car Notion renvoie parfois des IDs sans tirets
-        const findInCache = (id) => {
-            if (!id) return null;
-            const cleanId = String(id).replace(/-/g, '').toLowerCase();
-            return recipesCache.find(r => String(r.id).replace(/-/g, '').toLowerCase() === cleanId);
-        };
-
-        const recetteMidi = findInCache(midiId);
-        const recetteSoir = findInCache(soirId);
-
-        // 3. Détermination du nom à afficher (Nom de la recette trouvée ou valeur texte par défaut)
-        const midiNom = recetteMidi ? (recetteMidi.property_nom || recetteMidi.name || recetteMidi.nom) : "Non défini";
-        const soirNom = recetteSoir ? (recetteSoir.property_nom || recetteSoir.name || recetteSoir.nom) : "Non défini";
-
-        // 4. Extraction sécurisée de la photo (Priorité à la recette du cache, sinon la photo de la ligne calendrier)
-        const getImagePath = (recette, backupPhotoColumn) => {
-            let photoRaw = recette ? (recette.property_photo || recette.photo) : backupPhotoColumn;
-            if (!photoRaw) return 'images/recettes/default-recipe.jpg';
-            
-            let item = Array.isArray(photoRaw) ? photoRaw[0] : photoRaw;
-            let pathStr = "";
-            if (typeof item === 'string') pathStr = item.trim();
-            else if (item && typeof item === 'object') {
-                pathStr = item.name || (item.file ? item.file.url : (item.external ? item.external.url : ""));
-            }
-            return pathStr.startsWith('http') || pathStr.startsWith('data:') ? pathStr : `images/recettes/${pathStr}`;
-        };
-
-        const imgMidi = getImagePath(recetteMidi, source[`photo_${j.toLowerCase()}_midi`]);
-        const imgSoir = getImagePath(recetteSoir, source[`photo_${j.toLowerCase()}_soir`]);
-
-        html += `
-        <div class="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3 shadow-xl">
-            <h3 class="text-xs font-black text-rose-400 uppercase tracking-wider border-b border-white/10 pb-1.5">${j}</h3>
-            <div class="grid grid-cols-2 gap-4">
-                
-                <div class="space-y-2 bg-white/[0.02] p-2.5 rounded-xl border border-white/5 flex flex-col justify-between">
-                    <div class="space-y-1.5">
-                        <div class="flex items-center gap-1.5 text-[9px] font-black text-cyan-400 uppercase tracking-widest">
-                            <i data-lucide="sun" class="w-3 h-3"></i> Midi
-                        </div>
-                        <p class="text-xs font-bold text-white leading-snug line-clamp-2">${midiNom}</p>
-                    </div>
-                    <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden border border-white/10 bg-white/5 mt-1">
-                        <img src="${imgMidi}" class="w-full h-full object-cover" onerror="this.onerror=null; this.src='images/recettes/default-recipe.jpg';">
-                    </div>
-                </div>
-                
-                <div class="space-y-2 bg-white/[0.02] p-2.5 rounded-xl border border-white/5 flex flex-col justify-between">
-                    <div class="space-y-1.5">
-                        <div class="flex items-center gap-1.5 text-[9px] font-black text-indigo-400 uppercase tracking-widest">
-                            <i data-lucide="moon" class="w-3 h-3"></i> Soir
-                        </div>
-                        <p class="text-xs font-bold text-white leading-snug line-clamp-2">${soirNom}</p>
-                    </div>
-                    <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden border border-white/10 bg-white/5 mt-1">
-                        <img src="${imgSoir}" class="w-full h-full object-cover" onerror="this.onerror=null; this.src='images/recettes/default-recipe.jpg';">
-                    </div>
-                </div>
-                
-            </div>
-        </div>`;
-    });
-
-    html += `</div></div>`;
-    container.innerHTML = html;
-    lucide.createIcons();
-    setTimeout(() => { container.scrollTo({ top: 0, behavior: 'instant' }); }, 100);
-}
-
-    /* --- FONCTION CUISINE --- */
     function switchToCooking(data) {
         moveToHeader("agent-cook.mp4"); 
         showView('view-cooking'); 
@@ -789,11 +829,18 @@ function switchToCalendar(data) {
             <div class="px-7 -mt-12 relative z-10">
                 <input type="text" id="recipe-name-input" value="${recipeName}" placeholder="Nom de la recette" class="w-full bg-transparent text-3xl font-black text-white uppercase tracking-tighter mb-6 outline-none">
                 <div class="space-y-6 mb-10">
-                    <div class="flex items-center justify-between bg-white/5 p-4 rounded-2xl border border-white/10">
-                        <span class="text-[11px] font-black text-white/70 uppercase tracking-widest">Nombre de parts</span>
-                        <select id="recipe-parts-select" onchange="recalculateMacros()" class="custom-select font-black text-cyan-400">
-                            ${Array.from({length: 50}, (_, i) => i + 1).map(n => `<option value="${n}" ${n == partsValue ? 'selected' : ''}>${n}</option>`).join('')}
-                        </select>
+                    <div class="bg-white/5 p-4 rounded-2xl border border-white/10 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[11px] font-black text-white/70 uppercase tracking-widest">Nombre de parts</span>
+                            <select id="recipe-parts-select" onchange="recalculateMacros()" class="custom-select font-black text-cyan-400">
+                                ${Array.from({length: 50}, (_, i) => i + 1).map(n => `<option value="${n}" ${n == partsValue ? 'selected' : ''}>${n}</option>`).join('')}
+                            </select>
+                        </div>
+                        <!-- BUTTON DE GENERATION IA -->
+                        <button onclick="openAiGenerationModal()" class="w-full bg-gradient-to-r from-purple-900/60 to-indigo-900/60 border border-purple-500/40 py-2.5 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-inner shadow-purple-500/10">
+                            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-purple-400"></i>
+                            <span class="text-[10px] font-black text-purple-300 uppercase tracking-wider">Génération de recettes</span>
+                        </button>
                     </div>
                     <div class="flex flex-wrap gap-2">
                         ${categories.map(c => `<button class="category-chip ${currentCats.includes(c) ? 'active' : ''}" onclick="this.classList.toggle('active')">${c}</button>`).join('')}
@@ -822,7 +869,7 @@ function switchToCalendar(data) {
 
                 <button id="btn-tyler-eval" onclick="demanderEvaluationTyler()" class="w-full mb-3 bg-purple-950/40 border border-purple-500/40 py-4 rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-transform">
                     <i data-lucide="sparkles" class="w-5 h-5 text-purple-400"></i>
-                    <span class="text-xs font-black text-purple-400 uppercase tracking-widest">Évaluation et suggestion de Tyler</span>
+                    <span class="textxs font-black text-purple-400 uppercase tracking-widest">Évaluation et suggestion de Tyler</span>
                 </button>
                 <button class="w-full bg-cyan-500 py-5 rounded-2xl flex items-center justify-center gap-4 active:scale-95 transition-transform">
                     <i data-lucide="flame" class="w-6 h-6 text-black"></i>
@@ -881,6 +928,100 @@ function switchToCalendar(data) {
         if (!container.querySelector('.ingredient-row')) container.innerHTML = '';
         container.insertAdjacentHTML('beforeend', renderIngredientRow());
         lucide.createIcons();
+    }
+
+    /* --- GESTION GENERATION RECETTE VIA IA --- */
+    function openAiGenerationModal() {
+        document.getElementById('ai-prompt-input').value = "";
+        document.getElementById('ai-priority-slider').value = 50;
+        updateAiSliderLabels(50);
+        document.getElementById('ai-generation-modal').style.display = 'flex';
+    }
+
+    function closeAiGenerationModal() {
+        document.getElementById('ai-generation-modal').style.display = 'none';
+    }
+
+    function updateAiSliderLabels(value) {
+        const fitValue = 100 - value;
+        const goutValue = value;
+        document.getElementById('ai-slider-values').innerText = `Fit: ${fitValue}% | Goût: ${goutValue}%`;
+    }
+
+    async function submitAiRecipeGeneration() {
+        const promptText = document.getElementById('ai-prompt-input').value.trim();
+        const sliderVal = parseInt(document.getElementById('ai-priority-slider').value);
+        const fitPriority = 100 - sliderVal;
+        const goutPriority = sliderVal;
+        
+        if (!promptText) {
+            alert("Veuillez saisir un prompt descriptif pour guider l'IA.");
+            return;
+        }
+
+        const btn = document.getElementById('btn-confirm-ai-gen');
+        const originalHtml = btn.innerHTML;
+        
+        try {
+            btn.disabled = true;
+            btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Génération...';
+            lucide.createIcons();
+
+            const response = await fetch(`${N8N_URL}/webhook/generate-recipe-ai`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prompt: promptText,
+                    priorite_fit: fitPriority,
+                    priorite_gout: goutPriority,
+                    email: userEmail,
+                    userName: localStorage.getItem('fitbuddy_user_name') || "Utilisateur"
+                })
+            });
+
+            if (!response.ok) throw new Error("Erreur serveur lors de la génération");
+
+            const resData = await response.json();
+            const data = Array.isArray(resData) ? resData[0] : resData;
+
+            if (data && data.recette) {
+                // Remplissage automatique des champs de la fiche recette existante
+                document.getElementById('recipe-name-input').value = data.recette.nom || "Recette Générée";
+                
+                // Injection des ingrédients générés
+                const ingContainer = document.getElementById('ingredients-container');
+                if (data.recette.ingredients && data.recette.ingredients.length > 0) {
+                    ingContainer.innerHTML = data.recette.ingredients.map(ing => {
+                        const ratios = ing.ratios || { kcal: 0, p: 0, g: 0, l: 0 };
+                        return renderIngredientRow(ing.nom, ing.quantite, ratios, null, ing.alimentId || "");
+                    }).join('');
+                }
+
+                // Injection des étapes de préparation
+                const stepContainer = document.getElementById('steps-container');
+                if (data.recette.etapes && data.recette.etapes.length > 0) {
+                    stepContainer.innerHTML = data.recette.etapes.map((step, idx) => {
+                        return renderStepRow(idx + 1, step.description, step.duree || 0, null);
+                    }).join('');
+                }
+
+                lucide.createIcons();
+                recalculateMacros();
+                recalculateDuration();
+                closeAiGenerationModal();
+                showNotification("Recette générée avec succès ! ✨", "success");
+            } else {
+                alert("L'agent n'a pas retourné une structure de recette valide.");
+            }
+
+        } catch (error) {
+            console.error(error);
+            alert("Une erreur est survenue lors de la communication avec l'agent FitBuddy.");
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            lucide.createIcons();
+        }
     }
 
     function addStepRow() {
@@ -980,10 +1121,9 @@ function switchToCalendar(data) {
         const journalContainer = document.getElementById('journal-container');
         if (isDeleting && journalContainer) { el.classList.add('food-deleted'); journalContainer.appendChild(el); } 
         else if (journalContainer) { el.classList.remove('food-deleted'); journalContainer.prepend(el); }
-        try { fetch(`${N8N_URL}/webhook/food-action`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: isDeleting ? "delete" : "restore", alimentId: id, nom: name, calories: cal, proteines: prot, glucides: glu, lipides: lip, email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') }) }); } catch(e) {}
+        try { fetch(`${N8N_URL}/webhook/food-action`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: isDeleting ? "delete" : "restore", alimentId: id, nom: name, calories: cal, proteines: prot, glucides: glu, lipides: lip, email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') }) }); } catch(e){}
     }
 
-    /* --- COURSES --- */
     function switchToShopping(data) {
         moveToHeader("agent-courses.mp4");
         showView('view-shopping');
@@ -1307,6 +1447,7 @@ function switchToCalendar(data) {
             else { btnPlus.classList.add('hidden'); btnPlus.style.display = 'none'; }
         }
     }
+
 async function triggerQuickAction(type) {
     const targetViewId = type === 'cuisine' ? 'view-cooking' : type === 'macros' ? 'view-macros' : type === 'training' ? 'view-training' : type === 'calendar' ? 'view-calendar' : 'view-shopping';
     showView(targetViewId);
@@ -1324,8 +1465,6 @@ async function triggerQuickAction(type) {
     try {
         const currentName = localStorage.getItem('fitbuddy_user_name');
         
-        // 🛡️ Si on charge le calendrier mais que le cache des recettes est vide,
-        // on appelle d'abord le webhook cuisine en tâche de fond pour lier les IDs aux vrais noms/photos.
         if (type === 'calendar' && (!recipesCache || recipesCache.length === 0)) {
             try {
                 const resRecettes = await fetch(`${N8N_URL}/webhook/quick-action`, { 
@@ -1347,7 +1486,6 @@ async function triggerQuickAction(type) {
             }
         }
 
-        // Requête principale pour l'action demandée
         const res = await fetch(`${N8N_URL}/webhook/quick-action`, { 
             method: 'POST', 
             headers: { 'Content-Type': 'application/json', "ngrok-skip-browser-warning": "69420" }, 
@@ -1355,7 +1493,7 @@ async function triggerQuickAction(type) {
                 action: type, 
                 email: userEmail, 
                 userName: currentName,
-                nom: currentName // Source de vérité pour ton nœud n8n Macro
+                nom: currentName 
             }) 
         });
         
@@ -1771,7 +1909,6 @@ async function triggerQuickAction(type) {
         return toast;
     }
 
-    /* --- RECIPE PICKER --- */
     let recipePortions = {};   
     function openRecipePicker() {
         recipePortions = {};
@@ -1909,7 +2046,7 @@ async function triggerQuickAction(type) {
                 chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl animate-in fade-in">🍽️ Macros enregistrées : ${recap}</div>`;
                 chat.scrollTop = chat.scrollHeight;
             }
-        } catch (e) {
+        } catch (error) {
             showNotification("Impossible d'enregistrer les macros.", "error");
             if (floatLbl) floatLbl.textContent = 'Réessayer';
         } finally {
