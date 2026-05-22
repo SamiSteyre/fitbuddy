@@ -1317,18 +1317,22 @@ function handleUnitChange(select) {
             photoFilename = currentFile === 'default-recipe.jpg' ? "" : currentFile;
         }
 
-        const ingredients = [];
-        document.querySelectorAll('.ingredient-row').forEach(row => {
-            const nomValue = row.querySelector('.ingredient-name').value.trim();
-            if (nomValue) {
-                ingredients.push({
-                    id: row.dataset.compositionId || null,
-                    alimentId: row.dataset.alimentId !== 'loaded' ? (row.dataset.alimentId || null) : null,
-                    nom: nomValue,
-                    quantite: parseFloat(row.querySelector('.ingredient-qte').value) || 0
-                });
-            }
-        });
+   const ingredients = [];
+        document.querySelectorAll('.ingredient-row').forEach(row => {
+            const nomValue = row.querySelector('.ingredient-name').value.trim();
+            const qteInput = row.querySelector('.ingredient-qte');
+            const unitSelect = row.querySelector('.ingredient-unit');
+            
+            if (nomValue) {
+                ingredients.push({
+                    id: row.dataset.compositionId || null,
+                    alimentId: row.dataset.alimentId !== 'loaded' ? (row.dataset.alimentId || null) : null,
+                    nom: nomValue,
+                    quantite_saisie: parseFloat(qteInput.value) || 0,
+                    unite_utilisee: unitSelect ? unitSelect.value : "Grammes"
+                });
+            }
+        });
 
         const etapes = [];
         document.querySelectorAll('#steps-container .group').forEach((row) => {
@@ -1571,27 +1575,14 @@ function recalculateMacros() {
         if(dLip) dLip.innerText = (totalL / parts).toFixed(1);
     }
 
-    function recalculateDuration() {
-        let total = 0;
-      const ingredients = [];
-        document.querySelectorAll('.ingredient-row').forEach(row => {
-            const nomValue = row.querySelector('.ingredient-name').value.trim();
-            const qteInput = row.querySelector('.ingredient-qte');
-            const unitSelect = row.querySelector('.ingredient-unit');
-            
-            if (nomValue) {
-                ingredients.push({
-                    id: row.dataset.compositionId || null,
-                    alimentId: row.dataset.alimentId !== 'loaded' ? (row.dataset.alimentId || null) : null,
-                    nom: nomValue,
-                    quantite_saisie: parseFloat(qteInput.value) || 0,
-                    unite_utilisee: unitSelect ? unitSelect.value : "Grammes"
-                });
-            }
+function recalculateDuration() {
+        let total = 0;
+        document.querySelectorAll('#steps-container .step-duration').forEach(input => {
+            total += parseInt(input.value) || 0;
         });
-        const badge = document.querySelector('.info-circle span.text-white:not([id])');
-        if (badge) badge.innerText = total;
-    }
+        const badge = document.querySelector('.info-circle span.text-white:not([id])');
+        if (badge) badge.innerText = total;
+    }
 
 let searchTimeout;
     async function searchAliments(input) {
