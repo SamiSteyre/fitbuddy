@@ -880,28 +880,32 @@
         lucide.createIcons();
     }
 
-    function renderIngredientRow(nom = "", qte = "", ratios = {kcal:0, p:0, g:0, l:0}, compositionId = null, alimentId = "") {
-        const initialAlimentId = alimentId || (compositionId ? "loaded" : "");
-        return `
-        <div class="relative ingredient-row group" data-rkcal="${ratios.kcal}" data-rp="${ratios.p}" data-rg="${ratios.g}" data-rl="${ratios.l}" data-composition-id="${compositionId || ''}" data-aliment-id="${initialAlimentId}">
-            <div class="ingredient-container flex flex-col mb-2 bg-white/[0.03] p-2 rounded-xl border border-white/5 transition-colors">
-                <div class="flex items-center gap-3">
-                    <input type="number" value="${parseInt(qte) || ''}" oninput="recalculateMacros()" placeholder="0" class="w-16 bg-cyan-500/10 border border-cyan-500/20 rounded-lg py-1.5 px-2 text-[10px] font-black text-cyan-400 outline-none text-center ingredient-qte">
-                    <div class="flex-1 relative">
-                        <input type="text" value="${nom}" oninput="handleIngredientNameInput(this)" onblur="handleIngredientBlur(this)" placeholder="Chercher un aliment..." class="w-full bg-transparent text-[13px] text-white/80 outline-none ingredient-name">
-                        <div class="suggestions-list absolute left-0 right-0 top-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-xl hidden z-50 max-h-40 overflow-y-auto shadow-2xl"></div>
-                    </div>
-                    <button onclick="sendRowToCart(this)" class="text-white/20 hover:text-amber-500 transition-colors">
-                        <i data-lucide="shopping-cart" class="w-4 h-4"></i>
-                    </button>
-                    <button onclick="const row = this.closest('.ingredient-row'); const cid = row.dataset.compositionId; if(cid) deletedIngredients.push(cid); row.remove(); recalculateMacros();" class="text-white/20 hover:text-red-500 transition-colors">
-                        <i data-lucide="trash-2" class="w-4 h-4"></i>
-                    </button>
-                </div>
-                <div class="error-msg text-[9px] text-red-400 mt-1 hidden font-bold pl-2">⚠️ Cet aliment n'est pas lié à la base Notion Aliments.</div>
-            </div>
-        </div>`;
-    }
+function renderIngredientRow(nom = "", qte = "", ratios = {kcal:0, p:0, g:0, l:0}, compositionId = null, alimentId = "", uniteSpe = "", poidsRef = 0, uniteUtilisee = "Grammes") {
+        const initialAlimentId = alimentId || (compositionId ? "loaded" : "");
+        return `
+        <div class="relative ingredient-row group" data-rkcal="${ratios.kcal}" data-rp="${ratios.p}" data-rg="${ratios.g}" data-rl="${ratios.l}" data-composition-id="${compositionId || ''}" data-aliment-id="${initialAlimentId}" data-unite-spe="${uniteSpe}" data-poids-ref="${poidsRef}">
+            <div class="ingredient-container flex flex-col mb-2 bg-white/[0.03] p-2 rounded-xl border border-white/5 transition-colors">
+                <div class="flex items-center gap-2">
+                    <input type="number" value="${parseFloat(qte) || ''}" oninput="recalculateMacros()" placeholder="0" class="w-14 bg-cyan-500/10 border border-cyan-500/20 rounded-lg py-1.5 px-2 text-[10px] font-black text-cyan-400 outline-none text-center ingredient-qte">
+                    <select class="bg-white/5 border border-white/10 rounded-lg py-1 px-1 text-[10px] text-cyan-400 outline-none ingredient-unit" onchange="recalculateMacros()">
+                        <option value="Grammes" ${uniteUtilisee === 'Grammes' ? 'selected' : ''}>g</option>
+                        ${uniteSpe && uniteSpe !== 'Grammes' ? `<option value="${uniteSpe}" ${uniteUtilisee === uniteSpe ? 'selected' : ''}>${uniteSpe}</option>` : ''}
+                    </select>
+                    <div class="flex-1 relative ml-1">
+                        <input type="text" value="${nom}" oninput="handleIngredientNameInput(this)" onblur="handleIngredientBlur(this)" placeholder="Chercher un aliment..." class="w-full bg-transparent text-[13px] text-white/80 outline-none ingredient-name">
+                        <div class="suggestions-list absolute left-0 right-0 top-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-xl hidden z-50 max-h-40 overflow-y-auto shadow-2xl"></div>
+                    </div>
+                    <button onclick="sendRowToCart(this)" class="text-white/20 hover:text-amber-500 transition-colors">
+                        <i data-lucide="shopping-cart" class="w-4 h-4"></i>
+                    </button>
+                    <button onclick="const row = this.closest('.ingredient-row'); const cid = row.dataset.compositionId; if(cid) deletedIngredients.push(cid); row.remove(); recalculateMacros();" class="text-white/20 hover:text-red-500 transition-colors">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </div>
+                <div class="error-msg text-[9px] text-red-400 mt-1 hidden font-bold pl-2">⚠️ Cet aliment n'est pas lié à la base Notion Aliments.</div>
+            </div>
+        </div>`;
+    }
 
     function renderStepRow(num, desc = "", duree = "", etapeId = null) {
         return `
@@ -1512,84 +1516,112 @@ async function triggerQuickAction(type) {
     }
 }
 
-    function recalculateMacros() {
-        let totalKcal = 0, totalP = 0, totalG = 0, totalL = 0;
-        const partsSelect = document.getElementById('recipe-parts-select');
-        const parts = partsSelect ? (parseFloat(partsSelect.value) || 1) : 1;
+function recalculateMacros() {
+        let totalKcal = 0, totalP = 0, totalG = 0, totalL = 0;
+        const partsSelect = document.getElementById('recipe-parts-select');
+        const parts = partsSelect ? (parseFloat(partsSelect.value) || 1) : 1;
 
-        document.querySelectorAll('.ingredient-row').forEach(row => {
-            const qteInput = row.querySelector('.ingredient-qte');
-            const qte = qteInput ? (parseFloat(qteInput.value) || 0) : 0;
-            totalKcal += qte * parseFloat(row.dataset.rkcal || 0);
-            totalP += qte * parseFloat(row.dataset.rp || 0);
-            totalG += qte * parseFloat(row.dataset.rg || 0);
-            totalL += qte * parseFloat(row.dataset.rl || 0);
-        });
+        document.querySelectorAll('.ingredient-row').forEach(row => {
+            const qteInput = row.querySelector('.ingredient-qte');
+            const unitSelect = row.querySelector('.ingredient-unit');
+            const qteSaisie = qteInput ? (parseFloat(qteInput.value) || 0) : 0;
+            const unit = unitSelect ? unitSelect.value : "Grammes";
+            const poidsRef = parseFloat(row.dataset.poidsRef) || 0;
 
-        const dKcal = document.getElementById('display-kcal');
-        const dProt = document.getElementById('display-prot');
-        const dGlu = document.getElementById('display-glu');
-        const dLip = document.getElementById('display-lip');
+            // Conversion en grammes pour le calcul des macros
+            const qteGrammes = (unit === "Grammes") ? qteSaisie : (qteSaisie * poidsRef);
 
-        if(dKcal) dKcal.innerText = (totalKcal / parts).toFixed(1);
-        if(dProt) dProt.innerText = (totalP / parts).toFixed(1);
-        if(dGlu) dGlu.innerText = (totalG / parts).toFixed(1);
-        if(dLip) dLip.innerText = (totalL / parts).toFixed(1);
-    }
+            totalKcal += qteGrammes * parseFloat(row.dataset.rkcal || 0);
+            totalP += qteGrammes * parseFloat(row.dataset.rp || 0);
+            totalG += qteGrammes * parseFloat(row.dataset.rg || 0);
+            totalL += qteGrammes * parseFloat(row.dataset.rl || 0);
+        });
+
+        const dKcal = document.getElementById('display-kcal');
+        const dProt = document.getElementById('display-prot');
+        const dGlu = document.getElementById('display-glu');
+        const dLip = document.getElementById('display-lip');
+
+        if(dKcal) dKcal.innerText = (totalKcal / parts).toFixed(1);
+        if(dProt) dProt.innerText = (totalP / parts).toFixed(1);
+        if(dGlu) dGlu.innerText = (totalG / parts).toFixed(1);
+        if(dLip) dLip.innerText = (totalL / parts).toFixed(1);
+    }
 
     function recalculateDuration() {
         let total = 0;
-        document.querySelectorAll('.step-duration').forEach(input => {
-            total += parseFloat(input.value) || 0;
-        });
+      const ingredients = [];
+        document.querySelectorAll('.ingredient-row').forEach(row => {
+            const nomValue = row.querySelector('.ingredient-name').value.trim();
+            const qteInput = row.querySelector('.ingredient-qte');
+            const unitSelect = row.querySelector('.ingredient-unit');
+            
+            if (nomValue) {
+                ingredients.push({
+                    id: row.dataset.compositionId || null,
+                    alimentId: row.dataset.alimentId !== 'loaded' ? (row.dataset.alimentId || null) : null,
+                    nom: nomValue,
+                    quantite_saisie: parseFloat(qteInput.value) || 0,
+                    unite_utilisee: unitSelect ? unitSelect.value : "Grammes"
+                });
+            }
+        });
         const badge = document.querySelector('.info-circle span.text-white:not([id])');
         if (badge) badge.innerText = total;
     }
 
-    let searchTimeout;
-    async function searchAliments(input) {
-        const query = input.value.trim();
-        const list = input.parentElement.querySelector('.suggestions-list');
-        if (query.length < 2) { if(list) list.classList.add('hidden'); return; }
+let searchTimeout;
+    async function searchAliments(input) {
+        const query = input.value.trim();
+        const list = input.parentElement.querySelector('.suggestions-list');
+        if (query.length < 2) { if(list) list.classList.add('hidden'); return; }
 
-        clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(async () => {
-            try {
-                const res = await fetch(`${N8N_URL}/webhook/search-aliments`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json', "ngrok-skip-browser-warning": "69420" }, body: JSON.stringify({ q: query })
-                });
-                const aliments = await res.json();
-                if (aliments && aliments.length > 0 && list) {
-                    list.innerHTML = aliments.map(a => `
-                        <div class="px-4 py-2 hover:bg-cyan-500/20 cursor-pointer text-xs text-white border-b border-white/5" onpointerdown="event.preventDefault(); selectIngredient(this, '${a.id}', '${a.nom.replace(/'/g, "\\'")}', ${a.kcal_100g}, ${a.prot_100g}, ${a.gluc_100g}, ${a.lip_100g})">
-                            ${a.nom} <span class="text-[8px] text-cyan-400 ml-2">${a.kcal_100g}kcal/100g</span>
-                        </div>`).join('');
-                    list.classList.remove('hidden');
-                } else if(list) { list.classList.add('hidden'); }
-            } catch (e) {}
-        }, 300);
-    }
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(async () => {
+            try {
+                const res = await fetch(`${N8N_URL}/webhook/search-aliments`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json', "ngrok-skip-browser-warning": "69420" }, body: JSON.stringify({ q: query })
+                });
+                const aliments = await res.json();
+                if (aliments && aliments.length > 0 && list) {
+                    list.innerHTML = aliments.map(a => `
+                        <div class="px-4 py-2 hover:bg-cyan-500/20 cursor-pointer text-xs text-white border-b border-white/5" onpointerdown="event.preventDefault(); selectIngredient(this, '${a.id}', '${a.nom.replace(/'/g, "\\'")}', ${a.kcal_100g}, ${a.prot_100g}, ${a.gluc_100g}, ${a.lip_100g}, '${a.unite_spe || ''}', ${a.poids_ref || 0})">
+                            ${a.nom} <span class="text-[8px] text-cyan-400 ml-2">${a.kcal_100g}kcal/100g</span>
+                        </div>`).join('');
+                    list.classList.remove('hidden');
+                } else if(list) { list.classList.add('hidden'); }
+            } catch (e) {}
+        }, 300);
+    }
+function selectIngredient(element, id, nom, kcal100, p100, g100, l100, uniteSpe = "", poidsRef = 0) {
+        const row = element.closest('.ingredient-row');
+        const input = row.querySelector('.ingredient-name');
+        const list = row.querySelector('.suggestions-list');
+        const unitSelect = row.querySelector('.ingredient-unit');
 
-    function selectIngredient(element, id, nom, kcal100, p100, g100, l100) {
-        const row = element.closest('.ingredient-row');
-        const input = row.querySelector('.ingredient-name');
-        const list = row.querySelector('.suggestions-list');
+        if(input) input.value = nom;
+        if (list) list.classList.add('hidden');
 
-        if(input) input.value = nom;
-        if (list) list.classList.add('hidden');
+        row.dataset.alimentId = id;
+        row.dataset.rkcal = kcal100 / 100;
+        row.dataset.rp = p100 / 100;
+        row.dataset.rg = g100 / 100;
+        row.dataset.rl = l100 / 100;
+        row.dataset.uniteSpe = uniteSpe;
+        row.dataset.poidsRef = poidsRef;
 
-        row.dataset.alimentId = id;
-        row.dataset.rkcal = kcal100 / 100;
-        row.dataset.rp = p100 / 100;
-        row.dataset.rg = g100 / 100;
-        row.dataset.rl = l100 / 100;
+        let options = `<option value="Grammes">g</option>`;
+        if (uniteSpe && uniteSpe !== "Grammes") {
+            options += `<option value="${uniteSpe}" selected>${uniteSpe}</option>`;
+        }
+        if (unitSelect) unitSelect.innerHTML = options;
 
-        const container = row.querySelector('.ingredient-container');
-        const errorMsg = row.querySelector('.error-msg');
-        if (container) container.classList.remove('border-red-500/50', 'bg-red-500/5');
-        if (errorMsg) errorMsg.classList.add('hidden');
-        recalculateMacros();
-    }
+        const container = row.querySelector('.ingredient-container');
+        const errorMsg = row.querySelector('.error-msg');
+        if (container) container.classList.remove('border-red-500/50', 'bg-red-500/5');
+        if (errorMsg) errorMsg.classList.add('hidden');
+        recalculateMacros();
+    }
 
     function handleIngredientNameInput(input) {
         const row = input.closest('.ingredient-row');
