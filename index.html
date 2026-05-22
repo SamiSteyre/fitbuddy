@@ -743,31 +743,54 @@
             if (typeof val !== 'string') return [val];
             return val.split(separator).map(s => s.trim()).filter(s => s.length > 0);
         };
+const getProp = (obj, keywords) => {
+            const k = Object.keys(obj).find(key => keywords.some(kw => key.toLowerCase().includes(kw)));
+            return k ? obj[k] : null;
+        };
 
-        const names = parseNotionList(recipe.property_ingredients, ',');
-        const quants = parseNotionList(recipe.property_quantites, ',');
-        const compositionIds = recipe.property_composition_recette || [];
-        const etapeIds = recipe.property_etapes_de_cuisine || [];
-        const k_list = parseNotionList(recipe.property_kcal, ',');
-        const p_list = parseNotionList(recipe.property_p, ',');
-        const g_list = parseNotionList(recipe.property_g, ',');
-        const l_list = parseNotionList(recipe.property_l, ',');
+        const rawQuants = getProp(recipe, ['quantit_saisie', 'quantite_saisie', 'quantit_unit', 'quantite_unite']) || getProp(recipe, ['quantit']);
+        const rawUnites = getProp(recipe, ['unite_utilisee', 'unit_utilis', 'unite_sp']);
+        const rawPoids = getProp(recipe, ['poids_ref', 'poids_r_f']);
+        const rawUnitesSpe = getProp(recipe, ['unite_spe', 'unit_sp_']);
 
-        const formattedIngredients = names.map((nom, index) => {
-            const qOriginale = parseFloat(quants[index]) || 1;
-            return { 
-                nom: nom, 
-                quantite: qOriginale,
-                compositionId: compositionIds[index] || null,
-                ratios: {
-                    kcal: (parseFloat(k_list[index]) || 0) / qOriginale,
-                    p: (parseFloat(p_list[index]) || 0) / qOriginale,
-                    g: (parseFloat(g_list[index]) || 0) / qOriginale,
-                    l: (parseFloat(l_list[index]) || 0) / qOriginale
-                }
-            };
-        });
+        const quantsSaisies = parseNotionList(rawQuants, ',');
+        const unitesList = parseNotionList(rawUnites, ',');
+        const poidsList = parseNotionList(rawPoids, ',');
+        const unitesSpeList = parseNotionList(rawUnitesSpe, ',');
 
+        const names = parseNotionList(recipe.property_ingredients, ',');
+        const compositionIds = recipe.property_composition_recette || [];
+        const etapeIds = recipe.property_etapes_de_cuisine || [];
+        const k_list = parseNotionList(recipe.property_kcal, ',');
+        const p_list = parseNotionList(recipe.property_p, ',');
+        const g_list = parseNotionList(recipe.property_g, ',');
+        const l_list = parseNotionList(recipe.property_l, ',');
+
+        const formattedIngredients = names.map((nom, index) => {
+            const qOriginale = parseFloat(quantsSaisies[index]) || 1;
+            const uniteUti = unitesList[index] || "Grammes";
+            const pRef = parseFloat(poidsList[index]) || 0;
+            const uSpe = unitesSpeList[index] || (uniteUti !== "Grammes" ? uniteUti : "");
+
+            // Crucial : on calcule le poids total pour obtenir les macros "pour 1 gramme" (sinon le calcul crash si on charge des "unités")
+            const totalGrammes = (uniteUti === "Grammes") ? qOriginale : (qOriginale * pRef);
+            const diviseur = totalGrammes > 0 ? totalGrammes : 1;
+
+            return { 
+                nom: nom, 
+                quantite: qOriginale,
+                unite_utilisee: uniteUti,
+                poids_ref: pRef,
+                unite_spe: uSpe,
+                compositionId: compositionIds[index] || null,
+                ratios: {
+                    kcal: (parseFloat(k_list[index]) || 0) / diviseur,
+                    p: (parseFloat(p_list[index]) || 0) / diviseur,
+                    g: (parseFloat(g_list[index]) || 0) / diviseur,
+                    l: (parseFloat(l_list[index]) || 0) / diviseur
+                }
+            };
+        });
         const instructions = parseNotionList(recipe.property_instructions, '|||');
         const durations = parseNotionList(recipe.property_dur_es, '|||');
         
@@ -852,8 +875,7 @@
 <h3 class="text-[11px] font-black text-cyan-400 uppercase tracking-widest">Ingrédients</h3>                        <button onclick="addIngredientRow()" class="text-cyan-400"><i data-lucide="plus-circle" class="w-5 h-5"></i></button>
                     </div>
                     <div id="ingredients-container" class="space-y-2.5">
-                        ${formattedIngredients.length > 0 ? formattedIngredients.map(ing => renderIngredientRow(ing.nom, ing.quantite, ing.ratios, ing.compositionId)).join('') : '<p class="text-[10px] text-white/20 text-center py-4 italic">Aucun ingrédient répertorié</p>'}
-                    </div>
+${formattedIngredients.length > 0 ? formattedIngredients.map(ing => renderIngredientRow(ing.nom, ing.quantite, ing.ratios, ing.compositionId, null, ing.unite_spe, ing.poids_ref, ing.unite_utilisee)).join('') : '<p class="text-[10px] text-white/20 text-center py-4 italic">Aucun ingrédient répertorié</p>'}                    </div>
                 </div>
 
                 <div class="mb-12">
