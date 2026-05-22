@@ -849,8 +849,7 @@
 
                 <div class="mb-10">
                     <div class="flex justify-between items-center mb-5">
-                        <h3 class="text-[11px] font-black text-cyan-400 uppercase tracking-widest">Ingrédients (g)</h3>
-                        <button onclick="addIngredientRow()" class="text-cyan-400"><i data-lucide="plus-circle" class="w-5 h-5"></i></button>
+<h3 class="text-[11px] font-black text-cyan-400 uppercase tracking-widest">Ingrédients</h3>                        <button onclick="addIngredientRow()" class="text-cyan-400"><i data-lucide="plus-circle" class="w-5 h-5"></i></button>
                     </div>
                     <div id="ingredients-container" class="space-y-2.5">
                         ${formattedIngredients.length > 0 ? formattedIngredients.map(ing => renderIngredientRow(ing.nom, ing.quantite, ing.ratios, ing.compositionId)).join('') : '<p class="text-[10px] text-white/20 text-center py-4 italic">Aucun ingrédient répertorié</p>'}
@@ -884,10 +883,10 @@ function renderIngredientRow(nom = "", qte = "", ratios = {kcal:0, p:0, g:0, l:0
         const initialAlimentId = alimentId || (compositionId ? "loaded" : "");
         return `
         <div class="relative ingredient-row group" data-rkcal="${ratios.kcal}" data-rp="${ratios.p}" data-rg="${ratios.g}" data-rl="${ratios.l}" data-composition-id="${compositionId || ''}" data-aliment-id="${initialAlimentId}" data-unite-spe="${uniteSpe}" data-poids-ref="${poidsRef}">
-            <div class="ingredient-container flex flex-col mb-2 bg-white/[0.03] p-2 rounded-xl border border-white/5 transition-colors">
+            <div class="ingredient-container flex flex-col bg-white/[0.03] p-2 rounded-xl border border-white/5 transition-colors">
                 <div class="flex items-center gap-2">
                     <input type="number" value="${parseFloat(qte) || ''}" oninput="recalculateMacros()" placeholder="0" class="w-14 bg-cyan-500/10 border border-cyan-500/20 rounded-lg py-1.5 px-2 text-[10px] font-black text-cyan-400 outline-none text-center ingredient-qte">
-                    <select class="bg-white/5 border border-white/10 rounded-lg py-1 px-1 text-[10px] text-cyan-400 outline-none ingredient-unit" onchange="recalculateMacros()">
+                    <select class="bg-white/5 border border-white/10 rounded-lg py-1 px-1 text-[10px] text-cyan-400 outline-none ingredient-unit" data-current-unit="${uniteUtilisee}" onchange="handleUnitChange(this)">
                         <option value="Grammes" ${uniteUtilisee === 'Grammes' ? 'selected' : ''}>g</option>
                         ${uniteSpe && uniteSpe !== 'Grammes' ? `<option value="${uniteSpe}" ${uniteUtilisee === uniteSpe ? 'selected' : ''}>${uniteSpe}</option>` : ''}
                     </select>
@@ -906,7 +905,31 @@ function renderIngredientRow(nom = "", qte = "", ratios = {kcal:0, p:0, g:0, l:0
             </div>
         </div>`;
     }
-
+function handleUnitChange(select) {
+        const row = select.closest('.ingredient-row');
+        const qteInput = row.querySelector('.ingredient-qte');
+        const poidsRef = parseFloat(row.dataset.poidsRef) || 0;
+        
+        const oldUnit = select.dataset.currentUnit || 'Grammes';
+        const newUnit = select.value;
+        
+        if (poidsRef > 0 && oldUnit !== newUnit) {
+            let currentVal = parseFloat(qteInput.value) || 0;
+            if (oldUnit === 'Grammes') {
+                // Bascule Grammes -> Unité Spécifique (ex: 120g -> 2 œufs)
+                let newVal = currentVal / poidsRef;
+                qteInput.value = parseFloat(newVal.toFixed(2)); // Évite les chiffres à rallonge
+            } else if (newUnit === 'Grammes') {
+                // Bascule Unité Spécifique -> Grammes (ex: 2 œufs -> 120g)
+                let newVal = currentVal * poidsRef;
+                qteInput.value = Math.round(newVal); // On arrondit les grammes à l'entier
+            }
+        }
+        
+        // On mémorise la nouvelle unité et on relance les macros
+        select.dataset.currentUnit = newUnit;
+        recalculateMacros();
+    }
     function renderStepRow(num, desc = "", duree = "", etapeId = null) {
         return `
         <div class="flex gap-4 group" data-etape-id="${etapeId || ''}">
@@ -1611,10 +1634,16 @@ function selectIngredient(element, id, nom, kcal100, p100, g100, l100, uniteSpe 
         row.dataset.poidsRef = poidsRef;
 
         let options = `<option value="Grammes">g</option>`;
+        let defaultUnit = "Grammes";
         if (uniteSpe && uniteSpe !== "Grammes") {
             options += `<option value="${uniteSpe}" selected>${uniteSpe}</option>`;
+            defaultUnit = uniteSpe;
         }
-        if (unitSelect) unitSelect.innerHTML = options;
+        
+        if (unitSelect) {
+            unitSelect.innerHTML = options;
+            unitSelect.dataset.currentUnit = defaultUnit;
+        }
 
         const container = row.querySelector('.ingredient-container');
         const errorMsg = row.querySelector('.error-msg');
