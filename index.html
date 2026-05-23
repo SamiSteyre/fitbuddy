@@ -2234,9 +2234,32 @@ async function openProductPicker() {
             body: JSON.stringify({ email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') })
         });
         const data = await res.json();
-        const raw = Array.isArray(data) ? data[0] : data;
-        allCoursesCache = raw.items || raw.data || raw || [];
+        
+        let extractedItems = [];
+        if (Array.isArray(data)) {
+            if (data.length > 0 && Array.isArray(data[0].items)) {
+                extractedItems = data[0].items;
+            } else if (data.length > 0 && Array.isArray(data[0].data)) {
+                extractedItems = data[0].data;
+            } else {
+                extractedItems = data; 
+            }
+        } else if (data && typeof data === 'object') {
+            extractedItems = data.items || data.data || [];
+        }
+        
+        // MAPPING CRUCIAL : on convertit le format Notion pour le front
+        allCoursesCache = extractedItems.map(p => ({
+            id: p.id,
+            nom: (p.property_nom || p.name || p.nom || "Produit").trim(),
+            rayon: (p.property_rayon || p.rayon || "Autres").trim(),
+            statut: (p.property_statut || p.statut || "out_basket").toLowerCase().trim(),
+            quantite: p.property_quantite || p.quantite || 1,
+            unite: p.property_unite || p.unite || ""
+        }));
+
         renderProductPicker(allCoursesCache);
+        
     } catch (e) {
         body.innerHTML = `<div class="text-center text-red-400 text-xs py-12">⚠️ Impossible de charger les produits.</div>`;
     }
