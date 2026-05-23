@@ -1190,8 +1190,19 @@ function handleUnitChange(select) {
         document.getElementById('floating-plus').classList.add('hidden');
 
         let items = (Array.isArray(data)) ? data : (data.items || data.data || []);
-        currentList = items.map((i, idx) => ({ id: i.id || i.pageId || i.idNotion || `idx-${idx}`, nom: (i.nom || i.item || "Produit").trim(), quantite: i.quantite || "1", unite: i.unite || "", rayon: (i.rayon || i.category || "Autres").trim(), isPurchased: false }));
-        renderShopping(); 
+currentList = items
+    .filter(i => {
+        const s = (i.statut || i.status || "in_basket").toLowerCase().trim();
+        return s === "in_basket";
+    })
+    .map((i, idx) => ({
+        id: i.id || i.pageId || i.idNotion || `idx-${idx}`,
+        nom: (i.nom || i.item || "Produit").trim(),
+        quantite: i.quantite || "1",
+        unite: i.unite || "",
+        rayon: (i.rayon || i.category || "Autres").trim(),
+        isPurchased: false
+    }));        renderShopping(); 
         setTimeout(() => { container.scrollTo({ top: 0, behavior: 'instant' }); }, 100);
     }
 
@@ -1508,6 +1519,11 @@ function handleUnitChange(select) {
             if (viewId === 'view-cooking') { btnPlus.classList.remove('hidden'); btnPlus.style.display = 'flex'; }
             else { btnPlus.classList.add('hidden'); btnPlus.style.display = 'none'; }
         }
+         const btnShoppingPlus = document.getElementById('floating-shopping-plus');
+    if (btnShoppingPlus) {
+        if (viewId === 'view-shopping') { btnShoppingPlus.classList.remove('hidden'); btnShoppingPlus.style.display = 'flex'; }
+        else { btnShoppingPlus.classList.add('hidden'); btnShoppingPlus.style.display = 'none'; }
+    }
     }
 
 async function triggerQuickAction(type) {
@@ -2171,6 +2187,292 @@ function selectIngredient(element, id, nom, kcal100, p100, g100, l100, uniteSpe 
             showNotification("Impossible de contacter le générateur IA.", "error");
         }
     }
+
+    // ─── PRODUCT PICKER (courses) ────────────────────────────────────────────────
+
+let allCoursesCache = [];   // tous les produits CoursesAllTime
+let selectedProductForQty = null;  // produit en attente de quantité
+let selectedUnit = "unité";
+
+const SHOPPING_UNITS = [
+    { label: "g",        value: "g" },
+    { label: "kg",       value: "kg" },
+    { label: "mL",       value: "mL" },
+    { label: "L",        value: "L" },
+    { label: "pièce",    value: "pièce(s)" },
+    { label: "unité",    value: "unité" },
+    { label: "bouteille",value: "bouteille" },
+    { label: "boîte",    value: "boîte" },
+    { label: "sachet",   value: "sachet" },
+    { label: "paquet",   value: "paquet" },
+    { label: "barquette",value: "barquette" },
+    { label: "pot",      value: "pot" },
+];
+
+async function openProductPicker() {
+    document.getElementById('product-picker-modal').style.display = 'flex';
+    const searchInput = document.getElementById('product-picker-search');
+    if (searchInput) searchInput.value = '';
+
+    if (allCoursesCache.length > 0) {
+        renderProductPicker(allCoursesCache);
+        return;
+    }
+
+    const body = document.getElementById('product-picker-body');
+    body.innerHTML = `
+        <div class="flex flex-col items-center justify-center h-full gap-3 text-amber-400 py-16">
+            <i data-lucide="loader" class="w-5 h-5 animate-spin"></i>
+            <span class="text-[10px] tracking-widest uppercase">Chargement des produits…</span>
+        </div>`;
+    lucide.createIcons();
+
+    try {
+        const res = await fetch(`${N8N_URL}/webhook/all-courses`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '69420' },
+            body: JSON.stringify({ email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') })
+        });
+        const data = await res.json();
+        const raw = Array.isArray(data) ? data[0] : data;
+        allCoursesCache = raw.items || raw.data || raw || [];
+        renderProductPicker(allCoursesCache);
+    } catch (e) {
+        body.innerHTML = `<div class="text-center text-red-400 text-xs py-12">⚠️ Impossible de charger les produits.</div>`;
+    }
+}
+
+function closeProductPicker() {
+    document.getElementById('product-picker-modal').style.display = 'none';
+}
+
+function filterProductPicker(query) {
+    const filtered = query.trim().length < 1
+        ? allCoursesCache
+        : allCoursesCache.filter(p => {
+            const nom = (p.nom || p.item || p.name || "").toLowerCase();
+            return nom.includes(query.toLowerCase());
+        });
+    renderProductPicker(filtered);
+}
+
+function renderProductPicker(items) {
+    const body = document.getElementById('product-picker-body');
+    if (!body) return;
+
+    if (!items || items.length === 0) {
+        body.innerHTML = `<p class="text-center text-white/30 text-xs py-12">Aucun produit trouvé</p>`;
+        return;
+    }
+
+    // Grouper par rayon
+    const grouped = {};
+    items.forEach(p => {
+        const rayon = (p.rayon || p.category || "Autres").trim();
+        if (!grouped[rayon]) grouped[rayon] = [];
+        grouped[rayon].push(p);
+    });
+
+    let html = `<div class="space-y-6 pb-6">`;
+    Object.entries(grouped).forEach(([rayon, prods]) => {
+        html += `
+        <div>
+            <h3 class="text-[9px] font-black text-amber-400/50 uppercase tracking-widest mb-2 pl-1 border-l-2 border-amber-400/20">${rayon}</h3>
+            <div class="space-y-1.5">`;
+        prods.forEach(p => {
+            const nom = (p.nom || p.item || p.name || "Produit").trim();
+            const statut = (p.statut || p.status || "").toLowerCase();
+            const isInBasket = statut === "in_basket";
+            const cleanName = nom.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+            const imgPath = `images/produits/${cleanName}.jpg`;
+
+            html += `
+            <div onclick="openProductQtyModal(${JSON.stringify(p).replace(/"/g, '&quot;')})"
+                class="flex items-center gap-3 p-3 rounded-2xl border transition-colors cursor-pointer active:scale-[0.98]
+                ${isInBasket
+                    ? 'bg-amber-500/5 border-amber-500/20 opacity-60'
+                    : 'bg-white/[0.03] border-white/8 hover:bg-white/5'}">
+                <div class="w-10 h-10 rounded-xl overflow-hidden border border-white/10 bg-white/5 flex-none">
+                    <img src="${imgPath}" class="w-full h-full object-cover" onerror="this.src='default-item.svg'">
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-xs font-bold text-white leading-tight truncate">${nom}</p>
+                    <p class="text-[9px] text-white/30">${p.rayon || "Divers"}</p>
+                </div>
+                ${isInBasket
+                    ? `<span class="flex-none text-[8px] font-black text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-lg uppercase">Déjà dans le panier</span>`
+                    : `<i data-lucide="plus-circle" class="w-4 h-4 text-white/30 flex-none"></i>`}
+            </div>`;
+        });
+        html += `</div></div>`;
+    });
+    html += `</div>`;
+
+    body.innerHTML = html;
+    lucide.createIcons();
+}
+
+function openProductQtyModal(product) {
+    selectedProductForQty = product;
+    selectedUnit = "unité";
+
+    const nom = (product.nom || product.item || product.name || "Produit").trim();
+    document.getElementById('qty-modal-product-name').textContent = nom;
+    document.getElementById('qty-modal-value').value = 1;
+
+    // Générer le clavier d'unités
+    const keyboard = document.getElementById('unit-keyboard');
+    keyboard.innerHTML = SHOPPING_UNITS.map(u => `
+        <button onclick="selectUnit('${u.value}', this)"
+            class="unit-key py-2 px-1 rounded-xl text-[10px] font-black uppercase tracking-wide border transition-all active:scale-90
+            ${u.value === selectedUnit
+                ? 'bg-amber-500/20 border-amber-500/50 text-amber-400'
+                : 'bg-white/5 border-white/10 text-white/50'}">
+            ${u.label}
+        </button>`).join('');
+
+    document.getElementById('product-qty-modal').style.display = 'flex';
+    lucide.createIcons();
+}
+
+function closeProductQtyModal() {
+    document.getElementById('product-qty-modal').style.display = 'none';
+    selectedProductForQty = null;
+}
+
+function selectUnit(unit, btn) {
+    selectedUnit = unit;
+    document.querySelectorAll('.unit-key').forEach(b => {
+        b.classList.remove('bg-amber-500/20', 'border-amber-500/50', 'text-amber-400');
+        b.classList.add('bg-white/5', 'border-white/10', 'text-white/50');
+    });
+    btn.classList.add('bg-amber-500/20', 'border-amber-500/50', 'text-amber-400');
+    btn.classList.remove('bg-white/5', 'border-white/10', 'text-white/50');
+}
+
+function adjustQtyModal(delta) {
+    const input = document.getElementById('qty-modal-value');
+    const current = parseFloat(input.value) || 0;
+    const step = ['g', 'mL'].includes(selectedUnit) ? 50 : 1;
+    input.value = Math.max(0, Math.round((current + delta * step) * 10) / 10);
+}
+
+async function confirmAddProduct() {
+    if (!selectedProductForQty) return;
+
+    const nom = (selectedProductForQty.nom || selectedProductForQty.item || selectedProductForQty.name || "Produit").trim();
+    const quantite = parseFloat(document.getElementById('qty-modal-value').value) || 1;
+    const unite = selectedUnit;
+    const pageId = selectedProductForQty.id || selectedProductForQty.pageId || selectedProductForQty.idNotion || null;
+
+    const btn = document.querySelector('#product-qty-modal button[onclick="confirmAddProduct()"]');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i>'; lucide.createIcons(); }
+
+    try {
+        await fetch(`${N8N_URL}/webhook/shopping-add-product`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '69420' },
+            body: JSON.stringify({
+                email: userEmail,
+                userName: localStorage.getItem('fitbuddy_user_name') || "Utilisateur",
+                pageId,
+                produit: nom,
+                quantite,
+                unite,
+                action: "add_to_basket"
+            })
+        });
+
+        closeProductQtyModal();
+        closeProductPicker();
+        showNotification(`🛒 ${quantite} ${unite} de "${nom}" ajouté(e)(s) !`, "success");
+
+        // Rafraîchir la liste de courses
+        setTimeout(() => triggerQuickAction('courses'), 400);
+
+    } catch (e) {
+        showNotification("Impossible d'ajouter le produit.", "error");
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i data-lucide="plus" class="w-3.5 h-3.5"></i> Ajouter';
+            lucide.createIcons();
+        }
+    }
+}
 </script>
+    <!-- BOUTON FLOTTANT COURSES -->
+<button id="floating-shopping-plus" class="floating-add-btn hidden" onclick="openProductPicker()" style="bottom: 85px; right: 20px;">
+    <i data-lucide="plus" class="w-8 h-8"></i>
+</button>
+
+<!-- MODALE SÉLECTEUR DE PRODUITS (CoursesAllTime) -->
+<div id="product-picker-modal" class="modal-overlay" onclick="if(event.target===this)closeProductPicker()">
+    <div class="modal-content no-scrollbar flex flex-col" style="height:92dvh; overflow:hidden;">
+        <div class="flex-none flex items-center justify-between px-5 pt-5 pb-4 border-b border-white/10">
+            <div>
+                <h3 class="text-[11px] font-black text-white uppercase tracking-widest">Ajouter un produit</h3>
+                <p class="text-[9px] text-white/30 mt-0.5">Tous les produits • Appuie pour ajouter</p>
+            </div>
+            <button onclick="closeProductPicker()" class="w-9 h-9 bg-white/5 border border-white/10 rounded-full flex items-center justify-center">
+                <i data-lucide="x" class="w-4 h-4 text-white"></i>
+            </button>
+        </div>
+
+        <!-- Barre de recherche -->
+        <div class="flex-none px-5 py-3 border-b border-white/5">
+            <div class="relative">
+                <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30"></i>
+                <input type="text" id="product-picker-search" placeholder="Rechercher un produit..."
+                    oninput="filterProductPicker(this.value)"
+                    class="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-9 pr-4 text-xs text-white outline-none focus:border-amber-500/50 placeholder-white/20">
+            </div>
+        </div>
+
+        <div id="product-picker-body" class="flex-1 overflow-y-auto no-scrollbar p-4"></div>
+    </div>
+</div>
+
+<!-- SOUS-MODALE QUANTITÉ + UNITÉ -->
+<div id="product-qty-modal" class="modal-overlay !justify-center !items-center p-6" style="background: rgba(0,0,0,0.95); z-index: 12000;">
+    <div class="bg-[#111] border border-white/10 w-full max-w-sm rounded-3xl p-6 space-y-5 shadow-2xl relative">
+        <button onclick="closeProductQtyModal()" class="absolute top-4 right-4 w-8 h-8 bg-white/5 rounded-full flex items-center justify-center border border-white/5">
+            <i data-lucide="x" class="w-4 h-4 text-white/60"></i>
+        </button>
+
+        <div class="text-center space-y-1">
+            <div class="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto mb-2">
+                <i data-lucide="shopping-cart" class="w-5 h-5"></i>
+            </div>
+            <h4 id="qty-modal-product-name" class="text-white font-black text-sm uppercase tracking-tight truncate px-4">Produit</h4>
+            <p class="text-[9px] text-white/30 uppercase tracking-widest">Définir la quantité</p>
+        </div>
+
+        <!-- Affichage quantité -->
+        <div class="flex items-center justify-center gap-4">
+            <button onclick="adjustQtyModal(-1)" class="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white text-2xl font-black active:scale-90 transition-transform">−</button>
+            <div class="flex-1 text-center">
+                <input type="number" id="qty-modal-value" value="1" min="0" step="0.5"
+                    class="w-full bg-transparent text-4xl font-black text-amber-400 text-center outline-none" inputmode="decimal">
+            </div>
+            <button onclick="adjustQtyModal(1)" class="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 text-2xl font-black active:scale-90 transition-transform">+</button>
+        </div>
+
+        <!-- Clavier virtuel unités -->
+        <div class="space-y-2">
+            <p class="text-[9px] font-black text-white/30 uppercase tracking-widest text-center">Unité</p>
+            <div id="unit-keyboard" class="grid grid-cols-4 gap-2">
+                <!-- Généré par JS -->
+            </div>
+        </div>
+
+        <div class="flex gap-3 pt-1">
+            <button onclick="closeProductQtyModal()" class="flex-1 py-3 text-[10px] font-black text-white/40 uppercase tracking-widest">Annuler</button>
+            <button onclick="confirmAddProduct()" class="flex-1 bg-amber-500 py-3 rounded-xl text-[10px] font-black text-black uppercase tracking-widest shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i> Ajouter
+            </button>
+        </div>
+    </div>
+</div>
 </body>
 </html>
