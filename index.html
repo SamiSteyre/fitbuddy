@@ -2210,11 +2210,13 @@ const SHOPPING_UNITS = [
 ];
 
 async function openProductPicker() {
+    console.log("🟢 [openProductPicker] Ouverture de la modale...");
     document.getElementById('product-picker-modal').style.display = 'flex';
     const searchInput = document.getElementById('product-picker-search');
     if (searchInput) searchInput.value = '';
 
     if (allCoursesCache.length > 0) {
+        console.log("🟡 [openProductPicker] Cache existant, affichage direct. Taille du cache :", allCoursesCache.length);
         renderProductPicker(allCoursesCache);
         return;
     }
@@ -2228,27 +2230,37 @@ async function openProductPicker() {
     lucide.createIcons();
 
     try {
+        console.log("🔵 [openProductPicker] Appel à n8n :", `${N8N_URL}/webhook/all-courses`);
         const res = await fetch(`${N8N_URL}/webhook/all-courses`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '69420' },
             body: JSON.stringify({ email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') })
         });
+        
         const data = await res.json();
+        console.log("🟣 [openProductPicker] Réponse brute de n8n :", data);
         
         let extractedItems = [];
         if (Array.isArray(data)) {
+            console.log("➡️ [openProductPicker] 'data' est identifié comme un tableau.");
             if (data.length > 0 && Array.isArray(data[0].items)) {
+                console.log("➡️ [openProductPicker] Extraction depuis data[0].items");
                 extractedItems = data[0].items;
             } else if (data.length > 0 && Array.isArray(data[0].data)) {
+                console.log("➡️ [openProductPicker] Extraction depuis data[0].data");
                 extractedItems = data[0].data;
             } else {
+                console.log("➡️ [openProductPicker] Utilisation directe du tableau 'data'");
                 extractedItems = data; 
             }
         } else if (data && typeof data === 'object') {
+            console.log("➡️ [openProductPicker] 'data' est identifié comme un objet.");
             extractedItems = data.items || data.data || [];
         }
         
-        // MAPPING CRUCIAL : on convertit le format Notion pour le front
+        console.log("🟠 [openProductPicker] Items extraits (avant mapping) :", extractedItems);
+
+        // MAPPING
         allCoursesCache = extractedItems.map(p => ({
             id: p.id,
             nom: (p.property_nom || p.name || p.nom || "Produit").trim(),
@@ -2258,9 +2270,12 @@ async function openProductPicker() {
             unite: p.property_unite || p.unite || ""
         }));
 
+        console.log("🟢 [openProductPicker] Cache final après mapping :", allCoursesCache);
+
         renderProductPicker(allCoursesCache);
         
     } catch (e) {
+        console.error("🔴 [openProductPicker] Erreur catchée :", e);
         body.innerHTML = `<div class="text-center text-red-400 text-xs py-12">⚠️ Impossible de charger les produits.</div>`;
     }
 }
