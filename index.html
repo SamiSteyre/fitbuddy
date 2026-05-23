@@ -874,7 +874,7 @@ const getProp = (obj, keywords) => {
                     <div class="flex justify-between items-center mb-5">
 <h3 class="text-[11px] font-black text-cyan-400 uppercase tracking-widest">Ingrédients</h3>                        <button onclick="addIngredientRow()" class="text-cyan-400"><i data-lucide="plus-circle" class="w-5 h-5"></i></button>
                     </div>
-                    <div id="ingredients-container" class="space-y-2.5">
+                    <div id="ingredients-container" class="space-y-1">
 ${formattedIngredients.length > 0 ? formattedIngredients.map(ing => renderIngredientRow(ing.nom, ing.quantite, ing.ratios, ing.compositionId, null, ing.unite_spe, ing.poids_ref, ing.unite_utilisee)).join('') : '<p class="text-[10px] text-white/20 text-center py-4 italic">Aucun ingrédient répertorié</p>'}                    </div>
                 </div>
 
