@@ -2352,11 +2352,22 @@ function renderProductPicker(items) {
 
 function openProductQtyModal(product) {
     selectedProductForQty = product;
-    selectedUnit = "unité";
+    
+    // 1. Récupérer l'unité enregistrée et la faire correspondre au clavier
+    let savedUnit = product.unite ? product.unite.trim() : "";
+    let matchedUnit = SHOPPING_UNITS.find(u => 
+        u.value.toLowerCase() === savedUnit.toLowerCase() || 
+        u.label.toLowerCase() === savedUnit.toLowerCase()
+    );
+    // Si on trouve l'unité dans la liste, on la sélectionne, sinon on garde l'unité brute (ou "unité" par défaut)
+    selectedUnit = matchedUnit ? matchedUnit.value : (savedUnit || "unité");
 
     const nom = (product.nom || product.item || product.name || "Produit").trim();
     document.getElementById('qty-modal-product-name').textContent = nom;
-    document.getElementById('qty-modal-value').value = 1;
+    
+    // 2. Pré-remplir avec la quantité enregistrée dans Notion (au lieu de toujours 1)
+    const defaultQty = parseFloat(product.quantite) || 1;
+    document.getElementById('qty-modal-value').value = defaultQty;
 
     // Générer le clavier d'unités
     const keyboard = document.getElementById('unit-keyboard');
