@@ -902,31 +902,40 @@ ${formattedIngredients.length > 0 ? formattedIngredients.map(ing => renderIngred
     }
 
 function renderIngredientRow(nom = "", qte = "", ratios = {kcal:0, p:0, g:0, l:0}, compositionId = null, alimentId = "", uniteSpe = "", poidsRef = 0, uniteUtilisee = "Grammes") {
-        const initialAlimentId = alimentId || (compositionId ? "loaded" : "");
-        return `
-        <div class="relative ingredient-row group" data-rkcal="${ratios.kcal}" data-rp="${ratios.p}" data-rg="${ratios.g}" data-rl="${ratios.l}" data-composition-id="${compositionId || ''}" data-aliment-id="${initialAlimentId}" data-unite-spe="${uniteSpe}" data-poids-ref="${poidsRef}">
-            <div class="ingredient-container flex flex-col bg-white/[0.03] p-2 rounded-xl border border-white/5 transition-colors">
-                <div class="flex items-center gap-2">
-                    <input type="number" value="${parseFloat(qte) || ''}" oninput="recalculateMacros()" placeholder="0" class="w-14 bg-cyan-500/10 border border-cyan-500/20 rounded-lg py-1.5 px-2 text-[10px] font-black text-cyan-400 outline-none text-center ingredient-qte">
-                    <select class="bg-white/5 border border-white/10 rounded-lg py-1 px-1 text-[10px] text-cyan-400 outline-none ingredient-unit" data-current-unit="${uniteUtilisee}" onchange="handleUnitChange(this)">
-                        <option value="Grammes" ${uniteUtilisee === 'Grammes' ? 'selected' : ''}>g</option>
-                        ${uniteSpe && uniteSpe !== 'Grammes' ? `<option value="${uniteSpe}" ${uniteUtilisee === uniteSpe ? 'selected' : ''}>${uniteSpe}</option>` : ''}
-                    </select>
-                    <div class="flex-1 relative ml-1">
-                        <input type="text" value="${nom}" oninput="handleIngredientNameInput(this)" onblur="handleIngredientBlur(this)" placeholder="Chercher un aliment..." class="w-full bg-transparent text-[13px] text-white/80 outline-none ingredient-name">
-                        <div class="suggestions-list absolute left-0 right-0 top-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-xl hidden z-50 max-h-40 overflow-y-auto shadow-2xl"></div>
-                    </div>
-                    <button onclick="sendRowToCart(this)" class="text-white/20 hover:text-amber-500 transition-colors">
-                        <i data-lucide="shopping-cart" class="w-4 h-4"></i>
-                    </button>
-                    <button onclick="const row = this.closest('.ingredient-row'); const cid = row.dataset.compositionId; if(cid) deletedIngredients.push(cid); row.remove(); recalculateMacros();" class="text-white/20 hover:text-red-500 transition-colors">
-                        <i data-lucide="trash-2" class="w-4 h-4"></i>
-                    </button>
-                </div>
-                <div class="error-msg text-[9px] text-red-400 mt-1 hidden font-bold pl-2">⚠️ Cet aliment n'est pas lié à la base Notion Aliments.</div>
-            </div>
-        </div>`;
-    }
+        const initialAlimentId = alimentId || (compositionId ? "loaded" : "");
+        return `
+        <div class="relative ingredient-row group" data-rkcal="${ratios.kcal}" data-rp="${ratios.p}" data-rg="${ratios.g}" data-rl="${ratios.l}" data-composition-id="${compositionId || ''}" data-aliment-id="${initialAlimentId}" data-unite-spe="${uniteSpe}" data-poids-ref="${poidsRef}">
+            <div class="ingredient-container flex flex-col bg-white/[0.03] p-2 rounded-xl border border-white/5 transition-colors">
+                
+                <!-- NOUVELLE LIGNE : BOUTONS D'ACTION EN HAUT -->
+                <div class="flex justify-end gap-4 mb-2 pr-1">
+                    <button onclick="sendRowToCart(this)" class="text-white/30 hover:text-amber-500 transition-colors" title="Ajouter aux courses">
+                        <i data-lucide="shopping-cart" class="w-4 h-4"></i>
+                    </button>
+                    <button onclick="const row = this.closest('.ingredient-row'); const cid = row.dataset.compositionId; if(cid) deletedIngredients.push(cid); row.remove(); recalculateMacros();" class="text-white/30 hover:text-red-500 transition-colors" title="Supprimer">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </div>
+
+                <!-- LIGNE DES CHAMPS DE SAISIE -->
+                <div class="flex items-center gap-2">
+                    <input type="number" value="${parseFloat(qte) || ''}" oninput="recalculateMacros()" placeholder="0" class="w-14 bg-cyan-500/10 border border-cyan-500/20 rounded-lg py-1.5 px-2 text-[10px] font-black text-cyan-400 outline-none text-center ingredient-qte">
+                    
+                    <select class="bg-white/5 border border-white/10 rounded-lg py-1.5 px-2 text-[10px] text-cyan-400 outline-none ingredient-unit" data-current-unit="${uniteUtilisee}" onchange="handleUnitChange(this)">
+                        <option value="Grammes" ${uniteUtilisee === 'Grammes' ? 'selected' : ''}>g</option>
+                        ${uniteSpe && uniteSpe !== 'Grammes' ? `<option value="${uniteSpe}" ${uniteUtilisee === uniteSpe ? 'selected' : ''}>${uniteSpe}</option>` : ''}
+                    </select>
+                    
+                    <div class="flex-1 relative ml-1">
+                        <input type="text" value="${nom}" oninput="handleIngredientNameInput(this)" onblur="handleIngredientBlur(this)" placeholder="Chercher un aliment..." class="w-full bg-transparent text-[13px] text-white/80 outline-none ingredient-name">
+                        <div class="suggestions-list absolute left-0 right-0 top-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-xl hidden z-50 max-h-40 overflow-y-auto shadow-2xl"></div>
+                    </div>
+                </div>
+                
+                <div class="error-msg text-[9px] text-red-400 mt-1 hidden font-bold pl-2">⚠️ Cet aliment n'est pas lié à la base Notion Aliments.</div>
+            </div>
+        </div>`;
+    }
 function handleUnitChange(select) {
         const row = select.closest('.ingredient-row');
         const qteInput = row.querySelector('.ingredient-qte');
