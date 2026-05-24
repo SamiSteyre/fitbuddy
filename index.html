@@ -904,6 +904,16 @@ ${formattedIngredients.length > 0 ? formattedIngredients.map(ing => renderIngred
                     <i data-lucide="sparkles" class="w-5 h-5 text-purple-400"></i>
                     <span class="textxs font-black text-purple-400 uppercase tracking-widest">Évaluation et suggestion de Tyler</span>
                 </button>
+                <button onclick="deleteRecipe('${recipe.id}')" 
+    class="w-full mb-3 py-3 rounded-2xl flex items-center justify-center gap-3 border border-red-500/10 bg-red-900/10 active:scale-95 transition-transform text-red-500 hover:bg-red-900/20">
+    <i data-lucide="trash-2" class="w-4 h-4"></i>
+    <span class="text-xs font-black uppercase tracking-widest">Supprimer cette recette</span>
+</button>
+
+<button class="w-full bg-cyan-500 py-5 ...">
+    <i data-lucide="flame" class="w-6 h-6 text-black"></i>
+    <span class="text-base font-black text-black uppercase tracking-widest">Cuisiner !</span>
+</button>
                 <button class="w-full bg-cyan-500 py-5 rounded-2xl flex items-center justify-center gap-4 active:scale-95 transition-transform">
                     <i data-lucide="flame" class="w-6 h-6 text-black"></i>
                     <span class="text-base font-black text-black uppercase tracking-widest">Cuisiner !</span>
@@ -1000,7 +1010,42 @@ function handleUnitChange(select) {
             </div>
         </div>`;
     }
+async function deleteRecipe(id) {
+    // 1. Double confirmation pour éviter les erreurs
+    if (!confirm("⚠️ Es-tu sûr de vouloir supprimer cette recette ? Cette action est irréversible.")) {
+        return;
+    }
 
+    // 2. Appel API vers n8n
+    try {
+        const btn = event.target;
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Suppression...';
+
+        const res = await fetch(`${N8N_URL}/webhook/delete-recipe`, { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'}, 
+            body: JSON.stringify({ 
+                recipeId: id, 
+                email: userEmail 
+            }) 
+        });
+
+        if (res.ok) {
+            closeRecipe(); // Ferme la modale
+            showNotification("Recette supprimée avec succès", "success");
+            
+            // 3. Rafraîchir la vue cuisine
+            await triggerQuickAction('cuisine');
+        } else {
+            throw new Error("Erreur serveur");
+        }
+    } catch (e) {
+        console.error(e);
+        showNotification("Impossible de supprimer la recette.", "error");
+    }
+}
     function addIngredientRow() {
         const container = document.getElementById('ingredients-container');
         if (!container) return;
