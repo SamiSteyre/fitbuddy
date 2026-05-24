@@ -1236,11 +1236,15 @@ function handleUnitChange(select) {
         if (purchased.length > 0) appendCategory(content, "PANIER", purchased, true);
     }
 
-  function appendCategory(container, title, items, isPurchased = false) {
+function appendCategory(container, title, items, isPurchased = false) {
     const section = document.createElement('div');
     section.innerHTML = `<h2 class="text-[9px] font-black text-cyan-400/40 uppercase mb-3 pl-1 border-l-2 border-cyan-400/20">${title}</h2><div class="grid grid-cols-3 gap-2"></div>`;
     const grid = section.querySelector('.grid');
     if(!grid) return;
+    
+    // 1. AJOUTE ICI TON URL RAW GITHUB (N'oublie pas de remplacer par tes infos)
+    const githubBaseUrl = "https://raw.githubusercontent.com/samisteyre/fitbuddy/main/";
+
     items.forEach(item => {
         const card = document.createElement('div');
         card.onclick = () => togglePurchase(item.id);
@@ -1248,10 +1252,10 @@ function handleUnitChange(select) {
         
         const clean = item.nom.toLowerCase().replace(/\u0153/g, 'oe').replace(/\u0152/g, 'oe').normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
         
-        // Résolution de l'image (Dossier produits ou URL absolue d'IA)
+        // 2. MODIFICATION ICI : On utilise githubBaseUrl pour les images distantes
         let imgPath = item.photo 
-            ? (item.photo.startsWith('http') || item.photo.startsWith('data:') ? item.photo : `images/produits/${item.photo}`) 
-            : `images/produits/${clean}.jpg`;
+            ? (item.photo.startsWith('http') || item.photo.startsWith('data:') ? item.photo : `${githubBaseUrl}images/produits/${item.photo}`) 
+            : `${githubBaseUrl}images/produits/${clean}.jpg`;
 
         card.innerHTML = `<img src="${imgPath}" class="absolute inset-0 w-full h-full object-cover" onerror="this.src='default-item.svg';"><div class="absolute inset-0 bg-gradient-to-t from-black via-transparent p-2 flex flex-col justify-end"><p class="text-[9px] font-bold text-white leading-tight">${item.nom}</p><p class="text-[8px] text-cyan-400">${item.quantite} ${item.unite}</p></div>`;
         grid.appendChild(card);
