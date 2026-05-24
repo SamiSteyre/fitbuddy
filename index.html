@@ -1047,13 +1047,23 @@ function handleUnitChange(select) {
                 document.getElementById('recipe-name-input').value = data.recette.nom || "Recette Générée";
                 
                 // Injection des ingrédients générés
-                const ingContainer = document.getElementById('ingredients-container');
-                if (data.recette.ingredients && data.recette.ingredients.length > 0) {
-                    ingContainer.innerHTML = data.recette.ingredients.map(ing => {
-                        const ratios = ing.ratios || { kcal: 0, p: 0, g: 0, l: 0 };
-                        return renderIngredientRow(ing.nom, ing.quantite, ratios, null, ing.alimentId || "");
-                    }).join('');
-                }
+         // Injection des ingrédients générés
+const ingContainer = document.getElementById('ingredients-container');
+if (data.recette.ingredients && data.recette.ingredients.length > 0) {
+    ingContainer.innerHTML = data.recette.ingredients.map(ing => {
+        const ratios = ing.ratios || { kcal: 0, p: 0, g: 0, l: 0 };
+        return renderIngredientRow(
+            ing.nom, 
+            ing.quantite, 
+            ratios, 
+            null, 
+            ing.alimentId || "",
+            ing.unite_spe || "",          // Ajout de l'unité spécifique (ex: "Cuillère à soupe")
+            ing.poids_ref || 0,           // Ajout du poids de référence
+            ing.unite_utilisee || "Grammes" // Ajout de l'unité utilisée actuelle
+        );
+    }).join('');
+}
 
                 // Injection des étapes de préparation
                 const stepContainer = document.getElementById('steps-container');
