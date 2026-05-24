@@ -1047,20 +1047,33 @@ function handleUnitChange(select) {
                 document.getElementById('recipe-name-input').value = data.recette.nom || "Recette Générée";
                 
                 // Injection des ingrédients générés
-         // Injection des ingrédients générés
+       // Injection des ingrédients générés
 const ingContainer = document.getElementById('ingredients-container');
 if (data.recette.ingredients && data.recette.ingredients.length > 0) {
     ingContainer.innerHTML = data.recette.ingredients.map(ing => {
         const ratios = ing.ratios || { kcal: 0, p: 0, g: 0, l: 0 };
+        
+        // 1. Récupération des données brutes de l'IA
+        let qteAffichee = parseFloat(ing.quantite) || 0;
+        const pRef = parseFloat(ing.poids_ref) || 0;
+        const unite = ing.unite_utilisee || "Grammes";
+
+        // 2. Conversion : on divise les grammes par le poids de référence si nécessaire
+        if (unite !== "Grammes" && pRef > 0) {
+            // Le toFixed(2) avec parseFloat évite les nombres à rallonge (ex: 3.3333333)
+            qteAffichee = parseFloat((qteAffichee / pRef).toFixed(2));
+        }
+
+        // 3. Génération de la ligne HTML avec la quantité convertie
         return renderIngredientRow(
             ing.nom, 
-            ing.quantite, 
+            qteAffichee, 
             ratios, 
             null, 
             ing.alimentId || "",
-            ing.unite_spe || "",          // Ajout de l'unité spécifique (ex: "Cuillère à soupe")
-            ing.poids_ref || 0,           // Ajout du poids de référence
-            ing.unite_utilisee || "Grammes" // Ajout de l'unité utilisée actuelle
+            ing.unite_spe || "",          
+            pRef,           
+            unite 
         );
     }).join('');
 }
