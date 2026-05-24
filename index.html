@@ -1182,29 +1182,43 @@ function handleUnitChange(select) {
         try { fetch(`${N8N_URL}/webhook/food-action`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: isDeleting ? "delete" : "restore", alimentId: id, nom: name, calories: cal, proteines: prot, glucides: glu, lipides: lip, email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') }) }); } catch(e){}
     }
 
-    function switchToShopping(data) {
-        moveToHeader("agent-courses.mp4");
-        showView('view-shopping');
-        const container = document.getElementById('view-shopping');
-        if(!container) return;
-        document.getElementById('floating-plus').classList.add('hidden');
+   function switchToShopping(data) {
+    moveToHeader("agent-courses.mp4");
+    showView('view-shopping');
+    const container = document.getElementById('view-shopping');
+    if(!container) return;
+    document.getElementById('floating-plus').classList.add('hidden');
 
-        let items = (Array.isArray(data)) ? data : (data.items || data.data || []);
-currentList = items
-    .filter(i => {
-        const s = (i.statut || i.status || "in_basket").toLowerCase().trim();
-        return s === "in_basket";
-    })
-    .map((i, idx) => ({
-        id: i.id || i.pageId || i.idNotion || `idx-${idx}`,
-        nom: (i.nom || i.item || "Produit").trim(),
-        quantite: i.quantite || "1",
-        unite: i.unite || "",
-        rayon: (i.rayon || i.category || "Autres").trim(),
-        isPurchased: false
-    }));        renderShopping(); 
-        setTimeout(() => { container.scrollTo({ top: 0, behavior: 'instant' }); }, 100);
-    }
+    let items = (Array.isArray(data)) ? data : (data.items || data.data || []);
+    currentList = items
+        .filter(i => {
+            const s = (i.property_statut || i.statut || i.status || "in_basket").toLowerCase().trim();
+            return s === "in_basket";
+        })
+        .map((i, idx) => {
+            let photoRaw = i.property_photo || i.photo;
+            let photoStr = "";
+            if (photoRaw) {
+                let item = Array.isArray(photoRaw) ? photoRaw[0] : photoRaw;
+                if (typeof item === 'string') photoStr = item.trim();
+                else if (item && typeof item === 'object') {
+                    photoStr = item.name || (item.file ? item.file.url : (item.external ? item.external.url : ""));
+                }
+            }
+
+            return {
+                id: i.id || i.pageId || i.idNotion || `idx-${idx}`,
+                nom: (i.property_nom || i.nom || i.item || i.name || "Produit").trim(),
+                quantite: i.property_quantite || i.quantite || "1",
+                unite: i.property_unite || i.unite || "",
+                rayon: (i.property_rayon || i.rayon || i.category || "Autres").trim(),
+                photo: photoStr,
+                isPurchased: false
+            };
+        });       
+    renderShopping(); 
+    setTimeout(() => { container.scrollTo({ top: 0, behavior: 'instant' }); }, 100);
+}
 
     function renderShopping() {
         const container = document.getElementById('view-shopping'); 
@@ -1222,29 +1236,52 @@ currentList = items
         if (purchased.length > 0) appendCategory(content, "PANIER", purchased, true);
     }
 
-    function appendCategory(container, title, items, isPurchased = false) {
-        const section = document.createElement('div');
-        section.innerHTML = `<h2 class="text-[9px] font-black text-cyan-400/40 uppercase mb-3 pl-1 border-l-2 border-cyan-400/20">${title}</h2><div class="grid grid-cols-3 gap-2"></div>`;
-        const grid = section.querySelector('.grid');
-        if(!grid) return;
-        items.forEach(item => {
-            const card = document.createElement('div');
-            card.onclick = () => togglePurchase(item.id);
-            card.className = `relative aspect-[4/5] rounded-xl overflow-hidden bg-black border border-white/10 ${isPurchased ? 'purchased' : ''}`;
-            const clean = item.nom.toLowerCase().replace(/\u0153/g, 'oe').replace(/\u0152/g, 'oe').normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-            card.innerHTML = `<img src="images/produits/${clean}.jpg" class="absolute inset-0 w-full h-full object-cover" onerror="this.src='default-item.svg';"><div class="absolute inset-0 bg-gradient-to-t from-black via-transparent p-2 flex flex-col justify-end"><p class="text-[9px] font-bold text-white leading-tight">${item.nom}</p><p class="text-[8px] text-cyan-400">${item.quantite} ${item.unite}</p></div>`;
-            grid.appendChild(card);
-        });
-        container.appendChild(section);
-    }
+  function appendCategory(container, title, items, isPurchased = false) {
+    const section = document.createElement('div');
+    section.innerHTML = `<h2 class="text-[9px] font-black text-cyan-400/40 uppercase mb-3 pl-1 border-l-2 border-cyan-400/20">${title}</h2><div class="grid grid-cols-3 gap-2"></div>`;
+    const grid = section.querySelector('.grid');
+    if(!grid) return;
+    items.forEach(item => {
+        const card = document.createElement('div');
+        card.onclick = () => togglePurchase(item.id);
+        card.className = `relative aspect-[4/5] rounded-xl overflow-hidden bg-black border border-white/10 ${isPurchased ? 'purchased' : ''}`;
+        
+        const clean = item.nom.toLowerCase().replace(/\u0153/g, 'oe').replace(/\u0152/g, 'oe').normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+        
+        // Résolution de l'image (Dossier produits ou URL absolue d'IA)
+        let imgPath = item.photo 
+            ? (item.photo.startsWith('http') || item.photo.startsWith('data:') ? item.photo : `images/produits/${item.photo}`) 
+            : `images/produits/${clean}.jpg`;
 
-    async function togglePurchase(id) {
-        const item = currentList.find(i => i.id === id);
-        if (!item) return;
-        item.isPurchased = !item.isPurchased;
-        renderShopping();
-        try { fetch(`${N8N_URL}/webhook/shopping-action`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: item.isPurchased ? "delete" : "add", pageId: item.id, produit: item.nom, email: userEmail })}); } catch(e){}
+        card.innerHTML = `<img src="${imgPath}" class="absolute inset-0 w-full h-full object-cover" onerror="this.src='default-item.svg';"><div class="absolute inset-0 bg-gradient-to-t from-black via-transparent p-2 flex flex-col justify-end"><p class="text-[9px] font-bold text-white leading-tight">${item.nom}</p><p class="text-[8px] text-cyan-400">${item.quantite} ${item.unite}</p></div>`;
+        grid.appendChild(card);
+    });
+    container.appendChild(section);
+}
+
+ async function togglePurchase(id) {
+    const item = currentList.find(i => i.id === id);
+    if (!item) return;
+    
+    item.isPurchased = !item.isPurchased;
+    renderShopping();
+    
+    try { 
+        await fetch(`${N8N_URL}/webhook/shopping-action`, { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'}, 
+            body: JSON.stringify({ 
+                // Envoie "out_basket" si coché, sinon renvoie "add" pour le remettre au panier
+                action: item.isPurchased ? "out_basket" : "add", 
+                pageId: item.id, 
+                produit: item.nom, 
+                email: userEmail 
+            })
+        }); 
+    } catch(e) {
+        console.error("Erreur lors de la mise à jour du statut :", e);
     }
+}
 
     function handlePhotoUpload(input) {
         if (input.files && input.files[0]) {
@@ -2216,7 +2253,7 @@ async function openProductPicker() {
     if (searchInput) searchInput.value = '';
 
     if (allCoursesCache.length > 0) {
-        console.log("🟡 [openProductPicker] Cache existant, affichage direct. Taille du cache :", allCoursesCache.length);
+        console.log("AI Cache existant, affichage direct.");
         renderProductPicker(allCoursesCache);
         return;
     }
@@ -2230,52 +2267,51 @@ async function openProductPicker() {
     lucide.createIcons();
 
     try {
-        console.log("🔵 [openProductPicker] Appel à n8n :", `${N8N_URL}/webhook/all-courses`);
         const res = await fetch(`${N8N_URL}/webhook/all-courses`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '69420' },
             body: JSON.stringify({ email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') })
         });
-        
         const data = await res.json();
-        console.log("🟣 [openProductPicker] Réponse brute de n8n :", data);
         
         let extractedItems = [];
         if (Array.isArray(data)) {
-            console.log("➡️ [openProductPicker] 'data' est identifié comme un tableau.");
-            if (data.length > 0 && Array.isArray(data[0].items)) {
-                console.log("➡️ [openProductPicker] Extraction depuis data[0].items");
-                extractedItems = data[0].items;
-            } else if (data.length > 0 && Array.isArray(data[0].data)) {
-                console.log("➡️ [openProductPicker] Extraction depuis data[0].data");
-                extractedItems = data[0].data;
-            } else {
-                console.log("➡️ [openProductPicker] Utilisation directe du tableau 'data'");
-                extractedItems = data; 
-            }
+            if (data.length > 0 && Array.isArray(data[0].items)) extractedItems = data[0].items;
+            else if (data.length > 0 && Array.isArray(data[0].data)) extractedItems = data[0].data;
+            else extractedItems = data; 
         } else if (data && typeof data === 'object') {
-            console.log("➡️ [openProductPicker] 'data' est identifié comme un objet.");
-            extractedItems = data.items || data.data || [];
+            if (data.items) extractedItems = data.items;
+            else if (data.data) extractedItems = data.data;
+            else if (data.id) extractedItems = [data];
         }
         
-        console.log("🟠 [openProductPicker] Items extraits (avant mapping) :", extractedItems);
+        // Mapping complet avec extraction robuste de la photo (style recette)
+        allCoursesCache = extractedItems.map(p => {
+            let photoRaw = p.property_photo || p.photo;
+            let photoStr = "";
+            if (photoRaw) {
+                let item = Array.isArray(photoRaw) ? photoRaw[0] : photoRaw;
+                if (typeof item === 'string') photoStr = item.trim();
+                else if (item && typeof item === 'object') {
+                    photoStr = item.name || (item.file ? item.file.url : (item.external ? item.external.url : ""));
+                }
+            }
 
-        // MAPPING
-        allCoursesCache = extractedItems.map(p => ({
-            id: p.id,
-            nom: (p.property_nom || p.name || p.nom || "Produit").trim(),
-            rayon: (p.property_rayon || p.rayon || "Autres").trim(),
-            statut: (p.property_statut || p.statut || "out_basket").toLowerCase().trim(),
-            quantite: p.property_quantite || p.quantite || 1,
-            unite: p.property_unite || p.unite || ""
-        }));
-
-        console.log("🟢 [openProductPicker] Cache final après mapping :", allCoursesCache);
+            return {
+                id: p.id,
+                nom: (p.property_nom || p.name || p.nom || "Produit").trim(),
+                rayon: (p.property_rayon || p.rayon || "Autres").trim(),
+                statut: (p.property_statut || p.statut || "out_basket").toLowerCase().trim(),
+                quantite: p.property_quantite || p.quantite || 1,
+                unite: p.property_unite || p.unite || "",
+                photo: photoStr
+            };
+        });
 
         renderProductPicker(allCoursesCache);
         
     } catch (e) {
-        console.error("🔴 [openProductPicker] Erreur catchée :", e);
+        console.error("🔴 Erreur all-courses :", e);
         body.innerHTML = `<div class="text-center text-red-400 text-xs py-12">⚠️ Impossible de charger les produits.</div>`;
     }
 }
@@ -2294,6 +2330,31 @@ function filterProductPicker(query) {
     renderProductPicker(filtered);
 }
 
+    function openNewProductModal() {
+    selectedProductForQty = { isNew: true };
+    selectedUnit = "unité";
+
+    // Affiche le champ de saisie de texte et masque le titre fixe
+    document.getElementById('qty-modal-product-name').classList.add('hidden');
+    const inputName = document.getElementById('qty-modal-product-name-input');
+    inputName.classList.remove('hidden');
+    inputName.value = "";
+
+    document.getElementById('qty-modal-value').value = 1;
+
+    const keyboard = document.getElementById('unit-keyboard');
+    keyboard.innerHTML = SHOPPING_UNITS.map(u => `
+        <button onclick="selectUnit('${u.value}', this)"
+            class="unit-key py-2 px-1 rounded-xl text-[10px] font-black uppercase tracking-wide border transition-all active:scale-90
+            ${u.value === selectedUnit ? 'bg-amber-500/20 border-amber-500/50 text-amber-400' : 'bg-white/5 border-white/10 text-white/50'}">
+            ${u.label}
+        </button>`).join('');
+
+    document.getElementById('product-qty-modal').style.display = 'flex';
+    lucide.createIcons();
+    setTimeout(() => inputName.focus(), 80);
+}
+    
 function renderProductPicker(items) {
     const body = document.getElementById('product-picker-body');
     if (!body) return;
@@ -2303,7 +2364,6 @@ function renderProductPicker(items) {
         return;
     }
 
-    // Grouper par rayon
     const grouped = {};
     items.forEach(p => {
         const rayon = (p.rayon || p.category || "Autres").trim();
@@ -2322,14 +2382,16 @@ function renderProductPicker(items) {
             const statut = (p.statut || p.status || "").toLowerCase();
             const isInBasket = statut === "in_basket";
             const cleanName = nom.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-            const imgPath = `images/produits/${cleanName}.jpg`;
+            
+            // Résolution de l'image (Dossier produits ou URL absolue d'IA)
+            let imgPath = p.photo 
+                ? (p.photo.startsWith('http') || p.photo.startsWith('data:') ? p.photo : `images/produits/${p.photo}`) 
+                : `images/produits/${cleanName}.jpg`;
 
             html += `
             <div onclick="openProductQtyModal(${JSON.stringify(p).replace(/"/g, '&quot;')})"
                 class="flex items-center gap-3 p-3 rounded-2xl border transition-colors cursor-pointer active:scale-[0.98]
-                ${isInBasket
-                    ? 'bg-amber-500/5 border-amber-500/20 opacity-60'
-                    : 'bg-white/[0.03] border-white/8 hover:bg-white/5'}">
+                ${isInBasket ? 'bg-amber-500/5 border-amber-500/20 opacity-60' : 'bg-white/[0.03] border-white/8 hover:bg-white/5'}">
                 <div class="w-10 h-10 rounded-xl overflow-hidden border border-white/10 bg-white/5 flex-none">
                     <img src="${imgPath}" class="w-full h-full object-cover" onerror="this.src='default-item.svg'">
                 </div>
@@ -2338,7 +2400,7 @@ function renderProductPicker(items) {
                     <p class="text-[9px] text-white/30">${p.rayon || "Divers"}</p>
                 </div>
                 ${isInBasket
-                    ? `<span class="flex-none text-[8px] font-black text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-lg uppercase">Déjà dans le panier</span>`
+                    ? `<span class="flex-none text-[8px] font-black text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-lg uppercase">Dans le panier</span>`
                     : `<i data-lucide="plus-circle" class="w-4 h-4 text-white/30 flex-none"></i>`}
             </div>`;
         });
@@ -2353,30 +2415,30 @@ function renderProductPicker(items) {
 function openProductQtyModal(product) {
     selectedProductForQty = product;
     
-    // 1. Récupérer l'unité enregistrée et la faire correspondre au clavier
+    // Remet la modale en configuration standard (produit existant)
+    document.getElementById('qty-modal-product-name').classList.remove('hidden');
+    document.getElementById('qty-modal-product-name-input').classList.add('hidden');
+
+    // Récupère et sélectionne automatiquement l'unité enregistrée
     let savedUnit = product.unite ? product.unite.trim() : "";
     let matchedUnit = SHOPPING_UNITS.find(u => 
         u.value.toLowerCase() === savedUnit.toLowerCase() || 
         u.label.toLowerCase() === savedUnit.toLowerCase()
     );
-    // Si on trouve l'unité dans la liste, on la sélectionne, sinon on garde l'unité brute (ou "unité" par défaut)
     selectedUnit = matchedUnit ? matchedUnit.value : (savedUnit || "unité");
 
     const nom = (product.nom || product.item || product.name || "Produit").trim();
     document.getElementById('qty-modal-product-name').textContent = nom;
     
-    // 2. Pré-remplir avec la quantité enregistrée dans Notion (au lieu de toujours 1)
+    // Récupère et sélectionne la quantité de référence enregistrée
     const defaultQty = parseFloat(product.quantite) || 1;
     document.getElementById('qty-modal-value').value = defaultQty;
 
-    // Générer le clavier d'unités
     const keyboard = document.getElementById('unit-keyboard');
     keyboard.innerHTML = SHOPPING_UNITS.map(u => `
         <button onclick="selectUnit('${u.value}', this)"
             class="unit-key py-2 px-1 rounded-xl text-[10px] font-black uppercase tracking-wide border transition-all active:scale-90
-            ${u.value === selectedUnit
-                ? 'bg-amber-500/20 border-amber-500/50 text-amber-400'
-                : 'bg-white/5 border-white/10 text-white/50'}">
+            ${u.value === selectedUnit ? 'bg-amber-500/20 border-amber-500/50 text-amber-400' : 'bg-white/5 border-white/10 text-white/50'}">
             ${u.label}
         </button>`).join('');
 
@@ -2409,10 +2471,20 @@ function adjustQtyModal(delta) {
 async function confirmAddProduct() {
     if (!selectedProductForQty) return;
 
-    const nom = (selectedProductForQty.nom || selectedProductForQty.item || selectedProductForQty.name || "Produit").trim();
+    let nom = "";
+    if (selectedProductForQty.isNew) {
+        nom = document.getElementById('qty-modal-product-name-input').value.trim();
+        if (!nom) {
+            showNotification("Veuillez donner un nom à l'ingrédient.", "error");
+            return;
+        }
+    } else {
+        nom = (selectedProductForQty.nom || selectedProductForQty.item || selectedProductForQty.name || "Produit").trim();
+    }
+
     const quantite = parseFloat(document.getElementById('qty-modal-value').value) || 1;
     const unite = selectedUnit;
-    const pageId = selectedProductForQty.id || selectedProductForQty.pageId || selectedProductForQty.idNotion || null;
+    const pageId = selectedProductForQty.isNew ? null : (selectedProductForQty.id || selectedProductForQty.pageId || selectedProductForQty.idNotion || null);
 
     const btn = document.querySelector('#product-qty-modal button[onclick="confirmAddProduct()"]');
     if (btn) { btn.disabled = true; btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i>'; lucide.createIcons(); }
@@ -2424,7 +2496,7 @@ async function confirmAddProduct() {
             body: JSON.stringify({
                 email: userEmail,
                 userName: localStorage.getItem('fitbuddy_user_name') || "Utilisateur",
-                pageId,
+                pageId, // Sera null si c'est un nouveau produit pour laisser n'importe quel script l'insérer
                 produit: nom,
                 quantite,
                 unite,
@@ -2434,9 +2506,7 @@ async function confirmAddProduct() {
 
         closeProductQtyModal();
         closeProductPicker();
-        showNotification(`🛒 ${quantite} ${unite} de "${nom}" ajouté(e)(s) !`, "success");
-
-        // Rafraîchir la liste de courses
+        showNotification(`🛒 ${quantite} ${unite} de "${nom}" ajouté !`, "success");
         setTimeout(() => triggerQuickAction('courses'), 400);
 
     } catch (e) {
@@ -2469,17 +2539,17 @@ async function confirmAddProduct() {
         </div>
 
         <!-- Barre de recherche -->
-        <div class="flex-none px-5 py-3 border-b border-white/5">
-            <div class="relative">
-                <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30"></i>
-                <input type="text" id="product-picker-search" placeholder="Rechercher un produit..."
-                    oninput="filterProductPicker(this.value)"
-                    class="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-9 pr-4 text-xs text-white outline-none focus:border-amber-500/50 placeholder-white/20">
-            </div>
-        </div>
-
-        <div id="product-picker-body" class="flex-1 overflow-y-auto no-scrollbar p-4"></div>
+<div class="flex-none px-5 py-3 border-b border-white/5 space-y-3">
+    <div class="relative">
+        <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30"></i>
+        <input type="text" id="product-picker-search" placeholder="Rechercher un produit..."
+            oninput="filterProductPicker(this.value)"
+            class="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-9 pr-4 text-xs text-white outline-none focus:border-amber-500/50 placeholder-white/20">
     </div>
+    <button onclick="openNewProductModal()" class="w-full py-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-transform text-amber-400 font-bold text-xs uppercase tracking-wider">
+        <i data-lucide="plus-circle" class="w-4 h-4"></i> Ajouter un nouvel ingrédient
+    </button>
+</div>
 </div>
 
 <!-- SOUS-MODALE QUANTITÉ + UNITÉ -->
@@ -2488,7 +2558,17 @@ async function confirmAddProduct() {
         <button onclick="closeProductQtyModal()" class="absolute top-4 right-4 w-8 h-8 bg-white/5 rounded-full flex items-center justify-center border border-white/5">
             <i data-lucide="x" class="w-4 h-4 text-white/60"></i>
         </button>
-
+<div class="text-center space-y-1">
+    <div class="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto mb-2">
+        <i data-lucide="shopping-cart" class="w-5 h-5"></i>
+    </div>
+    <h4 id="qty-modal-product-name" class="text-white font-black text-sm uppercase tracking-tight truncate px-4">Produit</h4>
+    
+    <input type="text" id="qty-modal-product-name-input" placeholder="Nom de l'ingrédient..." 
+        class="hidden w-11/12 bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white text-center outline-none focus:border-amber-500 font-bold placeholder-white/20 mx-auto mb-1 uppercase">
+        
+    <p class="text-[9px] text-white/30 uppercase tracking-widest">Définir la quantité</p>
+</div>
         <div class="text-center space-y-1">
             <div class="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto mb-2">
                 <i data-lucide="shopping-cart" class="w-5 h-5"></i>
