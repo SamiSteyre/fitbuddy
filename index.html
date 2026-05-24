@@ -911,6 +911,7 @@ ${formattedIngredients.length > 0 ? formattedIngredients.map(ing => renderIngred
             </div>`;
         modal.style.display = 'flex';
         lucide.createIcons();
+        autoResizeSteps();
     }
 
 function renderIngredientRow(nom = "", qte = "", ratios = {kcal:0, p:0, g:0, l:0}, compositionId = null, alimentId = "", uniteSpe = "", poidsRef = 0, uniteUtilisee = "Grammes") {
@@ -973,13 +974,21 @@ function handleUnitChange(select) {
         select.dataset.currentUnit = newUnit;
         recalculateMacros();
     }
+    function autoResizeSteps() {
+    // Un léger délai pour s'assurer que le HTML est rendu (sinon scrollHeight vaut 0)
+    setTimeout(() => {
+        document.querySelectorAll('#steps-container textarea').forEach(ta => {
+            ta.style.height = 'auto';
+            ta.style.height = ta.scrollHeight + 'px';
+        });
+    }, 50);
+}
     function renderStepRow(num, desc = "", duree = "", etapeId = null) {
         return `
         <div class="flex gap-4 group" data-etape-id="${etapeId || ''}">
             <div class="flex-none w-7 h-7 rounded-lg bg-cyan-500/10 flex items-center justify-center text-[11px] font-black text-cyan-400 border border-cyan-500/20">${num}</div>
             <div class="flex-1 space-y-2">
-                <textarea class="w-full bg-transparent text-[13px] text-white/60 leading-relaxed outline-none border-b border-white/5 focus:border-cyan-500/50 resize-none" rows="2" placeholder="Description de l'étape">${desc}</textarea>
-                <div class="flex items-center justify-between">
+<textarea class="w-full bg-transparent text-[13px] text-white/60 leading-relaxed outline-none border-b border-white/5 focus:border-cyan-500/50 resize-none overflow-hidden" rows="1" placeholder="Description de l'étape" oninput="this.style.height = 'auto'; this.style.height = this.scrollHeight + 'px'">${desc}</textarea>                <div class="flex items-center justify-between">
                     <div class="flex items-center gap-2 text-[10px] font-black text-cyan-400/80 uppercase">
                         <i data-lucide="timer" class="w-3.5 h-3.5"></i>
                         <input type="number" value="${parseInt(duree) || ''}" placeholder="0" oninput="recalculateDuration()" class="bg-transparent focus:outline-none w-8 text-center step-duration"> min
@@ -1104,7 +1113,7 @@ function openAiGenerationModal() {
                 }).join('');
             }
 
-            // Injection des étapes de préparation
+         // Injection des étapes de préparation
             const stepContainer = document.getElementById('steps-container');
             if (data.recette.etapes && data.recette.etapes.length > 0) {
                 stepContainer.innerHTML = data.recette.etapes.map((step, idx) => {
@@ -1115,6 +1124,7 @@ function openAiGenerationModal() {
             lucide.createIcons();
             recalculateMacros();
             recalculateDuration();
+            autoResizeSteps(); // <--- AJOUTER ICI
             closeAiGenerationModal();
             showNotification("Recette générée avec succès ! ✨", "success");
         } else {
