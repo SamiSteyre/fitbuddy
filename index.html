@@ -1402,7 +1402,7 @@ function appendCategory(container, title, items, isPurchased = false) {
         btnConfirm.disabled = false;
     }
 
-    async function saveRecipeData(id) {
+  async function saveRecipeData(id) {
         const btnSave = document.querySelector('button[onclick*="saveRecipeData"]');
         let firstInvalidRowName = null;
         
@@ -1436,35 +1436,50 @@ function appendCategory(container, title, items, isPurchased = false) {
         const recipeName = document.getElementById('recipe-name-input').value || "recette";
         const cleanName = recipeName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
+        // ─── GESTION INTELLIGENTE ET ROBUSTE DE L'IMAGE ───────────────────
         if (imgEl && imgEl.dataset.base64) {
+            // Cas 1 : Image uploadée manuellement en base64
             const ext = imgEl.dataset.extension || 'jpg';
             photoFilename = `${cleanName}-${Date.now()}.${ext}`;
             photoUploadPayload = { base64: imgEl.dataset.base64, filename: photoFilename };
-        } else if (imgEl && imgEl.dataset.remoteUrl) {
+        } else if (imgEl && imgEl.dataset.remoteUrl && !imgEl.dataset.remoteUrl.includes('githubusercontent.com') && !imgEl.dataset.remoteUrl.includes('github.io')) {
+            // Cas 2 : URL externe temporaire (ex: FAL.ai en direct) qui nécessite un téléchargement
             const ext = imgEl.dataset.extension || 'jpg';
             photoFilename = `${cleanName}-${Date.now()}.${ext}`;
             photoUploadPayload = { remoteUrl: imgEl.dataset.remoteUrl, filename: photoFilename };
-        } else if (imgEl && imgEl.src.includes('images/recettes/')) {
-            const currentFile = imgEl.src.split('/').pop();
-            photoFilename = currentFile === 'default-recipe.jpg' ? "" : currentFile;
+        } else if (imgEl && imgEl.src) {
+            // Cas 3 : L'image est déjà stockée dans l'écosystème (locale ou déjà sur GitHub via l'IA)
+            const srcStr = imgEl.src;
+            if (srcStr.includes('default-recipe.jpg') || srcStr.startsWith('data:image/gif')) {
+                photoFilename = "";
+            } else if (srcStr.includes('githubusercontent.com') || srcStr.includes('github.io') || srcStr.includes('images/recettes/')) {
+                // Si l'image est sur GitHub ou en dossier local, on extrait juste le nom final (ex: crêpes-protéines-171656.jpg)
+                photoFilename = srcStr.split('/').pop().split('?')[0];
+            } else if (srcStr.startsWith('http://') || srcStr.startsWith('https://')) {
+                // Si c'est une autre URL absolue officielle (Notion AWS, S3...), on conserve l'URL entière
+                photoFilename = srcStr;
+            } else {
+                photoFilename = srcStr.split('/').pop();
+            }
         }
+        // ───────────────────────────────────────────────────────────────────
 
-   const ingredients = [];
-        document.querySelectorAll('.ingredient-row').forEach(row => {
-            const nomValue = row.querySelector('.ingredient-name').value.trim();
-            const qteInput = row.querySelector('.ingredient-qte');
-            const unitSelect = row.querySelector('.ingredient-unit');
-            
-            if (nomValue) {
-                ingredients.push({
-                    id: row.dataset.compositionId || null,
-                    alimentId: row.dataset.alimentId !== 'loaded' ? (row.dataset.alimentId || null) : null,
-                    nom: nomValue,
-                    quantite_saisie: parseFloat(qteInput.value) || 0,
-                    unite_utilisee: unitSelect ? unitSelect.value : "Grammes"
-                });
-            }
-        });
+        const ingredients = [];
+        document.querySelectorAll('.ingredient-row').forEach(row => {
+            const nomValue = row.querySelector('.ingredient-name').value.trim();
+            const qteInput = row.querySelector('.ingredient-qte');
+            const unitSelect = row.querySelector('.ingredient-unit');
+            
+            if (nomValue) {
+                ingredients.push({
+                    id: row.dataset.compositionId || null,
+                    alimentId: row.dataset.alimentId !== 'loaded' ? (row.dataset.alimentId || null) : null,
+                    nom: nomValue,
+                    quantite_saisie: parseFloat(qteInput.value) || 0,
+                    unite_utilisee: unitSelect ? unitSelect.value : "Grammes"
+                });
+            }
+        });
 
         const etapes = [];
         document.querySelectorAll('#steps-container .group').forEach((row) => {
