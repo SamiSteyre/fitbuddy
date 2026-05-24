@@ -290,12 +290,24 @@
             <h4 class="text-white font-black uppercase text-xs tracking-widest">Générateur Assistant IA</h4>
             <p class="text-[10px] text-white/40 mt-1">Tyler conçoit ta recette sur-mesure</p>
         </div>
+<div class="space-y-4">
+    <!-- NOUVEAU : Ligne pour le Titre et les Parts -->
+    <div class="flex gap-2">
+        <div class="space-y-2 flex-1">
+            <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Nom de la recette</label>
+            <input type="text" id="ai-recipe-title" placeholder="Ex: Poulet Coco" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-white outline-none focus:border-purple-500">
+        </div>
+        <div class="space-y-2 w-20">
+            <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Parts</label>
+            <input type="number" id="ai-recipe-portions" value="1" min="1" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-center text-white outline-none focus:border-purple-500">
+        </div>
+    </div>
 
-        <div class="space-y-4">
-            <div class="space-y-2">
-                <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Qu'as-tu envie de manger ? (instructions, ingrédients requis, objectifs...)</label>
-                <textarea id="ai-prompt-input" rows="3" placeholder="Ex: Un bowl à base de poulet et d'avocat, faible en glucides mais très gourmand..." class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-white outline-none focus:border-purple-500 resize-none"></textarea>
-            </div>
+    <!-- Le prompt classique -->
+    <div class="space-y-2">
+        <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Instructions pour Tyler (ingrédients, objectifs...)</label>
+        <textarea id="ai-prompt-input" rows="3" placeholder="Ex: Faible en glucides mais très gourmand..." class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-white outline-none focus:border-purple-500 resize-none"></textarea>
+    </div>
             
             <div class="space-y-3 bg-white/[0.02] p-3 rounded-xl border border-white/5">
                 <div class="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider">
@@ -989,12 +1001,20 @@ function handleUnitChange(select) {
     }
 
     /* --- GESTION GENERATION RECETTE VIA IA --- */
-    function openAiGenerationModal() {
-        document.getElementById('ai-prompt-input').value = "";
-        document.getElementById('ai-priority-slider').value = 50;
-        updateAiSliderLabels(50);
-        document.getElementById('ai-generation-modal').style.display = 'flex';
-    }
+function openAiGenerationModal() {
+    // On récupère les valeurs actuelles du template principal (s'il y en a)
+    const currentTitle = document.getElementById('recipe-name-input').value;
+    const currentParts = document.getElementById('recipe-parts-select').value;
+    
+    // On pré-remplit la modale
+    document.getElementById('ai-recipe-title').value = currentTitle || "";
+    document.getElementById('ai-recipe-portions').value = currentParts || 1;
+    
+    document.getElementById('ai-prompt-input').value = "";
+    document.getElementById('ai-priority-slider').value = 50;
+    updateAiSliderLabels(50);
+    document.getElementById('ai-generation-modal').style.display = 'flex';
+}
 
     function closeAiGenerationModal() {
         document.getElementById('ai-generation-modal').style.display = 'none';
@@ -1006,104 +1026,110 @@ function handleUnitChange(select) {
         document.getElementById('ai-slider-values').innerText = `Fit: ${fitValue}% | Goût: ${goutValue}%`;
     }
 
-    async function submitAiRecipeGeneration() {
-        const promptText = document.getElementById('ai-prompt-input').value.trim();
-        const sliderVal = parseInt(document.getElementById('ai-priority-slider').value);
-        const fitPriority = 100 - sliderVal;
-        const goutPriority = sliderVal;
-        
-        if (!promptText) {
-            alert("Veuillez saisir un prompt descriptif pour guider l'IA.");
-            return;
-        }
+  async function submitAiRecipeGeneration() {
+    const promptText = document.getElementById('ai-prompt-input').value.trim();
+    // 1. Récupération des nouveaux champs
+    const recipeTitle = document.getElementById('ai-recipe-title').value.trim();
+    const recipePortions = parseInt(document.getElementById('ai-recipe-portions').value) || 1;
+    
+    const sliderVal = parseInt(document.getElementById('ai-priority-slider').value);
+    const fitPriority = 100 - sliderVal;
+    const goutPriority = sliderVal;
+    
+    if (!promptText && !recipeTitle) {
+        alert("Veuillez saisir un nom ou un prompt descriptif pour guider l'IA.");
+        return;
+    }
 
-        const btn = document.getElementById('btn-confirm-ai-gen');
-        const originalHtml = btn.innerHTML;
-        
-        try {
-            btn.disabled = true;
-            btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Génération...';
-            lucide.createIcons();
+    const btn = document.getElementById('btn-confirm-ai-gen');
+    const originalHtml = btn.innerHTML;
+    
+    try {
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Génération...';
+        lucide.createIcons();
 
-            const response = await fetch(`${N8N_URL}/webhook/generate-recipe-ai`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    prompt: promptText,
-                    priorite_fit: fitPriority,
-                    priorite_gout: goutPriority,
-                    email: userEmail,
-                    userName: localStorage.getItem('fitbuddy_user_name') || "Utilisateur"
-                })
-            });
+        const response = await fetch(`${N8N_URL}/webhook/generate-recipe-ai`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                prompt: promptText,
+                titre: recipeTitle,       // Nouveau paramètre pour n8n
+                parts: recipePortions,    // Nouveau paramètre pour n8n
+                priorite_fit: fitPriority,
+                priorite_gout: goutPriority,
+                email: userEmail,
+                userName: localStorage.getItem('fitbuddy_user_name') || "Utilisateur"
+            })
+        });
 
-            if (!response.ok) throw new Error("Erreur serveur lors de la génération");
+        if (!response.ok) throw new Error("Erreur serveur lors de la génération");
 
-            const resData = await response.json();
-            const data = Array.isArray(resData) ? resData[0] : resData;
+        const resData = await response.json();
+        const data = Array.isArray(resData) ? resData[0] : resData;
 
-            if (data && data.recette) {
-                // Remplissage automatique des champs de la fiche recette existante
-                document.getElementById('recipe-name-input').value = data.recette.nom || "Recette Générée";
-                
-                // Injection des ingrédients générés
-       // Injection des ingrédients générés
-const ingContainer = document.getElementById('ingredients-container');
-if (data.recette.ingredients && data.recette.ingredients.length > 0) {
-    ingContainer.innerHTML = data.recette.ingredients.map(ing => {
-        const ratios = ing.ratios || { kcal: 0, p: 0, g: 0, l: 0 };
-        
-        // 1. Récupération des données brutes de l'IA
-        let qteAffichee = parseFloat(ing.quantite) || 0;
-        const pRef = parseFloat(ing.poids_ref) || 0;
-        const unite = ing.unite_utilisee || "Grammes";
+        if (data && data.recette) {
+            // 2. Remplissage automatique du titre (on privilégie celui de l'IA s'il a été reformulé, sinon celui saisi, sinon un titre par défaut)
+            document.getElementById('recipe-name-input').value = data.recette.nom || recipeTitle || "Recette Générée";
+            
+            // 3. Remplissage automatique des parts
+            const partsSelect = document.getElementById('recipe-parts-select');
+            if (partsSelect) {
+                partsSelect.value = data.recette.parts || recipePortions;
+            }
+            
+            // Injection des ingrédients générés (avec le correctif précédent pour les calculs)
+            const ingContainer = document.getElementById('ingredients-container');
+            if (data.recette.ingredients && data.recette.ingredients.length > 0) {
+                ingContainer.innerHTML = data.recette.ingredients.map(ing => {
+                    const ratios = ing.ratios || { kcal: 0, p: 0, g: 0, l: 0 };
+                    let qteAffichee = parseFloat(ing.quantite) || 0;
+                    const pRef = parseFloat(ing.poids_ref) || 0;
+                    const unite = ing.unite_utilisee || "Grammes";
 
-        // 2. Conversion : on divise les grammes par le poids de référence si nécessaire
-        if (unite !== "Grammes" && pRef > 0) {
-            // Le toFixed(2) avec parseFloat évite les nombres à rallonge (ex: 3.3333333)
-            qteAffichee = parseFloat((qteAffichee / pRef).toFixed(2));
-        }
+                    if (unite !== "Grammes" && pRef > 0) {
+                        qteAffichee = parseFloat((qteAffichee / pRef).toFixed(2));
+                    }
 
-        // 3. Génération de la ligne HTML avec la quantité convertie
-        return renderIngredientRow(
-            ing.nom, 
-            qteAffichee, 
-            ratios, 
-            null, 
-            ing.alimentId || "",
-            ing.unite_spe || "",          
-            pRef,           
-            unite 
-        );
-    }).join('');
-}
-
-                // Injection des étapes de préparation
-                const stepContainer = document.getElementById('steps-container');
-                if (data.recette.etapes && data.recette.etapes.length > 0) {
-                    stepContainer.innerHTML = data.recette.etapes.map((step, idx) => {
-                        return renderStepRow(idx + 1, step.description, step.duree || 0, null);
-                    }).join('');
-                }
-
-                lucide.createIcons();
-                recalculateMacros();
-                recalculateDuration();
-                closeAiGenerationModal();
-                showNotification("Recette générée avec succès ! ✨", "success");
-            } else {
-                alert("L'agent n'a pas retourné une structure de recette valide.");
+                    return renderIngredientRow(
+                        ing.nom, 
+                        qteAffichee, 
+                        ratios, 
+                        null, 
+                        ing.alimentId || "",
+                        ing.unite_spe || "",          
+                        pRef,           
+                        unite 
+                    );
+                }).join('');
             }
 
-        } catch (error) {
-            console.error(error);
-            alert("Une erreur est survenue lors de la communication avec l'agent FitBuddy.");
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = originalHtml;
+            // Injection des étapes de préparation
+            const stepContainer = document.getElementById('steps-container');
+            if (data.recette.etapes && data.recette.etapes.length > 0) {
+                stepContainer.innerHTML = data.recette.etapes.map((step, idx) => {
+                    return renderStepRow(idx + 1, step.description, step.duree || 0, null);
+                }).join('');
+            }
+
             lucide.createIcons();
+            recalculateMacros();
+            recalculateDuration();
+            closeAiGenerationModal();
+            showNotification("Recette générée avec succès ! ✨", "success");
+        } else {
+            alert("L'agent n'a pas retourné une structure de recette valide.");
         }
+
+    } catch (error) {
+        console.error(error);
+        alert("Une erreur est survenue lors de la communication avec l'agent FitBuddy.");
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+        lucide.createIcons();
     }
+}
 
     function addStepRow() {
         const container = document.getElementById('steps-container');
