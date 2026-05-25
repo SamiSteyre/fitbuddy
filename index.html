@@ -2718,7 +2718,6 @@ function openMacroGoalsModal() {
 function closeMacroGoalsModal() {
     document.getElementById('macro-goals-modal').style.display = 'none';
 }
-
 async function generateMacroGoals() {
     const taille = document.getElementById('mg-taille').value;
     const poids = document.getElementById('mg-poids').value;
@@ -2736,7 +2735,7 @@ async function generateMacroGoals() {
     const originalHtml = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin text-purple-400"></i> Évaluation...';
-    lucide.createIcons();
+    if (window.lucide) lucide.createIcons();
 
     try {
         const res = await fetch(`${N8N_URL}/webhook/calculate-macros-ai`, {
@@ -2754,12 +2753,14 @@ async function generateMacroGoals() {
         const data = await res.json();
         const r = Array.isArray(data) ? data[0] : data;
         
-        // On s'attend à recevoir la suggestion de Tyler sous ce format
-        if(r.kcal && r.prot && r.glu && r.lip) {
-            document.getElementById('mg-res-kcal').value = r.kcal;
-            document.getElementById('mg-res-prot').value = r.prot;
-            document.getElementById('mg-res-glu').value = r.glu;
-            document.getElementById('mg-res-lip').value = r.lip;
+        // CORRECTIF : On récupère l'objet imbriqué "output" s'il existe, sinon la racine
+        const target = r.output ? r.output : r;
+        
+        if(target.kcal && target.prot && target.glu && target.lip) {
+            document.getElementById('mg-res-kcal').value = target.kcal;
+            document.getElementById('mg-res-prot').value = target.prot;
+            document.getElementById('mg-res-glu').value = target.glu;
+            document.getElementById('mg-res-lip').value = target.lip;
             
             document.getElementById('macro-goals-form').classList.add('hidden');
             document.getElementById('macro-goals-results').classList.remove('hidden');
@@ -2773,7 +2774,7 @@ async function generateMacroGoals() {
     } finally {
         btn.disabled = false;
         btn.innerHTML = originalHtml;
-        lucide.createIcons();
+        if (window.lucide) lucide.createIcons();
     }
 }
 
