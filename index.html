@@ -2824,10 +2824,10 @@ async function generateMacroGoals() {
 }
 
 async function saveMacroGoals() {
-    const kcal = document.getElementById('mg-res-kcal').value;
-    const prot = document.getElementById('mg-res-prot').value;
-    const glu = document.getElementById('mg-res-glu').value;
-    const lip = document.getElementById('mg-res-lip').value;
+    const kcal = parseFloat(document.getElementById('mg-res-kcal').value);
+const prot = parseFloat(document.getElementById('mg-res-prot').value);
+const glu = parseFloat(document.getElementById('mg-res-glu').value);
+const lip = parseFloat(document.getElementById('mg-res-lip').value);
     const objectif = document.getElementById('mg-objectif').value;
 
     const btn = document.getElementById('btn-save-macros');
