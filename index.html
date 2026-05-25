@@ -598,7 +598,7 @@
         setTimeout(() => { container.scrollTo({ top: 0, behavior: 'instant' }); }, 100);
     }
 
-    function switchToCooking(data) {
+function switchToCooking(data) {
         moveToHeader("agent-cook.mp4"); 
         showView('view-cooking'); 
         const container = document.getElementById('view-cooking');
@@ -609,9 +609,8 @@
         
         const d = data.data || data;
         
+        // SUPPRESSION DE "Menu de la semaine" ET "Suggestions de Tyler"
         const sections = {
-            "Menu de la semaine": [],
-            "Suggestions de Tyler": [],
             "Entrées": [],
             "Plats": [],
             "Desserts": [],
@@ -619,8 +618,6 @@
         };
 
         const categoryIcons = {
-            "Menu de la semaine": "calendar",
-            "Suggestions de Tyler": "sparkles",
             "Entrées": "leaf",
             "Plats": "utensils",
             "Desserts": "cookie",
@@ -630,9 +627,10 @@
         const allRecipes = Array.isArray(d) ? d : (d.recipes || []);
         recipesCache = allRecipes; 
         
-        if(d.menuMidi) { sections["Menu de la semaine"].push({...d.menuMidi, label: "MIDI"}); recipesCache.push(d.menuMidi); }
-        if(d.menuSoir) { sections["Menu de la semaine"].push({...d.menuSoir, label: "SOIR"}); recipesCache.push(d.menuSoir); }
-        if(d.suggestionsTyler) { sections["Suggestions de Tyler"] = d.suggestionsTyler; recipesCache = [...recipesCache, ...d.suggestionsTyler]; }
+        // On les garde dans le cache pour éviter les erreurs, mais on ne les affiche plus
+        if(d.menuMidi) { recipesCache.push(d.menuMidi); }
+        if(d.menuSoir) { recipesCache.push(d.menuSoir); }
+        if(d.suggestionsTyler) { recipesCache = [...recipesCache, ...d.suggestionsTyler]; }
         
         allRecipes.forEach(r => {
             let catsRaw = r.property_cat_gorie || r.categorie || r.categories || "Autres";
@@ -890,7 +888,7 @@ const getProp = (obj, keywords) => {
 ${formattedIngredients.length > 0 ? formattedIngredients.map(ing => renderIngredientRow(ing.nom, ing.quantite, ing.ratios, ing.compositionId, null, ing.unite_spe, ing.poids_ref, ing.unite_utilisee)).join('') : '<p class="text-[10px] text-white/20 text-center py-4 italic">Aucun ingrédient répertorié</p>'}                    </div>
                 </div>
 
-                <div class="mb-12">
+           <div class="mb-12">
                     <div class="flex justify-between items-center mb-5">
                         <h3 class="text-[11px] font-black text-cyan-400 uppercase tracking-widest">Préparation</h3>
                         <button onclick="addStepRow()" class="text-cyan-400"><i data-lucide="plus-circle" class="w-5 h-5"></i></button>
@@ -900,27 +898,27 @@ ${formattedIngredients.length > 0 ? formattedIngredients.map(ing => renderIngred
                     </div>
                 </div>
 
-                <button id="btn-tyler-eval" onclick="demanderEvaluationTyler()" class="w-full mb-3 bg-purple-950/40 border border-purple-500/40 py-4 rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-transform">
-                    <i data-lucide="sparkles" class="w-5 h-5 text-purple-400"></i>
-                    <span class="textxs font-black text-purple-400 uppercase tracking-widest">Évaluation et suggestion de Tyler</span>
+                <button id="btn-tyler-eval" onclick="demanderEvaluationTyler()" class="w-full mt-8 mb-6 bg-purple-950/40 border border-purple-500/40 py-2.5 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-lg shadow-purple-500/10">
+                    <i data-lucide="sparkles" class="w-4 h-4 text-purple-400"></i>
+                    <span class="text-[10px] font-black text-purple-400 uppercase tracking-widest">Évaluation et suggestion de Tyler</span>
                 </button>
-          <button class="w-full bg-cyan-500 py-5 rounded-2xl flex items-center justify-center gap-4 active:scale-95 transition-transform">
+
+                <button class="w-full bg-cyan-500 py-5 rounded-2xl flex items-center justify-center gap-4 active:scale-95 transition-transform">
                     <i data-lucide="flame" class="w-6 h-6 text-black"></i>
                     <span class="text-base font-black text-black uppercase tracking-widest">Cuisiner !</span>
                 </button>
                 
                 <button onclick="deleteRecipe('${recipe.id}')" 
-    class="w-full mb-3 py-3 rounded-2xl flex items-center justify-center gap-3 border border-red-500/10 bg-red-900/10 active:scale-95 transition-transform text-red-500 hover:bg-red-900/20">
-    <i data-lucide="trash-2" class="w-4 h-4"></i>
-    <span class="text-xs font-black uppercase tracking-widest">Supprimer cette recette</span>
-</button>
-
-
+                    class="w-full mt-3 mb-3 py-3 rounded-2xl flex items-center justify-center gap-3 border border-red-500/10 bg-red-900/10 active:scale-95 transition-transform text-red-500 hover:bg-red-900/20">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    <span class="text-xs font-black uppercase tracking-widest">Supprimer cette recette</span>
+                </button>
                 
             </div>`;
         modal.style.display = 'flex';
         lucide.createIcons();
         autoResizeSteps();
+    
     }
 
 function renderIngredientRow(nom = "", qte = "", ratios = {kcal:0, p:0, g:0, l:0}, compositionId = null, alimentId = "", uniteSpe = "", poidsRef = 0, uniteUtilisee = "Grammes") {
