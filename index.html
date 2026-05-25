@@ -2052,88 +2052,105 @@ function selectIngredient(element, id, nom, kcal100, p100, g100, l100, uniteSpe 
         if (input) { input.value = `Crée-moi un programme de training appelé "${nomProg.trim()}"`; envoyerMessage(); }
     }
 
-    async function sendRowToCart(buttonEl) {
-        const row = buttonEl.closest('.ingredient-row');
+async function sendRowToCart(buttonEl) {
+    const row = buttonEl.closest('.ingredient-row');
+    const nameInput = row.querySelector('.ingredient-name');
+    const qteInput = row.querySelector('.ingredient-qte');
+    const unitSelect = row.querySelector('.ingredient-unit'); // <-- AJOUT
+
+    const nomProduit = nameInput ? nameInput.value.trim() : "";
+    const quantiteGrames = parseFloat(qteInput ? qteInput.value : 0) || 0;
+    const uniteProduit = unitSelect ? unitSelect.value : "Grammes"; // <-- AJOUT
+
+    if (!nomProduit || quantiteGrames <= 0) {
+        showNotification("L'ingrédient doit avoir un nom et une quantité supérieure à 0.", "error");
+        return;
+    }
+    
+    // NOUVEAU PAYLOAD AVEC L'UNITÉ
+    const payload = { 
+        email: userEmail, 
+        userName: localStorage.getItem('fitbuddy_user_name') || "Utilisateur", 
+        items: [{ produit: nomProduit, quantite: quantiteGrames, unite: uniteProduit }] 
+    };
+    
+    const loadingToast = showNotification(`Ajout de ${quantiteGrames} ${uniteProduit} de ${nomProduit} au panier...`, "loading");
+
+    try {
+        buttonEl.disabled = true;
+        buttonEl.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin text-amber-500"></i>';
+        if (window.lucide) lucide.createIcons();
+
+        const res = await fetch(`${N8N_URL}/webhook/add-to-cart`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+        });
+        
+        if (loadingToast) loadingToast.remove();
+        if (res.ok) {
+            showNotification(`Ajouté au panier : ${quantiteGrames} ${uniteProduit} de ${nomProduit}`, "success");
+            const chat = document.getElementById('view-chat') || document.getElementById('chat');
+            if (chat) {
+                chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl animate-in fade-in">🛒 Ajouter au panier : <b>${quantiteGrames} ${uniteProduit} de ${nomProduit}</b></div>`;
+                chat.scrollTop = chat.scrollHeight;
+            }
+        } else { showNotification("Erreur de traitement côté serveur.", "error"); }
+    } catch (e) {
+        if (loadingToast) loadingToast.remove();
+        showNotification("Impossible de joindre le serveur FitBuddy.", "error");
+    } finally {
+        buttonEl.disabled = false; buttonEl.innerHTML = '<i data-lucide="shopping-cart" class="w-4 h-4"></i>';
+        if (window.lucide) lucide.createIcons();
+    }
+}
+
+async function sendRecipeToCart() {
+    const btnGlobal = document.getElementById('btn-cart-recipe');
+    const items = [];
+    
+    document.querySelectorAll('.ingredient-row').forEach(row => {
         const nameInput = row.querySelector('.ingredient-name');
         const qteInput = row.querySelector('.ingredient-qte');
-        const nomProduit = nameInput ? nameInput.value.trim() : "";
-        const quantiteGrames = parseFloat(qteInput ? qteInput.value : 0) || 0;
+        const unitSelect = row.querySelector('.ingredient-unit'); // <-- AJOUT
+        
+        const nom = nameInput ? nameInput.value.trim() : "";
+        const qte = parseFloat(qteInput ? qteInput.value : 0) || 0;
+        const unite = unitSelect ? unitSelect.value : "Grammes"; // <-- AJOUT
+        
+        // NOUVEAU PUSH AVEC L'UNITÉ
+        if (nom.length > 0 && qte > 0) items.push({ produit: nom, quantite: qte, unite: unite });
+    });
 
-        if (!nomProduit || quantiteGrames <= 0) {
-            showNotification("L'ingrédient doit avoir un nom et une quantité supérieure à 0.", "error");
-            return;
-        }
-        const payload = { email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') || "Utilisateur", items: [{ produit: nomProduit, quantite: quantiteGrames }] };
-        const loadingToast = showNotification(`Ajout de ${quantiteGrames}g de ${nomProduit} au panier...`, "loading");
+    if (items.length === 0) { showNotification("Aucun ingrédient valide à envoyer dans le panier.", "error"); return; }
+    const recipeName = document.getElementById('recipe-name-input').value || "Recette sans nom";
+    const payload = { email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') || "Utilisateur", recipeName: recipeName, items: items };
+    const loadingToast = showNotification(`Génération du panier pour "${recipeName}"...`, "loading");
 
-        try {
-            buttonEl.disabled = true;
-            buttonEl.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin text-amber-500"></i>';
+    try {
+        if (btnGlobal) {
+            btnGlobal.disabled = true; btnGlobal.innerHTML = '<i data-lucide="loader" class="w-5 h-5 animate-spin text-white"></i>';
             if (window.lucide) lucide.createIcons();
-
-            const res = await fetch(`${N8N_URL}/webhook/add-to-cart`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-            });
-            if (loadingToast) loadingToast.remove();
-            if (res.ok) {
-                showNotification(`Ajouté au panier : ${quantiteGrames}g de ${nomProduit}`, "success");
-                const chat = document.getElementById('view-chat') || document.getElementById('chat');
-                if (chat) {
-                    chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl animate-in fade-in">🛒 Ajouter au panier : <b>${quantiteGrames}g de ${nomProduit}</b></div>`;
-                    chat.scrollTop = chat.scrollHeight;
-                }
-            } else { showNotification("Erreur de traitement côté serveur.", "error"); }
-        } catch (e) {
-            if (loadingToast) loadingToast.remove();
-            showNotification("Impossible de joindre le serveur FitBuddy.", "error");
-        } finally {
-            buttonEl.disabled = false; buttonEl.innerHTML = '<i data-lucide="shopping-cart" class="w-4 h-4"></i>';
+        }
+        const res = await fetch(`${N8N_URL}/webhook/add-to-cart`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (loadingToast) loadingToast.remove();
+        if (res.ok) {
+            closeRecipe();
+            showNotification(`Les ${items.length} ingrédients ont été dispatchés dans Notion !`, "success");
+            const chat = document.getElementById('view-chat') || document.getElementById('chat');
+            if (chat) {
+                chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl animate-in fade-in">🛒 Les <b>${items.length} ingrédients</b> de la recette ont été ajoutés au panier !</div>`;
+                chat.scrollTop = chat.scrollHeight;
+            }
+        } else { showNotification("Le serveur a refusé l'importation de la liste.", "error"); }
+    } catch (e) {
+        if (loadingToast) loadingToast.remove();
+        showNotification("Échec de la connexion réseau avec l'agent.", "error");
+    } finally {
+        if (btnGlobal) {
+            btnGlobal.disabled = false; btnGlobal.innerHTML = '<i data-lucide="shopping-cart" class="w-5 h-5 text-white"></i>';
             if (window.lucide) lucide.createIcons();
         }
     }
-
-    async function sendRecipeToCart() {
-        const btnGlobal = document.getElementById('btn-cart-recipe');
-        const items = [];
-        document.querySelectorAll('.ingredient-row').forEach(row => {
-            const nameInput = row.querySelector('.ingredient-name');
-            const qteInput = row.querySelector('.ingredient-qte');
-            const nom = nameInput ? nameInput.value.trim() : "";
-            const qte = parseFloat(qteInput ? qteInput.value : 0) || 0;
-            if (nom.length > 0 && qte > 0) items.push({ produit: nom, quantite: qte });
-        });
-
-        if (items.length === 0) { showNotification("Aucun ingrédient valide à envoyer dans le panier.", "error"); return; }
-        const recipeName = document.getElementById('recipe-name-input').value || "Recette sans nom";
-        const payload = { email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') || "Utilisateur", recipeName: recipeName, items: items };
-        const loadingToast = showNotification(`Génération du panier pour "${recipeName}"...`, "loading");
-
-        try {
-            if (btnGlobal) {
-                btnGlobal.disabled = true; btnGlobal.innerHTML = '<i data-lucide="loader" class="w-5 h-5 animate-spin text-white"></i>';
-                if (window.lucide) lucide.createIcons();
-            }
-            const res = await fetch(`${N8N_URL}/webhook/add-to-cart`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-            if (loadingToast) loadingToast.remove();
-            if (res.ok) {
-                closeRecipe();
-                showNotification(`Les ${items.length} ingrédients ont été dispatchés dans Notion !`, "success");
-                const chat = document.getElementById('view-chat') || document.getElementById('chat');
-                if (chat) {
-                    chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl animate-in fade-in">🛒 Les <b>${items.length} ingrédients</b> de la recette ont été ajoutés au panier !</div>`;
-                    chat.scrollTop = chat.scrollHeight;
-                }
-            } else { showNotification("Le serveur a refusé l'importation de la liste.", "error"); }
-        } catch (e) {
-            if (loadingToast) loadingToast.remove();
-            showNotification("Échec de la connexion réseau avec l'agent.", "error");
-        } finally {
-            if (btnGlobal) {
-                btnGlobal.disabled = false; btnGlobal.innerHTML = '<i data-lucide="shopping-cart" class="w-5 h-5 text-white"></i>';
-                if (window.lucide) lucide.createIcons();
-            }
-        }
-    }
+}
 
     function showNotification(message, type = 'info') {
         let toastContainer = document.getElementById('toast-container');
