@@ -2805,6 +2805,7 @@ async function generateMacroGoals() {
             document.getElementById('mg-res-glu').value = target.glu;
             document.getElementById('mg-res-lip').value = target.lip;
             
+            
             document.getElementById('macro-goals-form').classList.add('hidden');
             document.getElementById('macro-goals-results').classList.remove('hidden');
             showNotification("Tyler a calculé tes macros !", "success");
@@ -2827,6 +2828,7 @@ async function saveMacroGoals() {
     const prot = document.getElementById('mg-res-prot').value;
     const glu = document.getElementById('mg-res-glu').value;
     const lip = document.getElementById('mg-res-lip').value;
+    const objectif = document.getElementById('mg-objectif').value;
 
     const btn = document.getElementById('btn-save-macros');
     const originalHtml = btn.innerHTML;
@@ -2842,6 +2844,7 @@ headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '69
             body: JSON.stringify({ 
                 email: userEmail,
                 userName: localStorage.getItem('fitbuddy_user_name'),
+                 objectif: objectif,
                 macros: { kcal, prot, glu, lip }
             })
         });
