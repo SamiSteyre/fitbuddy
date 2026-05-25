@@ -2932,63 +2932,7 @@ async function saveMacroGoals() {
         </div>
     </div>
     <!-- MODAL OBJECTIFS MACROS -->
-<div id="macro-goals-modal" class="modal-overlay !justify-center !items-center p-6" style="background: rgba(0,0,0,0.95); z-index: 12000;">
-    <div class="bg-[#111] border border-white/10 w-full max-w-sm rounded-3xl p-6 space-y-5 shadow-2xl relative max-h-[90dvh] overflow-y-auto no-scrollbar">
-        <button onclick="closeMacroGoalsModal()" class="absolute top-4 right-4 w-8 h-8 bg-white/5 rounded-full flex items-center justify-center border border-white/5">
-            <i data-lucide="x" class="w-4 h-4 text-white/60"></i>
-        </button>
-        
-        <div class="text-center space-y-1 mb-4">
-            <div class="w-10 h-10 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 mx-auto mb-2">
-                <i data-lucide="target" class="w-5 h-5"></i>
-            </div>
-            <h4 class="text-white font-black text-sm uppercase tracking-tight">Objectifs Macros</h4>
-            <p class="text-[9px] text-white/40 uppercase tracking-widest">Configuration sur-mesure</p>
-        </div>
 
-        <!-- ÉTAPE 1: FORMULAIRE -->
-        <div id="macro-goals-form" class="space-y-4">
-            <div class="grid grid-cols-2 gap-3">
-                <div class="space-y-1">
-                    <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Taille (cm)</label>
-                    <input type="number" id="mg-taille" placeholder="Ex: 188" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-500">
-                </div>
-                <div class="space-y-1">
-                    <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Poids (kg)</label>
-                    <input type="number" id="mg-poids" placeholder="Ex: 100" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-500">
-                </div>
-                <div class="space-y-1">
-                    <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Âge</label>
-                    <input type="number" id="mg-age" placeholder="Ex: 38" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-500">
-                </div>
-                <div class="space-y-1">
-                    <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Bodyfat (%)</label>
-                    <input type="number" id="mg-bf" placeholder="Ex: 20" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-500">
-                </div>
-            </div>
-
-            <div class="space-y-1">
-                <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Objectif sportif</label>
-                <select id="mg-objectif" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-500 appearance-none">
-                    <option value="Hypertrophie" class="bg-[#111]">Hypertrophie (Prise de muscle)</option>
-                    <option value="Bulk" class="bg-[#111]">Bulk (Prise de masse)</option>
-                    <option value="Cut" class="bg-[#111]">Cut (Sèche)</option>
-                    <option value="Maintien" class="bg-[#111]">Maintien</option>
-                    <option value="Recomp" class="bg-[#111]">Recomp (Recomposition)</option>
-                    <option value="Force" class="bg-[#111]">Force</option>
-                    <option value="Endurance" class="bg-[#111]">Endurance / Cardio</option>
-                </select>
-            </div>
-
-            <div class="space-y-1">
-                <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Cas particuliers (prompt)</label>
-                <textarea id="mg-prompt" rows="2" placeholder="Ex: 4 séances muscu, 2 séances cardio, marche quotidienne..." class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-500 resize-none"></textarea>
-            </div>
-
-            <button id="btn-generate-macros" onclick="generateMacroGoals()" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest shadow-lg shadow-purple-500/20 flex items-center justify-center gap-2 mt-2 active:scale-95 transition-transform">
-                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Évaluer avec Tyler
-            </button>
-        </div>
 
      <div id="macro-goals-modal" class="modal-overlay !justify-center !items-center p-6" style="background: rgba(0,0,0,0.95); z-index: 12000;">
     <div class="bg-[#111] border border-white/10 w-full max-w-sm rounded-3xl p-6 space-y-5 shadow-2xl relative max-h-[90dvh] overflow-y-auto no-scrollbar">
