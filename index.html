@@ -1274,9 +1274,20 @@ function openAiGenerationModal() {
             </button>
 
         </div>`;
-        container.innerHTML = html;
-        lucide.createIcons(); 
-        setTimeout(() => { container.scrollTo({ top: 0, behavior: 'instant' }); }, 100);
+      container.innerHTML = html;
+    lucide.createIcons();
+
+    // Pré-remplissage de la modale macros
+    const m = d.mensurations;
+    if (m) {
+        if (m.age)         document.getElementById('mg-age').value    = m.age;
+        if (m.taille)      document.getElementById('mg-taille').value  = m.taille;
+        if (m.poids)       document.getElementById('mg-poids').value   = m.poids;
+        if (m.masse_grasse) document.getElementById('mg-bf').value     = m.masse_grasse;
+    }
+
+    setTimeout(() => { container.scrollTo({ top: 0, behavior: 'instant' }); }, 100);
+
     }
 
     async function toggleAliment(id, name, cal, prot, glu, lip) {
