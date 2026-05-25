@@ -2703,28 +2703,56 @@ async function confirmAddProduct() {
     }
 }
     // --- GESTION DES OBJECTIFS MACROS ---
+// --- GESTION DES OBJECTIFS MACROS ---
 
 function openMacroGoalsModal() {
     document.getElementById('macro-goals-modal').style.display = 'flex';
     document.getElementById('macro-goals-form').classList.remove('hidden');
     document.getElementById('macro-goals-results').classList.add('hidden');
-    
-    // (Optionnel) Si tu as les mensurations en cache ou dans le localstorage,
-    // tu pourrais faire un : document.getElementById('mg-taille').value = monCacheTaille;
-    
-    lucide.createIcons();
+    toggleMacroSlider(); // Initialise l'état du curseur
+    if (window.lucide) lucide.createIcons();
 }
 
 function closeMacroGoalsModal() {
     document.getElementById('macro-goals-modal').style.display = 'none';
 }
+
+function toggleMacroSlider() {
+    const obj = document.getElementById('mg-objectif').value;
+    const container = document.getElementById('mg-slider-container');
+    // On affiche le curseur uniquement pour les objectifs nécessitant un ajustement explicite
+    if (['Hypertrophie', 'Bulk', 'Cut', 'Recomp'].includes(obj)) {
+        container.classList.remove('hidden');
+    } else {
+        container.classList.add('hidden');
+        document.getElementById('mg-surplus-deficit').value = 0;
+        updateMacroSliderLabel(0);
+    }
+}
+
+function updateMacroSliderLabel(val) {
+    const prefix = val > 0 ? '+' : '';
+    document.getElementById('mg-slider-val').innerText = `${prefix}${val}%`;
+}
+
 async function generateMacroGoals() {
+    // Profil de base
     const taille = document.getElementById('mg-taille').value;
     const poids = document.getElementById('mg-poids').value;
     const age = document.getElementById('mg-age').value;
     const bf = document.getElementById('mg-bf').value;
     const objectif = document.getElementById('mg-objectif').value;
     const promptText = document.getElementById('mg-prompt').value;
+    
+    // Nouveaux paramètres sportifs
+    const muscuSeances = document.getElementById('mg-muscu-seances').value || 0;
+    const muscuDuree = document.getElementById('mg-muscu-duree').value || 0;
+    const cardioSeances = document.getElementById('mg-cardio-seances').value || 0;
+    const cardioDuree = document.getElementById('mg-cardio-duree').value || 0;
+    const pas = document.getElementById('mg-pas').value || 0;
+    
+    // Curseur (Surplus / Déficit)
+    const surplusDeficit = document.getElementById('mg-surplus-deficit').value || 0;
     
     if(!poids || !taille || !age) {
         showNotification("Remplis au moins le poids, la taille et l'âge !", "error");
@@ -2744,7 +2772,13 @@ async function generateMacroGoals() {
             body: JSON.stringify({ 
                 email: userEmail,
                 userName: localStorage.getItem('fitbuddy_user_name'),
-                taille, poids, age, bf, objectif, prompt: promptText 
+                taille, poids, age, bf, objectif, prompt: promptText,
+                activite: {
+                    muscu: { seances: muscuSeances, duree: muscuDuree },
+                    cardio: { seances: cardioSeances, duree: cardioDuree },
+                    pas: pas
+                },
+                ajustement_pourcentage: surplusDeficit
             })
         });
 
@@ -2753,10 +2787,15 @@ async function generateMacroGoals() {
         const data = await res.json();
         const r = Array.isArray(data) ? data[0] : data;
         
-        // CORRECTIF : On récupère l'objet imbriqué "output" s'il existe, sinon la racine
-        const target = r.output ? r.output : r;
+        // SÉCURITÉ PARSER : Parfois n8n renvoie une string JSON au lieu d'un objet
+        let target = r;
+        if (r.output) {
+            target = typeof r.output === 'string' ? JSON.parse(r.output) : r.output;
+        } else if (r.text) {
+            target = typeof r.text === 'string' ? JSON.parse(r.text) : r.text;
+        }
         
-        if(target.kcal && target.prot && target.glu && target.lip) {
+        if(target && target.kcal && target.prot && target.glu && target.lip) {
             document.getElementById('mg-res-kcal').value = target.kcal;
             document.getElementById('mg-res-prot').value = target.prot;
             document.getElementById('mg-res-glu').value = target.glu;
@@ -2766,6 +2805,7 @@ async function generateMacroGoals() {
             document.getElementById('macro-goals-results').classList.remove('hidden');
             showNotification("Tyler a calculé tes macros, tu peux les ajuster !", "success");
         } else {
+            console.log("Format reçu par l'UI :", target); // Pour déboguer dans la console F12
             showNotification("L'IA n'a pas renvoyé un format valide.", "error");
         }
     } catch (e) {
@@ -2788,7 +2828,7 @@ async function saveMacroGoals() {
     const originalHtml = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = '<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> Valider...';
-    lucide.createIcons();
+    if (window.lucide) lucide.createIcons();
 
     try {
         const res = await fetch(`${N8N_URL}/webhook/save-macro-goals`, {
@@ -2804,9 +2844,7 @@ async function saveMacroGoals() {
         if (!res.ok) throw new Error("Erreur serveur");
         
         closeMacroGoalsModal();
-        showNotification("Nouveaux objectifs sauvegardés dans la base Profils !", "success");
-        
-        // On recharge la page pour voir les anneaux se mettre à jour
+        showNotification("Nouveaux objectifs sauvegardés !", "success");
         triggerQuickAction('macros');
 
     } catch (e) {
@@ -2815,7 +2853,7 @@ async function saveMacroGoals() {
     } finally {
         btn.disabled = false;
         btn.innerHTML = originalHtml;
-        lucide.createIcons();
+        if (window.lucide) lucide.createIcons();
     }
 }
 </script>
@@ -2952,7 +2990,101 @@ async function saveMacroGoals() {
             </button>
         </div>
 
-        <!-- ÉTAPE 2: RÉSULTATS ET MODIFICATION -->
+     <div id="macro-goals-modal" class="modal-overlay !justify-center !items-center p-6" style="background: rgba(0,0,0,0.95); z-index: 12000;">
+    <div class="bg-[#111] border border-white/10 w-full max-w-sm rounded-3xl p-6 space-y-5 shadow-2xl relative max-h-[90dvh] overflow-y-auto no-scrollbar">
+        <button onclick="closeMacroGoalsModal()" class="absolute top-4 right-4 w-8 h-8 bg-white/5 rounded-full flex items-center justify-center border border-white/5">
+            <i data-lucide="x" class="w-4 h-4 text-white/60"></i>
+        </button>
+        
+        <div class="text-center space-y-1 mb-4">
+            <div class="w-10 h-10 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 mx-auto mb-2">
+                <i data-lucide="target" class="w-5 h-5"></i>
+            </div>
+            <h4 class="text-white font-black text-sm uppercase tracking-tight">Objectifs Macros</h4>
+            <p class="text-[9px] text-white/40 uppercase tracking-widest">Configuration sur-mesure</p>
+        </div>
+
+        <div id="macro-goals-form" class="space-y-4">
+            <div class="grid grid-cols-2 gap-3">
+                <div class="space-y-1">
+                    <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Taille (cm)</label>
+                    <input type="number" id="mg-taille" placeholder="Ex: 188" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-500">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Poids (kg)</label>
+                    <input type="number" id="mg-poids" placeholder="Ex: 100" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-500">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Âge</label>
+                    <input type="number" id="mg-age" placeholder="Ex: 38" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-500">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Bodyfat (%)</label>
+                    <input type="number" id="mg-bf" placeholder="Ex: 20" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-500">
+                </div>
+            </div>
+
+            <div class="space-y-3 bg-white/[0.03] p-3 rounded-xl border border-white/5">
+                <h5 class="text-[10px] font-bold text-cyan-400/80 uppercase tracking-widest text-center border-b border-white/10 pb-2 mb-2">Activité Physique Hebdo</h5>
+                
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-1">
+                        <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Muscu</label>
+                        <div class="flex gap-1">
+                            <input type="number" id="mg-muscu-seances" placeholder="Séances" class="w-1/2 bg-black/50 border border-white/10 rounded-lg p-2 text-xs text-white outline-none focus:border-cyan-500 text-center" title="Nombre de séances">
+                            <input type="number" id="mg-muscu-duree" placeholder="Min" class="w-1/2 bg-black/50 border border-white/10 rounded-lg p-2 text-xs text-white outline-none focus:border-cyan-500 text-center" title="Durée moyenne (min)">
+                        </div>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Cardio</label>
+                        <div class="flex gap-1">
+                            <input type="number" id="mg-cardio-seances" placeholder="Séances" class="w-1/2 bg-black/50 border border-white/10 rounded-lg p-2 text-xs text-white outline-none focus:border-cyan-500 text-center" title="Nombre de séances">
+                            <input type="number" id="mg-cardio-duree" placeholder="Min" class="w-1/2 bg-black/50 border border-white/10 rounded-lg p-2 text-xs text-white outline-none focus:border-cyan-500 text-center" title="Durée moyenne (min)">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-1 pt-1">
+                    <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Pas quotidiens (Moyenne)</label>
+                    <input type="number" id="mg-pas" placeholder="Ex: 8000" class="w-full bg-black/50 border border-white/10 rounded-lg p-2.5 text-xs text-white outline-none focus:border-cyan-500 text-center">
+                </div>
+            </div>
+
+            <div class="space-y-1">
+                <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Objectif sportif</label>
+                <select id="mg-objectif" onchange="toggleMacroSlider()" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-500 appearance-none">
+                    <option value="Hypertrophie" class="bg-[#111]">Hypertrophie (Prise de muscle)</option>
+                    <option value="Bulk" class="bg-[#111]">Bulk (Prise de masse)</option>
+                    <option value="Cut" class="bg-[#111]">Cut (Sèche)</option>
+                    <option value="Maintien" class="bg-[#111]" selected>Maintien</option>
+                    <option value="Recomp" class="bg-[#111]">Recomp (Recomposition)</option>
+                    <option value="Force" class="bg-[#111]">Force</option>
+                    <option value="Endurance" class="bg-[#111]">Endurance / Cardio</option>
+                </select>
+            </div>
+
+            <div id="mg-slider-container" class="hidden space-y-3 bg-white/[0.02] p-3 rounded-xl border border-white/5">
+                <div class="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider">
+                    <span class="text-white/40">Ajustement calorique</span>
+                    <span id="mg-slider-val" class="text-cyan-400 font-mono text-sm">0%</span>
+                </div>
+                <input type="range" id="mg-surplus-deficit" min="-30" max="30" value="0" step="1" oninput="updateMacroSliderLabel(this.value)" class="ai-slider">
+                <div class="flex justify-between text-[8px] text-white/30 uppercase font-bold">
+                    <span>Déficit (-30%)</span>
+                    <span>Surplus (+30%)</span>
+                </div>
+            </div>
+
+            <div class="space-y-1">
+                <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Cas particuliers (prompt)</label>
+                <textarea id="mg-prompt" rows="2" placeholder="Ex: Métabolisme lent, travail très sédentaire..." class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-500 resize-none"></textarea>
+            </div>
+
+            <button id="btn-generate-macros" onclick="generateMacroGoals()" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest shadow-lg shadow-purple-500/20 flex items-center justify-center gap-2 mt-2 active:scale-95 transition-transform">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Évaluer avec Tyler
+            </button>
+        </div>
+
         <div id="macro-goals-results" class="space-y-4 hidden animate-in fade-in slide-in-from-bottom-4">
             <div class="border-t border-white/10 pt-4 mt-2">
                 <p class="text-[10px] font-bold text-purple-400 text-center uppercase tracking-widest mb-3">Proposition de Tyler</p>
