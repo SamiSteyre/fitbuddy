@@ -2837,7 +2837,8 @@ async function saveMacroGoals() {
     try {
         const res = await fetch(`${N8N_URL}/webhook/save-macro-goals`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '69420' },
+
             body: JSON.stringify({ 
                 email: userEmail,
                 userName: localStorage.getItem('fitbuddy_user_name'),
