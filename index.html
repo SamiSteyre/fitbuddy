@@ -2102,7 +2102,6 @@ async function sendRowToCart(buttonEl) {
         if (window.lucide) lucide.createIcons();
     }
 }
-
 async function sendRecipeToCart() {
     const btnGlobal = document.getElementById('btn-cart-recipe');
     const items = [];
@@ -2110,14 +2109,27 @@ async function sendRecipeToCart() {
     document.querySelectorAll('.ingredient-row').forEach(row => {
         const nameInput = row.querySelector('.ingredient-name');
         const qteInput = row.querySelector('.ingredient-qte');
-        const unitSelect = row.querySelector('.ingredient-unit'); // <-- AJOUT
+        const unitSelect = row.querySelector('.ingredient-unit');
         
         const nom = nameInput ? nameInput.value.trim() : "";
-        const qte = parseFloat(qteInput ? qteInput.value : 0) || 0;
-        const unite = unitSelect ? unitSelect.value : "Grammes"; // <-- AJOUT
+        const qteSaisie = parseFloat(qteInput ? qteInput.value : 0) || 0;
+        const uniteSaisie = unitSelect ? unitSelect.value : "Grammes";
+        const poidsRef = parseFloat(row.dataset.poidsRef) || 0;
         
-        // NOUVEAU PUSH AVEC L'UNITÉ
-        if (nom.length > 0 && qte > 0) items.push({ produit: nom, quantite: qte, unite: unite });
+        let qteFinale = qteSaisie;
+        let uniteFinale = uniteSaisie;
+
+        // Conversion automatique en grammes pour uniformiser la liste de courses
+        if (uniteSaisie !== "Grammes" && uniteSaisie !== "unité" && poidsRef > 0) {
+            qteFinale = qteSaisie * poidsRef;
+            // On arrondit pour éviter les décimales à rallonge sur la liste de courses
+            qteFinale = Math.round(qteFinale); 
+            uniteFinale = "Grammes";
+        }
+        
+        if (nom.length > 0 && qteFinale > 0) {
+            items.push({ produit: nom, quantite: qteFinale, unite: uniteFinale });
+        }
     });
 
     if (items.length === 0) { showNotification("Aucun ingrédient valide à envoyer dans le panier.", "error"); return; }
