@@ -2784,18 +2784,22 @@ async function generateMacroGoals() {
 
         if (!res.ok) throw new Error("Erreur serveur");
         
-        const data = await res.json();
+     const data = await res.json();
         const r = Array.isArray(data) ? data[0] : data;
         
-        // SÉCURITÉ PARSER : Parfois n8n renvoie une string JSON au lieu d'un objet
-        let target = r;
-        if (r.output) {
-            target = typeof r.output === 'string' ? JSON.parse(r.output) : r.output;
-        } else if (r.text) {
-            target = typeof r.text === 'string' ? JSON.parse(r.text) : r.text;
+        // --- DEBUG : Ouvre la console F12 pour voir cette ligne ---
+        console.log("DEBUG - Réponse brute de n8n :", r);
+
+        // On cherche le contenu de "output", sinon on prend le reste
+        let target = r.output || r;
+
+        // Si target est une string, on la transforme en objet
+        if (typeof target === 'string') {
+            try { target = JSON.parse(target); } catch(e) { console.error("Erreur parsing JSON"); }
         }
-        
-        if(target && target.kcal && target.prot && target.glu && target.lip) {
+
+        // On vérifie si on a bien les clés (kcal, prot, glu, lip)
+        if(target && target.kcal !== undefined) {
             document.getElementById('mg-res-kcal').value = target.kcal;
             document.getElementById('mg-res-prot').value = target.prot;
             document.getElementById('mg-res-glu').value = target.glu;
@@ -2803,10 +2807,10 @@ async function generateMacroGoals() {
             
             document.getElementById('macro-goals-form').classList.add('hidden');
             document.getElementById('macro-goals-results').classList.remove('hidden');
-            showNotification("Tyler a calculé tes macros, tu peux les ajuster !", "success");
+            showNotification("Tyler a calculé tes macros !", "success");
         } else {
-            console.log("Format reçu par l'UI :", target); // Pour déboguer dans la console F12
-            showNotification("L'IA n'a pas renvoyé un format valide.", "error");
+            console.error("Format inattendu :", target);
+            showNotification("Erreur : Format de données invalide.", "error");
         }
     } catch (e) {
         console.error(e);
