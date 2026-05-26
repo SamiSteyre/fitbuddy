@@ -14,33 +14,792 @@
         lucide.createIcons();
         if (storedName) updateUserNameUI(storedName);
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js?v=5').catch(err => console.log("SW Error:", err));
+            navigator.serviceWorker.register('sw.js?v=7').catch(err => console.log("SW Error:", err));
         }
         checkAuth(); 
     });
 
-    async function checkAuth() {
-        if (!userEmail) {
-            userEmail = prompt("E-mail :");
-            if (userEmail && userEmail.includes("@")) { localStorage.setItem('fitbuddy_email', userEmail); } 
-            else { location.reload(); }
-        }
-        if(document.getElementById('system-status')) document.getElementById('system-status').innerText = `Connecté : ${userEmail}`;
-        await identifyUser();
+    // Expose OTP and profile functions to window for index.html onclicks
+    window.requestOtpFromUI = requestOtpFromUI;
+    window.verifyOtpFromUI = verifyOtpFromUI;
+    window.showEmailStep = showEmailStep;
+    window.logout = logout;
+    window.switchToView = switchToView;
+    window.saveProfileData = saveProfileData;
+
+    let otpTimerInterval = null;
+
+    function showEmailStep() {
+        document.getElementById('login-step-email').classList.remove('hidden');
+        document.getElementById('login-step-otp').classList.add('hidden');
+        document.getElementById('login-otp').value = "";
+        if (otpTimerInterval) clearInterval(otpTimerInterval);
     }
 
-    async function identifyUser() {
+    async function requestOtpFromUI() {
+        const emailInput = document.getElementById('login-email');
+        const email = emailInput.value.trim().toLowerCase();
+        
+        if (!email || !email.includes("@")) {
+            alert("Veuillez saisir une adresse e-mail valide.");
+            return;
+        }
+
+        const btn = document.getElementById('btn-request-otp');
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Envoi...';
+        lucide.createIcons();
+
         try {
-            const res = await fetch(`${N8N_URL}/webhook/identification`, {
+            const res = await fetch(`${N8N_URL}/webhook/request-otp`, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ email: userEmail })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email })
             });
             const data = await res.json();
-            if (data.name) { localStorage.setItem('fitbuddy_user_name', data.name); updateUserNameUI(data.name); } 
-            else if (storedName) { updateUserNameUI(storedName); }
-            else { updateUserNameUI("Utilisateur"); }
-        } catch (e) { if (storedName) updateUserNameUI(storedName); else updateUserNameUI("Invité"); }
+            
+            if (data.success) {
+                document.getElementById('login-step-email').classList.add('hidden');
+                document.getElementById('login-step-otp').classList.remove('hidden');
+                startOtpTimer(600); // 10 minutes
+                showNotification("Code envoyé par e-mail !", "success");
+            } else {
+                alert(data.error || "Adresse e-mail non autorisée.");
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Erreur de connexion avec le serveur.");
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+            lucide.createIcons();
+        }
+    }
+
+    function startOtpTimer(durationSeconds) {
+        if (otpTimerInterval) clearInterval(otpTimerInterval);
+        let timeRemaining = durationSeconds;
+        const timerEl = document.getElementById('otp-timer');
+        
+        function updateTimer() {
+            const minutes = Math.floor(timeRemaining / 60);
+            const seconds = timeRemaining % 60;
+            timerEl.innerText = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            if (timeRemaining <= 0) {
+                clearInterval(otpTimerInterval);
+                timerEl.innerText = "EXPIRÉ";
+                alert("Votre code a expiré. Veuillez recommencer.");
+                showEmailStep();
+            }
+            timeRemaining--;
+        }
+        
+        updateTimer();
+        otpTimerInterval = setInterval(updateTimer, 1000);
+    }
+
+    async function verifyOtpFromUI() {
+        const email = document.getElementById('login-email').value.trim().toLowerCase();
+        const code = document.getElementById('login-otp').value.trim();
+        
+        if (code.length !== 6 || isNaN(code)) {
+            alert("Veuillez saisir le code à 6 chiffres.");
+            return;
+        }
+
+        const btn = document.getElementById('btn-verify-otp');
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Vérification...';
+        lucide.createIcons();
+
+        try {
+            const res = await fetch(`${N8N_URL}/webhook/verify-otp`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email, code: code })
+            });
+            const data = await res.json();
+            
+            if (data.success && data.user) {
+                if (otpTimerInterval) clearInterval(otpTimerInterval);
+                
+                localStorage.setItem('fitbuddy_email', email);
+                localStorage.setItem('fitbuddy_user_name', data.user.nom || "Utilisateur");
+                localStorage.setItem('fitbuddy_user_profile', JSON.stringify(data.user));
+                
+                userEmail = email;
+                storedName = data.user.nom || "Utilisateur";
+                
+                document.getElementById('login-overlay').style.display = 'none';
+                updateUserNameUI(data.user.surnom || storedName);
+                showNotification(`Ravi de te revoir, ${data.user.surnom || storedName} !`, "success");
+                
+                showView('view-chat');
+            } else {
+                alert(data.error || "Code de validation incorrect ou expiré.");
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Erreur lors de la vérification du code.");
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+            lucide.createIcons();
+        }
+    }
+
+    async function checkAuth() {
+        const overlay = document.getElementById('login-overlay');
+        if (!userEmail) {
+            if (overlay) {
+                overlay.style.display = 'flex';
+                showEmailStep();
+            }
+        } else {
+            if (overlay) overlay.style.display = 'none';
+            if (document.getElementById('system-status')) {
+                document.getElementById('system-status').innerText = `Connecté : ${userEmail}`;
+            }
+            
+            // Background refresh of the profile
+            try {
+                const cachedProfile = stringToJson(localStorage.getItem('fitbuddy_user_profile'));
+                if (cachedProfile) {
+                    updateUserNameUI(cachedProfile.surnom || cachedProfile.nom || storedName || "Utilisateur");
+                } else {
+                    updateUserNameUI(storedName || "Utilisateur");
+                }
+                
+                fetch(`${N8N_URL}/webhook/get-profile`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '69420' },
+                    body: JSON.stringify({ email: userEmail })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success && data.user) {
+                        localStorage.setItem('fitbuddy_user_profile', JSON.stringify(data.user));
+                        localStorage.setItem('fitbuddy_user_name', data.user.nom || "Utilisateur");
+                        updateUserNameUI(data.user.surnom || data.user.nom || "Utilisateur");
+                    }
+                }).catch(() => {});
+            } catch(e) {
+                updateUserNameUI(storedName || "Utilisateur");
+            }
+        }
+    }
+
+    function stringToJson(str) { try { return JSON.parse(str); } catch(e) { return null; } }
+
+    function switchToView(viewId) {
+        showView(viewId);
+        if (viewId === 'view-profile') {
+            switchToProfile();
+        }
+    }
+
+    function switchToProfile() {
+        moveToHeader("agent-avatar.mp4");
+        showView('view-profile');
+        const container = document.getElementById('view-profile');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="flex flex-col items-center justify-center h-full gap-3 text-cyan-400 text-xs tracking-widest uppercase animate-pulse">
+                <i data-lucide="loader" class="w-5 h-5 animate-spin"></i>
+                <span>Chargement du profil...</span>
+            </div>`;
+        lucide.createIcons();
+
+        fetch(`${N8N_URL}/webhook/get-profile`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '69420' },
+            body: JSON.stringify({ email: userEmail })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.user) {
+                localStorage.setItem('fitbuddy_user_profile', JSON.stringify(data.user));
+                localStorage.setItem('fitbuddy_user_name', data.user.nom || "Utilisateur");
+                updateUserNameUI(data.user.surnom || data.user.nom || "Utilisateur");
+                renderProfileUI(data.user);
+            } else {
+                const cached = stringToJson(localStorage.getItem('fitbuddy_user_profile'));
+                if (cached) renderProfileUI(cached);
+                else container.innerHTML = `<p class="text-xs text-red-400 text-center p-4">Erreur lors de la récupération du profil.</p>`;
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            const cached = stringToJson(localStorage.getItem('fitbuddy_user_profile'));
+            if (cached) renderProfileUI(cached);
+            else container.innerHTML = `<p class="text-xs text-red-400 text-center p-4">Erreur de connexion réseau.</p>`;
+        });
+    }
+
+    function renderProfileUI(user) {
+        const container = document.getElementById('view-profile');
+        if (!container) return;
+
+        const nickname = user.surnom || user.nom || "Utilisateur";
+        const name = user.nom || "";
+        const email = user.email || userEmail;
+        const sportGoal = user.objectif_sportif || "Maintien";
+        const kcal = user.objectif_calorique || 2000;
+        const prot = user.objectif_proteines || 150;
+        const glu = user.objectif_glucides || 200;
+        const lip = user.objectif_lipides || 70;
+        const water = user.objectif_hydratation || 2.5;
+        const agentBehavior = user.comportement_agent || "";
+        
+        const allergies = Array.isArray(user.allergies) ? user.allergies : (user.allergies ? String(user.allergies).split(',').map(s=>s.trim()).filter(Boolean) : []);
+        const dislikes = Array.isArray(user.aversions) ? user.aversions : (user.aversions ? String(user.aversions).split(',').map(s=>s.trim()).filter(Boolean) : []);
+
+        const metricLabels = {
+            "poids": { label: "Poids", unit: "kg" },
+            "taille": { label: "Taille", unit: "cm" },
+            "masse_grasse": { label: "Masse Grasse", unit: "%" },
+            "masse_musculaire": { label: "Masse Muscl.", unit: "kg" },
+            "graisse_viscerale": { label: "Graisse Visc.", unit: "idx" },
+            "tour_de_cou": { label: "Tour de Cou", unit: "cm" },
+            "tour_epaules": { label: "Tour Épaules", unit: "cm" },
+            "tour_de_poitrine": { label: "Tour Poitrine", unit: "cm" },
+            "tour_bras_droit": { label: "Bras Droit", unit: "cm" },
+            "tour_bras_gauche": { label: "Bras Gauche", unit: "cm" },
+            "tour_de_taille": { label: "Tour Taille", unit: "cm" },
+            "tour_de_hanche": { label: "Tour Hanche", unit: "cm" },
+            "tour_cuisse_droite": { label: "Cuisse Droite", unit: "cm" },
+            "tour_cuisse_gauche": { label: "Cuisse Gauche", unit: "cm" },
+            "tour_mollet_droit": { label: "Mollet Droit", unit: "cm" },
+            "tour_mollet_gauche": { label: "Mollet Gauche", unit: "cm" }
+        };
+
+        const bodyMetric = user.type_objectif_corporel || "poids";
+        const bodyInitial = parseFloat(user.objectif_corporel_initial || 0);
+        const bodyTarget = parseFloat(user.objectif_corporel_but || 0);
+        let mensurations = {};
+        const rawMens = user.mensurations || user.Mensurations || user.mensuration || user.Mensuration || user.mesures || {};
+        if (rawMens) {
+            if (typeof rawMens === 'string') {
+                try {
+                    mensurations = JSON.parse(rawMens);
+                } catch(e) {
+                    console.error("Error parsing mensurations string:", e);
+                }
+            } else if (Array.isArray(rawMens)) {
+                mensurations = rawMens.reduce((acc, curr) => ({...acc, ...curr}), {});
+            } else if (typeof rawMens === 'object') {
+                mensurations = rawMens;
+            }
+        }
+        // Fallback: if mensurations is empty, check if metrics are defined flat on the user object (case-insensitive)
+        if (Object.keys(mensurations).length === 0) {
+            Object.keys(metricLabels).forEach(key => {
+                const foundKey = Object.keys(user).find(k => k.toLowerCase() === key.toLowerCase());
+                if (foundKey && user[foundKey] !== undefined && user[foundKey] !== null) {
+                    mensurations[key] = user[foundKey];
+                }
+            });
+        }
+        const bodyCurrent = parseFloat(mensurations[bodyMetric] !== undefined && mensurations[bodyMetric] !== null ? mensurations[bodyMetric] : (user.objectif_corporel_actuel || bodyInitial));
+        
+        
+        let progressPercent = 0;
+        if (bodyInitial !== bodyTarget) {
+            const totalDistance = Math.abs(bodyTarget - bodyInitial);
+            const currentDistance = Math.abs(bodyCurrent - bodyInitial);
+            if (totalDistance > 0) {
+                progressPercent = Math.min(100, Math.max(0, Math.round((currentDistance / totalDistance) * 100)));
+            }
+        } else {
+            progressPercent = bodyCurrent === bodyTarget ? 100 : 0;
+        }
+
+        const sportGoalOptions = [
+            "Hypertrophie (prise de muscle)",
+            "Bulk (prise de masse)",
+            "Cut (sèche)",
+            "Maintien",
+            "Recomp (recomposition corporelle)",
+            "Force",
+            "Endurance / Conditionnement"
+        ];
+
+        const bodyGoalMetricOptions = [
+            "poids",
+            "taille",
+            "masse_grasse",
+            "masse_musculaire",
+            "graisse_viscerale",
+            "tour_de_cou",
+            "tour_epaules",
+            "tour_de_poitrine",
+            "tour_bras_droit",
+            "tour_bras_gauche",
+            "tour_de_taille",
+            "tour_de_hanche",
+            "tour_cuisse_droite",
+            "tour_cuisse_gauche",
+            "tour_mollet_droit",
+            "tour_mollet_gauche"
+        ];
+
+        container.innerHTML = `
+            <div class="p-2 space-y-6 pb-24 animate-in fade-in duration-500 overflow-y-auto no-scrollbar h-full">
+                <!-- Header Profil -->
+                <div class="category-badge mb-2">
+                    <i data-lucide="user" class="w-3.5 h-3.5 text-cyan-400"></i>
+                    <h2 class="text-[10px] font-black text-white uppercase tracking-[0.15em]">Mon Profil FitBuddy</h2>
+                </div>
+                
+                <!-- Carte Identité -->
+                <div class="bg-white/5 border border-white/10 rounded-3xl p-5 space-y-4 shadow-xl">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 font-black text-lg">
+                            ${nickname.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-black text-white tracking-tight">${nickname}</h3>
+                            <p class="text-[10px] text-white/40">${email}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-3 pt-2">
+                        <div class="space-y-1">
+                            <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Prénom</label>
+                            <input type="text" id="prof-name" value="${name}" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white/60 outline-none focus:border-cyan-500" disabled>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Surnom</label>
+                            <input type="text" id="prof-nickname" value="${nickname}" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Widget Objectif Corporel -->
+                <div class="bg-white/5 border border-white/10 rounded-3xl p-5 space-y-5 shadow-xl relative overflow-hidden">
+                    <div class="flex justify-between items-center border-b border-white/10 pb-3">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="target" class="w-4 h-4 text-purple-400 animate-pulse"></i>
+                            <h4 class="text-xs font-black text-white uppercase tracking-wider">Objectif Corporel</h4>
+                        </div>
+                        <span class="text-[9px] font-black text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-md uppercase tracking-wider">${progressPercent}%</span>
+                    </div>
+
+                    <div class="space-y-3">
+                        <div class="space-y-1">
+                            <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Métrique de l'Objectif</label>
+                            <select id="prof-body-metric" onchange="window.onBodyMetricChange()" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-cyan-400 font-bold outline-none cursor-pointer">
+                                ${bodyGoalMetricOptions.map(m => {
+                                    const label = metricLabels[m] ? `${metricLabels[m].label} (${metricLabels[m].unit})` : m;
+                                    return `<option value="${m}" ${m === bodyMetric ? 'selected' : ''} class="bg-[#111] text-white">${label}</option>`;
+                                }).join('')}
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2">
+                            <div class="space-y-1">
+                                <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Départ</label>
+                                <input type="number" id="prof-body-initial" value="${bodyInitial}" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white/50 font-bold outline-none text-center" disabled>
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-[9px] font-bold text-cyan-400 uppercase ml-1">Actuel (Pesée)</label>
+                                <input type="number" id="prof-body-current" value="${bodyCurrent}" step="0.1" oninput="window.syncMetricToGrid()" class="w-full bg-white/5 border border-cyan-500/30 rounded-xl p-2.5 text-xs text-cyan-400 font-black outline-none focus:border-cyan-500 text-center">
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-[9px] font-bold text-purple-400 uppercase ml-1">But (Cible)</label>
+                                <input type="number" id="prof-body-target" value="${bodyTarget}" step="0.1" class="w-full bg-white/5 border border-purple-500/30 rounded-xl p-2.5 text-xs text-purple-400 font-bold outline-none focus:border-purple-500 text-center">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Jauge de progression -->
+                    <div class="space-y-2 pt-1">
+                        <div class="progress-track">
+                            <div class="progress-fill" style="width: ${progressPercent}%"></div>
+                        </div>
+                        <p class="text-[8px] text-white/30 italic text-center leading-normal">Modifier votre valeur actuelle créera automatiquement une nouvelle pesée du jour dans Notion !</p>
+                    </div>
+                </div>
+
+                <!-- Widget Toutes les Mensurations -->
+                <div class="bg-white/5 border border-white/10 rounded-3xl p-5 space-y-4 shadow-xl">
+                    <div class="flex items-center gap-2 border-b border-white/10 pb-3">
+                        <i data-lucide="scale" class="w-4 h-4 text-cyan-400 animate-pulse"></i>
+                        <h4 class="text-xs font-black text-white uppercase tracking-wider">Toutes mes Mensurations</h4>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-3 pt-1">
+                        ${Object.keys(metricLabels).map(key => {
+                            const val = mensurations[key] !== undefined && mensurations[key] !== null ? mensurations[key] : "";
+                            const isTarget = key === bodyMetric;
+                            return `
+                                <div class="space-y-1">
+                                    <label class="text-[8px] font-bold ${isTarget ? 'text-cyan-400' : 'text-white/40'} uppercase ml-1">${metricLabels[key].label} (${metricLabels[key].unit})</label>
+                                    <input type="number" id="m-${key}" step="0.1" value="${val}" oninput="window.syncMetricFromGrid('${key}')" class="w-full bg-white/5 ${isTarget ? 'border-cyan-500/30 text-cyan-400 font-black' : 'border-white/10 text-white'} rounded-xl p-2 text-xs outline-none focus:border-cyan-500 text-center">
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+
+                <!-- Objectifs Nutrition & Hydratation -->
+                <div class="bg-white/5 border border-white/10 rounded-3xl p-5 space-y-4 shadow-xl">
+                    <div class="flex items-center gap-2 border-b border-white/10 pb-3">
+                        <i data-lucide="dumbbell" class="w-4 h-4 text-cyan-400"></i>
+                        <h4 class="text-xs font-black text-white uppercase tracking-wider">Objectif Sportif & Nutrition</h4>
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Objectif Sportif</label>
+                        <select id="prof-sport-goal" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white font-bold outline-none cursor-pointer">
+                            ${sportGoalOptions.map(g => `<option value="${g}" ${g === sportGoal ? 'selected' : ''} class="bg-[#111] text-white">${g}</option>`).join('')}
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 pt-2">
+                        <div class="space-y-1">
+                            <label class="text-[9px] font-bold text-[#f97316] uppercase ml-1">Calories (kcal)</label>
+                            <input type="number" id="prof-kcal" value="${kcal}" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-[#f97316] font-bold outline-none focus:border-[#f97316]">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[9px] font-bold text-[#3b82f6] uppercase ml-1">Protéines (g)</label>
+                            <input type="number" id="prof-prot" value="${prot}" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-[#3b82f6] font-bold outline-none focus:border-[#3b82f6]">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[9px] font-bold text-[#22c55e] uppercase ml-1">Glucides (g)</label>
+                            <input type="number" id="prof-glu" value="${glu}" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-[#22c55e] font-bold outline-none focus:border-[#22c55e]">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[9px] font-bold text-[#ef4444] uppercase ml-1">Lipides (g)</label>
+                            <input type="number" id="prof-lip" value="${lip}" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-[#ef4444] font-bold outline-none focus:border-[#ef4444]">
+                        </div>
+                    </div>
+
+                    <div class="space-y-1 pt-1">
+                        <label class="text-[9px] font-bold text-cyan-400 uppercase ml-1">Objectif Hydratation (L/jour)</label>
+                        <input type="number" id="prof-water" value="${water}" step="0.1" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-cyan-400 font-bold outline-none focus:border-cyan-500">
+                    </div>
+                </div>
+
+                <!-- Préférences Alimentaires (Allergies & Aversions) -->
+                <div class="bg-white/5 border border-white/10 rounded-3xl p-5 space-y-4 shadow-xl">
+                    <div class="flex items-center gap-2 border-b border-white/10 pb-3">
+                        <i data-lucide="chef-hat" class="w-4 h-4 text-amber-500"></i>
+                        <h4 class="text-xs font-black text-white uppercase tracking-wider">Préférences Alimentaires</h4>
+                    </div>
+
+                    <!-- Allergies -->
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center">
+                            <label class="text-[9px] font-bold text-red-400 uppercase ml-1">Allergies (multi-sélect)</label>
+                            <button id="btn-add-allergy" class="text-[9px] font-black text-red-400 uppercase tracking-widest flex items-center gap-1 active:scale-95 transition-transform"><i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Ajouter</button>
+                        </div>
+                        <div id="prof-allergies-container" class="flex flex-wrap gap-2 min-h-6">
+                            ${allergies.length > 0 ? allergies.map(a => `<span class="tag-chip tag-chip-allergy cursor-pointer" onclick="this.remove()"># ${a} <i data-lucide="x" class="w-3 h-3 text-red-400/60 ml-1"></i></span>`).join('') : '<span class="text-[10px] text-white/20 italic">Aucune allergie</span>'}
+                        </div>
+                    </div>
+
+                    <!-- Aversions -->
+                    <div class="space-y-2 pt-2">
+                        <div class="flex justify-between items-center">
+                            <label class="text-[9px] font-bold text-amber-500 uppercase ml-1">N'aime pas manger</label>
+                            <button id="btn-add-aversion" class="text-[9px] font-black text-amber-500 uppercase tracking-widest flex items-center gap-1 active:scale-95 transition-transform"><i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Ajouter</button>
+                        </div>
+                        <div id="prof-aversions-container" class="flex flex-wrap gap-2 min-h-6">
+                            ${dislikes.length > 0 ? dislikes.map(d => `<span class="tag-chip tag-chip-aversion cursor-pointer" onclick="this.remove()"># ${d} <i data-lucide="x" class="w-3 h-3 text-amber-500/60 ml-1"></i></span>`).join('') : '<span class="text-[10px] text-white/20 italic">Aucune aversion</span>'}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Comportement de l'Agent -->
+                <div class="bg-white/5 border border-white/10 rounded-3xl p-5 space-y-4 shadow-xl">
+                    <div class="flex items-center gap-2 border-b border-white/10 pb-3">
+                        <i data-lucide="sparkles" class="w-4 h-4 text-purple-400 animate-pulse"></i>
+                        <h4 class="text-xs font-black text-white uppercase tracking-wider">Personnalité de l'Agent</h4>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Comment Tyler doit-il se comporter ?</label>
+                        <textarea id="prof-behavior" rows="3" placeholder="Ex: Sois direct, dynamique, utilise le tutoiement..." class="w-full bg-white/5 border border-white/10 rounded-2xl p-3.5 text-xs text-white outline-none focus:border-cyan-500 resize-none font-medium leading-relaxed">${agentBehavior}</textarea>
+                    </div>
+                </div>
+
+                <!-- Actions du Profil -->
+                <div class="space-y-3 pt-4">
+                    <button onclick="saveProfileData()" id="btn-save-profile" class="w-full bg-cyan-500 hover:bg-cyan-400 py-4.5 rounded-2xl text-xs font-black text-black uppercase tracking-widest shadow-lg shadow-cyan-500/25 flex items-center justify-center gap-2 active:scale-[0.98] transition-all">
+                        <i data-lucide="save" class="w-4 h-4"></i> Enregistrer les modifications
+                    </button>
+                    
+                    <button onclick="logout()" class="w-full bg-red-950/20 hover:bg-red-950/40 border border-red-500/10 py-3.5 rounded-2xl text-xs font-black text-red-400 uppercase tracking-widest flex items-center justify-center gap-2 active:scale-[0.98] transition-all">
+                        <i data-lucide="log-out" class="w-4 h-4"></i> Se déconnecter de la session
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        try {
+            if (window.lucide) lucide.createIcons();
+        } catch(e) {
+            console.error(e);
+        }
+
+        const addAllergyBtn = document.getElementById('btn-add-allergy');
+        if (addAllergyBtn) {
+            addAllergyBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                window.addAllergyTag();
+            });
+        }
+
+        const addAversionBtn = document.getElementById('btn-add-aversion');
+        if (addAversionBtn) {
+            addAversionBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                window.addAversionTag();
+            });
+        }
+    }
+
+    function showCustomPrompt(title, placeholder, callback) {
+        // Supprimer toute modale existante
+        const existing = document.getElementById('custom-prompt-modal-dynamic');
+        if (existing) existing.remove();
+
+        // Créer l'overlay de la modale dynamique
+        const modal = document.createElement('div');
+        modal.id = 'custom-prompt-modal-dynamic';
+        modal.className = 'fixed inset-0 z-[25000] flex items-center justify-center p-6 bg-black/90 backdrop-blur-xl animate-in fade-in duration-300';
+        modal.style.display = 'flex';
+
+        modal.innerHTML = `
+            <div class="bg-[#111] border border-white/10 w-full max-w-xs rounded-3xl p-6 space-y-5 shadow-2xl relative animate-in zoom-in-95 duration-300">
+                <button id="btn-custom-prompt-close" class="absolute top-4 right-4 w-8 h-8 bg-white/5 rounded-full flex items-center justify-center border border-white/5">
+                    <i data-lucide="x" class="w-4 h-4 text-white/60"></i>
+                </button>
+                
+                <div class="text-center space-y-1">
+                    <div class="w-10 h-10 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 mx-auto mb-2">
+                        <i data-lucide="plus-circle" class="w-5 h-5"></i>
+                    </div>
+                    <h4 class="text-white font-black text-xs uppercase tracking-widest">${title}</h4>
+                    <p class="text-[9px] text-white/40 uppercase tracking-widest">Saisie rapide</p>
+                </div>
+
+                <div class="space-y-4">
+                    <input type="text" id="custom-prompt-input-dynamic" placeholder="${placeholder}" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-white outline-none focus:border-cyan-500 font-bold placeholder-white/20">
+                    
+                    <div class="flex gap-2">
+                        <button id="btn-custom-prompt-cancel" class="flex-1 py-3 text-[10px] font-black text-white/40 uppercase tracking-widest">Annuler</button>
+                        <button id="btn-custom-prompt-confirm-dynamic" class="flex-1 bg-cyan-500 py-3 rounded-xl text-[10px] font-black text-black uppercase tracking-widest shadow-lg shadow-cyan-500/20">Confirmer</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        if (window.lucide) {
+            try {
+                lucide.createIcons();
+            } catch(e) {
+                console.error(e);
+            }
+        }
+
+        const input = document.getElementById('custom-prompt-input-dynamic');
+        input.focus();
+
+        const closeBtn = document.getElementById('btn-custom-prompt-close');
+        const cancelBtn = document.getElementById('btn-custom-prompt-cancel');
+        const confirmBtn = document.getElementById('btn-custom-prompt-confirm-dynamic');
+
+        const destroyModal = () => {
+            modal.remove();
+        };
+
+        closeBtn.onclick = destroyModal;
+        cancelBtn.onclick = destroyModal;
+
+        // Fermer la modale si on clique en dehors du contenu
+        modal.onclick = function(e) {
+            if (e.target === modal) {
+                destroyModal();
+            }
+        };
+
+        confirmBtn.onclick = function() {
+            const val = input.value.trim();
+            if (val) {
+                callback(val);
+                destroyModal();
+            } else {
+                alert("Veuillez saisir une valeur.");
+            }
+        };
+
+        // Permettre la validation par Entrée
+        input.onkeypress = function(e) {
+            if (e.key === 'Enter') {
+                confirmBtn.click();
+            }
+        };
+    }
+
+    window.addAllergyTag = function() {
+        showCustomPrompt("Ajouter une Allergie", "Ex: Lactose, Gluten...", function(val) {
+            const container = document.getElementById('prof-allergies-container');
+            if (!container) return;
+            if (container.querySelector('span.italic') || container.innerHTML.includes("Aucune")) container.innerHTML = "";
+            container.insertAdjacentHTML('beforeend', `<span class="tag-chip tag-chip-allergy cursor-pointer" onclick="this.remove()"># ${val} <i data-lucide="x" class="w-3 h-3 text-red-400/60 ml-1"></i></span>`);
+            if (window.lucide) lucide.createIcons();
+        });
+    };
+
+    window.addAversionTag = function() {
+        showCustomPrompt("Ajouter une Aversion", "Ex: Brocoli, Coriandre...", function(val) {
+            const container = document.getElementById('prof-aversions-container');
+            if (!container) return;
+            if (container.querySelector('span.italic') || container.innerHTML.includes("Aucune")) container.innerHTML = "";
+            container.insertAdjacentHTML('beforeend', `<span class="tag-chip tag-chip-aversion cursor-pointer" onclick="this.remove()"># ${val} <i data-lucide="x" class="w-3 h-3 text-amber-500/60 ml-1"></i></span>`);
+            if (window.lucide) lucide.createIcons();
+        });
+    };
+
+    window.onBodyMetricChange = function() {
+        const bodyMetric = document.getElementById('prof-body-metric').value;
+        
+        // Update main current input from the grid value
+        const gridInput = document.getElementById(`m-${bodyMetric}`);
+        const currentInput = document.getElementById('prof-body-current');
+        if (gridInput && currentInput) {
+            currentInput.value = gridInput.value;
+        }
+        
+        // Dynamic highlight styles for the active body metric in the 16 measurements grid
+        const metrics = [
+            "poids", "taille", "masse_grasse", "masse_musculaire", "graisse_viscerale", 
+            "tour_de_cou", "tour_epaules", "tour_de_poitrine", "tour_bras_droit", 
+            "tour_bras_gauche", "tour_de_taille", "tour_de_hanche", "tour_cuisse_droite", 
+            "tour_cuisse_gauche", "tour_mollet_droit", "tour_mollet_gauche"
+        ];
+        
+        metrics.forEach(key => {
+            const inputEl = document.getElementById(`m-${key}`);
+            if (inputEl) {
+                const labelEl = inputEl.previousElementSibling;
+                if (key === bodyMetric) {
+                    if (labelEl) labelEl.className = "text-[8px] font-bold text-cyan-400 uppercase ml-1";
+                    inputEl.className = "w-full bg-white/5 border-cyan-500/30 text-cyan-400 font-black rounded-xl p-2 text-xs outline-none focus:border-cyan-500 text-center";
+                } else {
+                    if (labelEl) labelEl.className = "text-[8px] font-bold text-white/40 uppercase ml-1";
+                    inputEl.className = "w-full bg-white/5 border border-white/10 text-white rounded-xl p-2 text-xs outline-none focus:border-cyan-500 text-center";
+                }
+            }
+        });
+    };
+
+    window.syncMetricFromGrid = function(key) {
+        const bodyMetric = document.getElementById('prof-body-metric').value;
+        if (key === bodyMetric) {
+            const val = document.getElementById(`m-${key}`).value;
+            const mainCurrent = document.getElementById('prof-body-current');
+            if (mainCurrent) mainCurrent.value = val;
+        }
+    };
+
+    window.syncMetricToGrid = function() {
+        const bodyMetric = document.getElementById('prof-body-metric').value;
+        const val = document.getElementById('prof-body-current').value;
+        const gridInput = document.getElementById(`m-${bodyMetric}`);
+        if (gridInput) gridInput.value = val;
+    };
+
+    async function saveProfileData() {
+        const btn = document.getElementById('btn-save-profile');
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Enregistrement...';
+        lucide.createIcons();
+
+        const allergyTags = document.querySelectorAll('#prof-allergies-container span.tag-chip');
+        const allergies = Array.from(allergyTags).map(el => el.innerText.replace('#', '').trim());
+
+        const aversionTags = document.querySelectorAll('#prof-aversions-container span.tag-chip');
+        const dislikes = Array.from(aversionTags).map(el => el.innerText.replace('#', '').trim());
+
+        const metricsList = [
+            "poids", "taille", "masse_grasse", "masse_musculaire", "graisse_viscerale", 
+            "tour_de_cou", "tour_epaules", "tour_de_poitrine", "tour_bras_droit", 
+            "tour_bras_gauche", "tour_de_taille", "tour_de_hanche", "tour_cuisse_droite", 
+            "tour_cuisse_gauche", "tour_mollet_droit", "tour_mollet_gauche"
+        ];
+        
+        const mensurationsPayload = {};
+        metricsList.forEach(key => {
+            const el = document.getElementById(`m-${key}`);
+            if (el && el.value.trim() !== "") {
+                mensurationsPayload[key] = parseFloat(el.value);
+            } else {
+                mensurationsPayload[key] = null;
+            }
+        });
+
+        const payload = {
+            email: userEmail,
+            surnom: document.getElementById('prof-nickname').value.trim(),
+            objectif_sportif: document.getElementById('prof-sport-goal').value,
+            objectif_calorique: parseFloat(document.getElementById('prof-kcal').value) || 0,
+            objectif_proteines: parseFloat(document.getElementById('prof-prot').value) || 0,
+            objectif_glucides: parseFloat(document.getElementById('prof-glu').value) || 0,
+            objectif_lipides: parseFloat(document.getElementById('prof-lip').value) || 0,
+            objectif_hydratation: parseFloat(document.getElementById('prof-water').value) || 0,
+            allergies: allergies,
+            aversions: dislikes,
+            comportement_agent: document.getElementById('prof-behavior').value.trim(),
+            type_objectif_corporel: document.getElementById('prof-body-metric').value,
+            objectif_corporel_actuel: parseFloat(document.getElementById('prof-body-current').value) || 0,
+            objectif_corporel_but: parseFloat(document.getElementById('prof-body-target').value) || 0,
+            mensurations: mensurationsPayload
+        };
+
+        try {
+            const res = await fetch(`${N8N_URL}/webhook/update-profile`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '69420' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            
+            if (data.success) {
+                const cached = stringToJson(localStorage.getItem('fitbuddy_user_profile')) || {};
+                const updatedProfile = { ...cached, ...payload };
+                
+                localStorage.setItem('fitbuddy_user_profile', JSON.stringify(updatedProfile));
+                localStorage.setItem('fitbuddy_user_name', payload.surnom || storedName);
+                updateUserNameUI(payload.surnom || storedName);
+                
+                showNotification("Profil Notion mis à jour avec succès !", "success");
+                switchToProfile(); 
+            } else {
+                alert(data.error || "Impossible de mettre à jour le profil.");
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Erreur réseau lors de la mise à jour du profil.");
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+            lucide.createIcons();
+        }
+    }
+
+    function logout() {
+        localStorage.clear();
+        userEmail = null;
+        storedName = null;
+        location.reload();
     }
 
     document.getElementById('macro-user-select')
@@ -68,7 +827,7 @@
         }
         try { 
             const res = await fetch(`${N8N_URL}/webhook/chat-agent`, { 
-                method: 'POST', headers: {'Content-Type': 'application/json'}, 
+                method: 'POST', headers: {'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '69420'}, 
                 body: JSON.stringify({ message: `[SYSTEM] Oublie l'utilisateur précédent. À partir de maintenant, je suis ${name}.`, email: userEmail, userName: name }) 
             }); 
             const responseData = await res.json();
@@ -1258,7 +2017,7 @@ function appendCategory(container, title, items, isPurchased = false) {
 
         try {
             const res = await fetch(`${N8N_URL}/webhook/chat-agent`, { 
-                method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ message: messageTyler, email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') }) 
+                method: 'POST', headers: {'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '69420'}, body: JSON.stringify({ message: messageTyler, email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') }) 
             });
             const responseData = await res.json();
             const r = Array.isArray(responseData) ? responseData[0] : responseData;
@@ -1286,7 +2045,7 @@ function appendCategory(container, title, items, isPurchased = false) {
         input.value = ''; chat.scrollTop = chat.scrollHeight;
 
         try {
-            const res = await fetch(`${N8N_URL}/webhook/chat-agent`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ message: msg, email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') }) });
+            const res = await fetch(`${N8N_URL}/webhook/chat-agent`, { method: 'POST', headers: {'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '69420'}, body: JSON.stringify({ message: msg, email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') }) });
             const responseData = await res.json();
             const r = Array.isArray(responseData) ? responseData[0] : responseData;
             
@@ -1303,7 +2062,7 @@ function appendCategory(container, title, items, isPurchased = false) {
     }
 
     function showView(viewId) {
-        const views = ['view-chat', 'view-cooking', 'view-macros', 'view-shopping', 'view-training', 'view-calendar'];
+        const views = ['view-chat', 'view-cooking', 'view-macros', 'view-shopping', 'view-training', 'view-calendar', 'view-profile'];
         views.forEach(id => {
             const el = document.getElementById(id);
             if (el) {

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fitbuddy-v1';
+const CACHE_NAME = 'fitbuddy-v3';
 const ASSETS = [
   'index.html',
   'manifest.json',

@@ -164,4 +164,62 @@
         .ai-slider::-webkit-slider-thumb {
             -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #a855f7; border: 2px solid #22d3ee; cursor: pointer; box-shadow: 0 0 10px rgba(34,211,238,0.6);
         }
+
+        /* --- STYLES AUTHENTIFICATION OTP & PROFIL --- */
+        .glass-input {
+            background: rgba(255, 255, 255, 0.03) !important;
+            border: 1px solid rgba(255, 255, 255, 0.08) !important;
+            border-radius: 16px !important;
+            padding: 12px 16px !important;
+            color: #fff !important;
+            outline: none !important;
+            transition: all 0.25s ease !important;
+        }
+        .glass-input:focus {
+            border-color: rgba(34, 211, 238, 0.5) !important;
+            background: rgba(255, 255, 255, 0.05) !important;
+            box-shadow: 0 0 12px rgba(34, 211, 238, 0.15) !important;
+        }
+        
+        .progress-track {
+            position: relative;
+            height: 8px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #22d3ee, #8b5cf6);
+            box-shadow: 0 0 10px rgba(34, 211, 238, 0.4);
+            transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .tag-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            transition: all 0.2s ease;
+        }
+        .tag-chip-allergy {
+            background: rgba(239, 68, 68, 0.08);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #f87171;
+        }
+        .tag-chip-aversion {
+            background: rgba(245, 158, 11, 0.08);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            color: #fbbf24;
+        }
+        .tag-chip:active {
+            transform: scale(0.95);
+        }
     </style>
