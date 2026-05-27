@@ -396,15 +396,9 @@
                         </div>
                     </div>
                     
-                    <div class="grid grid-cols-2 gap-3 pt-2">
-                        <div class="space-y-1">
-                            <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Prénom</label>
-                            <input type="text" id="prof-name" value="${name}" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white/60 outline-none focus:border-cyan-500" disabled>
-                        </div>
-                        <div class="space-y-1">
-                            <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Surnom</label>
-                            <input type="text" id="prof-nickname" value="${nickname}" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-500">
-                        </div>
+                    <div class="space-y-1 pt-2">
+                        <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Pseudo</label>
+                        <input type="text" id="prof-nickname" value="${nickname}" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-500">
                     </div>
                     <div class="space-y-1 pt-2">
                         <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Date de naissance</label>
