@@ -274,6 +274,16 @@
         const water = user.objectif_hydratation || 2.5;
         const agentBehavior = user.comportement_agent || "";
         
+        let birthDateVal = "";
+        const rawBirth = user.date_anniversaire || user.date_naissance || user.date_de_naissance || user.property_date_anniversaire || user.birthday || "";
+        if (rawBirth) {
+            if (typeof rawBirth === 'string') {
+                birthDateVal = rawBirth.substring(0, 10);
+            } else if (rawBirth.start) {
+                birthDateVal = rawBirth.start.substring(0, 10);
+            }
+        }
+
         const allergies = Array.isArray(user.allergies) ? user.allergies : (user.allergies ? String(user.allergies).split(',').map(s=>s.trim()).filter(Boolean) : []);
         const dislikes = Array.isArray(user.aversions) ? user.aversions : (user.aversions ? String(user.aversions).split(',').map(s=>s.trim()).filter(Boolean) : []);
 
@@ -395,6 +405,10 @@
                             <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Surnom</label>
                             <input type="text" id="prof-nickname" value="${nickname}" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-500">
                         </div>
+                    </div>
+                    <div class="space-y-1 pt-2">
+                        <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Date de naissance</label>
+                        <input type="date" id="prof-birth-date" value="${birthDateVal}" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-500">
                     </div>
                 </div>
 
@@ -756,8 +770,28 @@
             "tour_cuisse_gauche", "tour_mollet_droit", "tour_mollet_gauche"
         ];
         
+        const birthDateInput = document.getElementById('prof-birth-date');
+        const birthDateVal = birthDateInput ? birthDateInput.value : "";
+
         const mensurationsPayload = {};
         mensurationsPayload["email"] = userEmail;
+        mensurationsPayload["e_mail"] = userEmail;
+        mensurationsPayload["e-mail"] = userEmail;
+        mensurationsPayload["adresse_mail"] = userEmail;
+        mensurationsPayload["userName"] = userEmail;
+
+        if (birthDateVal) {
+            mensurationsPayload["date_anniversaire"] = birthDateVal;
+            mensurationsPayload["date_naissance"] = birthDateVal;
+            mensurationsPayload["birthday"] = birthDateVal;
+            mensurationsPayload["property_date_anniversaire"] = birthDateVal;
+        } else {
+            mensurationsPayload["date_anniversaire"] = null;
+            mensurationsPayload["date_naissance"] = null;
+            mensurationsPayload["birthday"] = null;
+            mensurationsPayload["property_date_anniversaire"] = null;
+        }
+
         metricsList.forEach(key => {
             const el = document.getElementById(`m-${key}`);
             if (el && el.value.trim() !== "") {
@@ -770,6 +804,10 @@
         const payload = {
             email: userEmail,
             surnom: document.getElementById('prof-nickname').value.trim(),
+            date_anniversaire: birthDateVal || null,
+            date_naissance: birthDateVal || null,
+            birthday: birthDateVal || null,
+            property_date_anniversaire: birthDateVal || null,
             objectif_sportif: document.getElementById('prof-sport-goal').value,
             objectif_calorique: parseFloat(document.getElementById('prof-kcal').value) || 0,
             objectif_proteines: parseFloat(document.getElementById('prof-prot').value) || 0,
