@@ -2526,22 +2526,84 @@ function openIngredientSearchModal(row = null) {
         }
     }
 
+    function compressAndResizeImage(file, maxDimension = 1024, quality = 0.7) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    let width = img.width;
+                    let height = img.height;
+                    
+                    // Maintain aspect ratio
+                    if (width > maxDimension || height > maxDimension) {
+                        if (width > height) {
+                            height = Math.round((height * maxDimension) / width);
+                            width = maxDimension;
+                        } else {
+                            width = Math.round((width * maxDimension) / height);
+                            height = maxDimension;
+                        }
+                    }
+                    
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    canvas.toBlob((blob) => {
+                        if (blob) {
+                            const compressedFile = new File([blob], file.name, {
+                                type: 'image/jpeg',
+                                lastModified: Date.now()
+                            });
+                            resolve(compressedFile);
+                        } else {
+                            reject(new Error("Image compression failed"));
+                        }
+                    }, 'image/jpeg', quality);
+                };
+                img.onerror = (err) => reject(err);
+            };
+            reader.onerror = (err) => reject(err);
+        });
+    }
+
     async function analyzeNutritionLabel(input) {
         if (!input.files || input.files.length === 0) return;
-        const file = input.files[0];
+        let file = input.files[0];
         
         const btn = document.getElementById('btn-analyze-label');
         const originalText = btn ? btn.innerHTML : "Analyser l'étiquette (Photo IA)";
         if (btn) {
             btn.disabled = true;
-            btn.innerHTML = `<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> Analyse en cours...`;
+            btn.innerHTML = `<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> Compression...`;
             if (window.lucide) lucide.createIcons();
         }
         
-        const formData = new FormData();
-        formData.append('file', file);
-        
         try {
+            // Compress and resize image if it is an image file
+            if (file.type.startsWith('image/')) {
+                try {
+                    file = await compressAndResizeImage(file, 1024, 0.7);
+                    console.log("Image compressed successfully. New size:", (file.size / 1024).toFixed(1) + " KB");
+                } catch (compressErr) {
+                    console.warn("Failed to compress image, sending original file:", compressErr);
+                }
+            }
+            
+            if (btn) {
+                btn.innerHTML = `<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> Analyse en cours...`;
+                if (window.lucide) lucide.createIcons();
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
             const res = await fetch(`${N8N_URL}/webhook/analyze-nutrition-label`, {
                 method: 'POST',
                 headers: { "ngrok-skip-browser-warning": "69420" },
