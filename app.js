@@ -1708,7 +1708,7 @@ function openAiGenerationModal() {
         const journalContainer = document.getElementById('journal-container');
         if (isDeleting && journalContainer) { el.classList.add('food-deleted'); journalContainer.appendChild(el); } 
         else if (journalContainer) { el.classList.remove('food-deleted'); journalContainer.prepend(el); }
-        try { fetch(`${N8N_URL}/webhook/food-action`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: isDeleting ? "delete" : "restore", alimentId: id, nom: name, calories: cal, proteines: prot, glucides: glu, lipides: lip, email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') }) }); } catch(e){}
+        try { fetch(`${N8N_URL}/webhook/food-action`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: isDeleting ? "delete" : "restore", alimentId: id, nom: name, calories: cal, proteines: prot, glucides: glu, lipides: lip, email: userEmail, userName: userEmail }) }); } catch(e){}
     }
 
    function switchToShopping(data) {
@@ -1849,11 +1849,23 @@ function appendCategory(container, title, items, isPurchased = false) {
         const targetUser = document.getElementById('macro-user-select').value;
         const mealName = document.getElementById('recipe-name-input').value || "Repas inconnu";
         
+        // Map user profile name to email address for Notion title mapping
+        let targetUserEmail = userEmail;
+        if (targetUser === "Djibril") {
+            targetUserEmail = "djibril@steyre.fr"; // Map placeholder, user can edit in index.html
+        } else if (targetUser === "Maxime") {
+            targetUserEmail = "maxime@steyre.fr"; // Map placeholder, user can edit in index.html
+        } else if (targetUser === "Sami") {
+            targetUserEmail = userEmail;
+        } else if (targetUser.includes("@")) {
+            targetUserEmail = targetUser; // Directly uses email if set in select options
+        }
+        
         const getVal = (id) => parseFloat(document.getElementById(id).innerText.replace(',', '.')) || 0;
         const macros = { kcal: getVal('display-kcal'), prot: getVal('display-prot'), glu: getVal('display-glu'), lip: getVal('display-lip') };
 
         const dataToSend = {
-            email: userEmail, userName: targetUser, repas: mealName, parts_consommees: portions,
+            email: userEmail, userName: targetUserEmail, repas: mealName, parts_consommees: portions,
             total_kcal: (macros.kcal * portions).toFixed(1), total_prot: (macros.prot * portions).toFixed(1),
             total_glu: (macros.glu * portions).toFixed(1), total_lip: (macros.lip * portions).toFixed(1),
             timestamp: new Date().toISOString()
@@ -2155,8 +2167,8 @@ async function triggerQuickAction(type) {
             body: JSON.stringify({ 
                 action: type, 
                 email: userEmail, 
-                userName: currentName,
-                nom: currentName 
+                userName: type === 'macros' ? userEmail : currentName,
+                nom: type === 'macros' ? userEmail : currentName 
             }) 
         });
         
@@ -2706,7 +2718,7 @@ function openIngredientSearchModal(row = null) {
                 
                 const payload = {
                     email: userEmail,
-                    userName: localStorage.getItem('fitbuddy_user_name') || "",
+                    userName: userEmail,
                     nom: nom,
                     kcal: kcal,
                     prot: prot,
@@ -2920,7 +2932,7 @@ function openIngredientSearchModal(row = null) {
             
             const payload = {
                 email: userEmail,
-                userName: localStorage.getItem('fitbuddy_user_name') || "",
+                userName: userEmail,
                 alimentId: activeConsumedFood.id,
                 nom: activeConsumedFood.nom,
                 kcal_100g: activeConsumedFood.kcal_100g,
