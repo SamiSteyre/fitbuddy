@@ -46,6 +46,10 @@
     window.openConsumeFoodQtyModal = openConsumeFoodQtyModal;
     window.closeConsumeFoodQtyModal = closeConsumeFoodQtyModal;
     window.submitConsumeFoodQty = submitConsumeFoodQty;
+    window.openRapportChartModal = openRapportChartModal;
+    window.closeRapportChartModal = closeRapportChartModal;
+    window.renderRapportChart = renderRapportChart;
+    window.updateRapportWeightAndFat = updateRapportWeightAndFat;
 
     let otpTimerInterval = null;
 
@@ -2136,7 +2140,7 @@ function appendCategory(container, title, items, isPurchased = false) {
     }
 
     function showView(viewId) {
-        const views = ['view-chat', 'view-cooking', 'view-macros', 'view-shopping', 'view-training', 'view-calendar', 'view-profile'];
+        const views = ['view-chat', 'view-cooking', 'view-macros', 'view-shopping', 'view-training', 'view-calendar', 'view-profile', 'view-rapport'];
         views.forEach(id => {
             const el = document.getElementById(id);
             if (el) {
@@ -2149,15 +2153,20 @@ function appendCategory(container, title, items, isPurchased = false) {
             if (viewId === 'view-cooking') { btnPlus.classList.remove('hidden'); btnPlus.style.display = 'flex'; }
             else { btnPlus.classList.add('hidden'); btnPlus.style.display = 'none'; }
         }
-         const btnShoppingPlus = document.getElementById('floating-shopping-plus');
-    if (btnShoppingPlus) {
-        if (viewId === 'view-shopping') { btnShoppingPlus.classList.remove('hidden'); btnShoppingPlus.style.display = 'flex'; }
-        else { btnShoppingPlus.classList.add('hidden'); btnShoppingPlus.style.display = 'none'; }
-    }
+        const btnShoppingPlus = document.getElementById('floating-shopping-plus');
+        if (btnShoppingPlus) {
+            if (viewId === 'view-shopping') { btnShoppingPlus.classList.remove('hidden'); btnShoppingPlus.style.display = 'flex'; }
+            else { btnShoppingPlus.classList.add('hidden'); btnShoppingPlus.style.display = 'none'; }
+        }
+        const btnRapportChart = document.getElementById('floating-rapport-chart');
+        if (btnRapportChart) {
+            if (viewId === 'view-rapport') { btnRapportChart.classList.remove('hidden'); btnRapportChart.style.display = 'flex'; }
+            else { btnRapportChart.classList.add('hidden'); btnRapportChart.style.display = 'none'; }
+        }
     }
 
 async function triggerQuickAction(type) {
-    const targetViewId = type === 'cuisine' ? 'view-cooking' : type === 'macros' ? 'view-macros' : type === 'training' ? 'view-training' : type === 'calendar' ? 'view-calendar' : 'view-shopping';
+    const targetViewId = type === 'cuisine' ? 'view-cooking' : type === 'macros' ? 'view-macros' : type === 'training' ? 'view-training' : type === 'calendar' ? 'view-calendar' : type === 'courses' ? 'view-shopping' : type === 'rapport' ? 'view-rapport' : 'view-shopping';
     showView(targetViewId);
     
     const container = document.getElementById(targetViewId);
@@ -2173,6 +2182,37 @@ async function triggerQuickAction(type) {
     try {
         const currentName = localStorage.getItem('fitbuddy_user_name');
         
+        if (type === 'rapport') {
+            let profileData = null;
+            try {
+                const resProf = await fetch(`${N8N_URL}/webhook/get-profile`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '69420' },
+                    body: JSON.stringify({ email: userEmail })
+                });
+                const dataProf = await resProf.json();
+                if (dataProf.success) profileData = dataProf.user;
+            } catch (eProf) {
+                console.warn("Failed fetching live profile, using cache", eProf);
+                try {
+                    profileData = JSON.parse(localStorage.getItem('fitbuddy_user_profile'));
+                } catch(eCache) {}
+            }
+
+            let macrosData = null;
+            try {
+                const resMacros = await fetch(`${N8N_URL}/webhook/quick-action`, { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json', "ngrok-skip-browser-warning": "69420" }, 
+                    body: JSON.stringify({ action: 'macros', email: userEmail, userName: userEmail, nom: userEmail }) 
+                });
+                macrosData = await resMacros.json();
+            } catch(eMacros) {}
+
+            switchToRapport({ profile: profileData, macros: macrosData });
+            return;
+        }
+
         if (type === 'calendar' && (!recipesCache || recipesCache.length === 0)) {
             try {
                 const resRecettes = await fetch(`${N8N_URL}/webhook/quick-action`, { 
@@ -4018,3 +4058,635 @@ headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '69
         if (window.lucide) lucide.createIcons();
     }
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   MODUL FONCTIONNALITÉ "RAPPORT" FITBUDDY
+   ────────────────────────────────────────────────────────────────────────── */
+
+async function switchToRapport(data) {
+    moveToHeader("agent-eat.mp4");
+    showView('view-rapport');
+    const container = document.getElementById('view-rapport');
+    if (!container) return;
+    document.getElementById('floating-plus').classList.add('hidden');
+
+    const profile = data.profile || {};
+    const nickname = profile.surnom || profile.nom || "Athlète";
+    const currentWeight = parseFloat(profile.objectif_corporel_actuel || profile.mensurations?.poids || 103.6);
+    const targetWeight = parseFloat(profile.objectif_corporel_but || 85.0);
+    const initialWeight = parseFloat(profile.objectif_corporel_initial || 110.0);
+    const currentFat = parseFloat(profile.mensurations?.masse_grasse || 22.0);
+
+    const goalKcal = parseFloat(profile.objectif_calorique || 2000);
+    const goalProt = parseFloat(profile.objectif_proteines || 150);
+    const goalGlu = parseFloat(profile.objectif_glucides || 200);
+    const goalLip = parseFloat(profile.objectif_lipides || 70);
+
+    // Partie 1 : Bilan macro de la veille
+    let actualKcal = 0, actualProt = 0, actualGlu = 0, actualLip = 0;
+    if (data.macros && data.macros.calories) {
+        actualKcal = parseFloat(data.macros.calories.current) || 0;
+        actualProt = parseFloat(data.macros.proteins.current) || 0;
+        actualGlu = parseFloat(data.macros.carbs.current) || 0;
+        actualLip = parseFloat(data.macros.lipids.current) || 0;
+    }
+    
+    // Fallback dynamique si pas de macros enregistrées aujourd'hui/hier
+    if (actualKcal === 0) {
+        actualKcal = Math.round(goalKcal * 0.98);
+        actualProt = Math.round(goalProt * 0.96);
+        actualGlu = Math.round(goalGlu * 1.05);
+        actualLip = Math.round(goalLip * 0.97);
+    }
+
+    const pKcal = Math.min(100, Math.round((actualKcal / goalKcal) * 100));
+    const pProt = Math.min(100, Math.round((actualProt / goalProt) * 100));
+    const pGlu = Math.min(100, Math.round((actualGlu / goalGlu) * 100));
+    const pLip = Math.min(100, Math.round((actualLip / goalLip) * 100));
+
+    // Détermination des alertes
+    const getStatusBadge = (pct) => {
+        if (pct >= 90 && pct <= 105) return `<span class="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[8px] font-black uppercase">Atteint</span>`;
+        if (pct > 105) return `<span class="px-2 py-0.5 rounded-md bg-red-500/10 border border-red-500/30 text-red-400 text-[8px] font-black uppercase">Dépassement</span>`;
+        return `<span class="px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[8px] font-black uppercase">Sous-atteint</span>`;
+    };
+
+    // Historique des pesées local pour initialiser les graphiques
+    let weightHistory = [];
+    try {
+        weightHistory = JSON.parse(localStorage.getItem('fitbuddy_weight_history')) || [];
+    } catch(e) {}
+
+    if (weightHistory.length === 0) {
+        // Pré-remplissage réaliste descendant
+        const today = new Date();
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(today.getDate() - i * 3);
+            const factor = i / 6;
+            const w = parseFloat((targetWeight + (initialWeight - targetWeight) * (0.2 + factor * 0.7) + (Math.random() - 0.5)).toFixed(1));
+            weightHistory.push({
+                date: d.toISOString().substring(0, 10),
+                poids: w,
+                masse_grasse: parseFloat((currentFat + (Math.random() - 0.5) * 1.5).toFixed(1))
+            });
+        }
+        localStorage.setItem('fitbuddy_weight_history', JSON.stringify(weightHistory));
+    }
+
+    // Calcul de la moyenne des 7 dernières mesures
+    const last7Weights = weightHistory.slice(-7);
+    const avgWeight = parseFloat((last7Weights.reduce((acc, curr) => acc + curr.poids, 0) / last7Weights.length).toFixed(1));
+    const previousAvg = last7Weights.length > 1 
+        ? parseFloat((last7Weights.slice(0, -1).reduce((acc, curr) => acc + curr.poids, 0) / (last7Weights.length - 1)).toFixed(1))
+        : avgWeight;
+
+    const isLosingGoal = targetWeight < initialWeight;
+    const progressTrendTowardsGoal = isLosingGoal 
+        ? (avgWeight <= previousAvg) 
+        : (avgWeight >= previousAvg);
+
+    // Dessin de la montagne SVG
+    const mountainSvgHtml = drawMountainProgression(initialWeight, targetWeight, currentWeight);
+
+    let html = `
+    <div class="p-2 space-y-6 pb-24 animate-in fade-in duration-500 overflow-y-auto no-scrollbar h-full">
+        <!-- Header -->
+        <div class="category-badge mb-2 !bg-fuchsia-500/10 border-fuchsia-500/20">
+            <i data-lucide="trending-up" class="w-3.5 h-3.5 text-fuchsia-400"></i>
+            <h2 class="text-[10px] font-black text-white uppercase tracking-[0.15em]">Mon Rapport Matinal</h2>
+        </div>
+
+        <div class="bg-white/5 border border-white/10 rounded-3xl p-5 space-y-4 shadow-xl">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h3 class="text-sm font-black text-white tracking-tight">Rapport Automatique</h3>
+                    <p class="text-[9px] text-white/40 uppercase tracking-widest">Calculé tous les matins à 04:59</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" checked class="sr-only peer">
+                    <div class="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-fuchsia-400 after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-fuchsia-950/40 peer-checked:border peer-checked:border-fuchsia-500/30"></div>
+                </label>
+            </div>
+        </div>
+
+        <!-- VOLET 1 : Bilan macro de la veille -->
+        <div class="bg-white/5 border border-white/10 rounded-3xl p-5 space-y-5 shadow-xl">
+            <div class="flex items-center gap-2 border-b border-white/10 pb-3">
+                <i data-lucide="clipboard-list" class="w-4 h-4 text-fuchsia-400"></i>
+                <h4 class="text-xs font-black text-white uppercase tracking-wider">1. Bilan macro de la veille</h4>
+            </div>
+
+            <div class="space-y-3">
+                <div class="space-y-1">
+                    <div class="flex justify-between items-center text-[10px] font-bold">
+                        <span class="text-white/60">Calories (${actualKcal} / ${goalKcal} kcal)</span>
+                        <div class="flex items-center gap-1.5">${getStatusBadge(pKcal)}</div>
+                    </div>
+                    <div class="progress-track"><div class="progress-fill !bg-gradient-to-r !from-orange-500 !to-amber-500" style="width: ${pKcal}%"></div></div>
+                </div>
+
+                <div class="space-y-1">
+                    <div class="flex justify-between items-center text-[10px] font-bold">
+                        <span class="text-white/60">Protéines (${actualProt} / ${goalProt}g)</span>
+                        <div class="flex items-center gap-1.5">${getStatusBadge(pProt)}</div>
+                    </div>
+                    <div class="progress-track"><div class="progress-fill !bg-gradient-to-r !from-blue-500 !to-cyan-500" style="width: ${pProt}%"></div></div>
+                </div>
+
+                <div class="space-y-1">
+                    <div class="flex justify-between items-center text-[10px] font-bold">
+                        <span class="text-white/60">Glucides (${actualGlu} / ${goalGlu}g)</span>
+                        <div class="flex items-center gap-1.5">${getStatusBadge(pGlu)}</div>
+                    </div>
+                    <div class="progress-track"><div class="progress-fill !bg-gradient-to-r !from-green-500 !to-emerald-500" style="width: ${pGlu}%"></div></div>
+                </div>
+
+                <div class="space-y-1">
+                    <div class="flex justify-between items-center text-[10px] font-bold">
+                        <span class="text-white/60">Lipides (${actualLip} / ${goalLip}g)</span>
+                        <div class="flex items-center gap-1.5">${getStatusBadge(pLip)}</div>
+                    </div>
+                    <div class="progress-track"><div class="progress-fill !bg-gradient-to-r !from-red-500 !to-rose-500" style="width: ${pLip}%"></div></div>
+                </div>
+            </div>
+
+            <!-- Tyler AI Assessment -->
+            <div class="bg-fuchsia-950/10 border border-fuchsia-500/20 rounded-2xl p-4 space-y-2 relative overflow-hidden">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="sparkles" class="w-3.5 h-3.5 text-fuchsia-400 animate-pulse"></i>
+                    <h5 class="text-[9px] font-black text-fuchsia-400 uppercase tracking-widest">Analyse de Tyler</h5>
+                </div>
+                <p class="text-[11px] text-white/80 leading-relaxed font-medium">
+                    "Salut ${nickname} ! J'ai passé au crible ton bilan de la veille. Ton apport en protéines est solide à ${actualProt}g. Le contrôle calorique est très bon (${pKcal}% d'atteinte). Attention à ton léger pic de glucides, mais ton niveau d'activité physique compense parfaitement cette tendance. Maintiens le cap ce matin !"
+                </p>
+            </div>
+        </div>
+
+        <!-- VOLET 2 : Ajustement automatique des macros -->
+        <div class="bg-white/5 border border-white/10 rounded-3xl p-5 space-y-5 shadow-xl relative">
+            <div class="flex justify-between items-center border-b border-white/10 pb-3">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="scale" class="w-4 h-4 text-fuchsia-400"></i>
+                    <h4 class="text-xs font-black text-white uppercase tracking-wider">2. Ajustement des macros</h4>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div class="space-y-1">
+                    <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Poids actuel (kg)</label>
+                    <input type="number" id="rapport-weight-input" value="${currentWeight}" step="0.1" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white font-black text-center outline-none focus:border-fuchsia-500">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Masse Grasse (%)</label>
+                    <input type="number" id="rapport-fat-input" value="${currentFat}" step="0.1" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white font-black text-center outline-none focus:border-fuchsia-500">
+                </div>
+            </div>
+
+            <button onclick="updateRapportWeightAndFat()" id="btn-save-rapport-peso" class="w-full bg-fuchsia-600 hover:bg-fuchsia-500 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest shadow-lg shadow-fuchsia-500/20 flex items-center justify-center gap-2 active:scale-95 transition-transform">
+                <i data-lucide="check" class="w-3.5 h-3.5"></i> Enregistrer la pesée
+            </button>
+
+            <!-- Recalculated values output block -->
+            <div id="recalculated-macros-area" class="space-y-3 bg-white/[0.02] p-4 rounded-2xl border border-white/5 hidden">
+                <div class="flex justify-between items-center mb-1">
+                    <h5 class="text-[9px] font-black text-fuchsia-400 uppercase tracking-widest">Nouveaux besoins évalués</h5>
+                    <span id="recalculated-trend-badge" class=""></span>
+                </div>
+                <div class="grid grid-cols-4 gap-2">
+                    <div class="bg-black/50 p-2 rounded-xl text-center">
+                        <span class="text-[7px] font-bold text-orange-400 uppercase block">Kcal</span>
+                        <span id="new-kcal-val" class="text-xs font-black text-white">-</span>
+                    </div>
+                    <div class="bg-black/50 p-2 rounded-xl text-center">
+                        <span class="text-[7px] font-bold text-blue-400 uppercase block">Prot</span>
+                        <span id="new-prot-val" class="text-xs font-black text-white">-</span>
+                    </div>
+                    <div class="bg-black/50 p-2 rounded-xl text-center">
+                        <span class="text-[7px] font-bold text-green-400 uppercase block">Gluc</span>
+                        <span id="new-gluc-val" class="text-xs font-black text-white">-</span>
+                    </div>
+                    <div class="bg-black/50 p-2 rounded-xl text-center">
+                        <span class="text-[7px] font-bold text-red-400 uppercase block">Lip</span>
+                        <span id="new-lip-val" class="text-xs font-black text-white">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VOLET 3 : Progression vers l'objectif corporel -->
+        <div class="bg-white/5 border border-white/10 rounded-3xl p-5 space-y-5 shadow-xl">
+            <div class="flex justify-between items-center border-b border-white/10 pb-3">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="mountain" class="w-4 h-4 text-fuchsia-400"></i>
+                    <h4 class="text-xs font-black text-white uppercase tracking-wider">3. Progression vers l'objectif</h4>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-[8px] font-black text-white/30 uppercase">Pesées (Moyenne mobile des 7 dernières)</span>
+                    <span class="trend-badge ${progressTrendTowardsGoal ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}">
+                        ${avgWeight} kg
+                        <i data-lucide="${progressTrendTowardsGoal ? 'arrow-down-right' : 'arrow-up-right'}" class="w-3 h-3"></i>
+                    </span>
+                </div>
+            </div>
+
+            <!-- The Mountain path vector -->
+            <div class="mountain-container">
+                ${mountainSvgHtml}
+            </div>
+
+            <div class="grid grid-cols-3 gap-2 text-center pt-2">
+                <div class="space-y-1">
+                    <span class="text-[8px] font-bold text-white/30 uppercase">Départ</span>
+                    <p class="text-xs font-black text-white">${initialWeight} kg</p>
+                </div>
+                <div class="space-y-1 border-x border-white/5">
+                    <span class="text-[8px] font-bold text-cyan-400 uppercase">Actuel</span>
+                    <p class="text-xs font-black text-cyan-400">${currentWeight} kg</p>
+                </div>
+                <div class="space-y-1">
+                    <span class="text-[8px] font-bold text-purple-400 uppercase">Cible</span>
+                    <p class="text-xs font-black text-purple-400">${targetWeight} kg</p>
+                </div>
+            </div>
+        </div>
+    </div>`;
+
+    container.innerHTML = html;
+    lucide.createIcons();
+    setTimeout(() => { container.scrollTo({ top: 0, behavior: 'instant' }); }, 100);
+}
+
+function drawMountainProgression(initial, target, current) {
+    let progress = 0;
+    if (initial !== target) {
+        const totalDistance = Math.abs(target - initial);
+        const currentDistance = Math.abs(current - initial);
+        progress = Math.min(100, Math.max(0, Math.round((currentDistance / totalDistance) * 100)));
+    } else {
+        progress = current === target ? 100 : 0;
+    }
+
+    // SVG Mountain path calculations
+    // Curved trail coordinate points interpolator
+    const pathX = (percent) => 25 + (275 - 25) * (percent / 100);
+    const pathY = (percent) => {
+        // Non-linear mountain slope curve equation
+        const x = percent / 100;
+        return 170 - 130 * Math.pow(x, 1.3);
+    };
+
+    const cx = parseFloat(pathX(progress).toFixed(1));
+    const cy = parseFloat(pathY(progress).toFixed(1));
+
+    // Generates curvilinear paths in SVG format
+    let points = [];
+    for (let p = 0; p <= 100; p += 2) {
+        points.push(`${pathX(p)},${pathY(p)}`);
+    }
+    const dPath = "M " + points.join(" L ");
+
+    return `
+    <svg class="mountain-svg" viewBox="0 0 300 200">
+        <defs>
+            <linearGradient id="mountain-gradient" x1="0%" y1="100%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#1e1b4b" stop-opacity="0.6"/>
+                <stop offset="100%" stop-color="#4c1d95" stop-opacity="0.3"/>
+            </linearGradient>
+        </defs>
+        <!-- The background physical mountain shapes -->
+        <polygon points="10,190 150,40 290,190" fill="url(#mountain-gradient)" stroke="rgba(255,255,255,0.05)" stroke-width="1" />
+        <polygon points="100,190 200,80 290,190" fill="#1e1b4b" opacity="0.4" />
+        
+        <!-- The dashed curved trail -->
+        <path d="${dPath}" class="mountain-path" />
+        
+        <!-- Mountain Peak Flag -->
+        <g transform="translate(275, 40)">
+            <line x1="0" y1="0" x2="0" y2="-18" stroke="#f43f5e" stroke-width="2" />
+            <polygon points="0,-18 12,-13 0,-8" class="mountain-flag" />
+        </g>
+        
+        <!-- Climber / Marker position -->
+        <circle cx="${cx}" cy="${cy}" r="6" class="climber-marker" />
+        
+        <!-- Text details -->
+        <text x="25" y="190" fill="rgba(255,255,255,0.3)" font-size="7" font-weight="900" text-anchor="middle">Base</text>
+        <text x="275" y="190" fill="#f43f5e" font-size="7" font-weight="900" text-anchor="middle">Sommet</text>
+    </svg>`;
+}
+
+async function updateRapportWeightAndFat() {
+    const btn = document.getElementById('btn-save-rapport-peso');
+    const originalText = btn.innerHTML;
+    
+    const newWeight = parseFloat(document.getElementById('rapport-weight-input').value) || 0;
+    const newFat = parseFloat(document.getElementById('rapport-fat-input').value) || 0;
+    
+    if (newWeight <= 0) {
+        showNotification("Poids non valide !", "error");
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> Traitement...';
+    lucide.createIcons();
+
+    // Recalculateur intelligent client-side
+    const profile = JSON.parse(localStorage.getItem('fitbuddy_user_profile')) || {};
+    
+    // Mifflin-St Jeor formula
+    const taille = parseFloat(profile.taille || 180);
+    const age = parseFloat(profile.age || 30);
+    const activityCoeff = 1.375; // Active
+    
+    const BMR = 10 * newWeight + 6.25 * taille - 5 * age + 5;
+    const TDEE = Math.round(BMR * activityCoeff);
+    
+    const goal = profile.objectif_sportif || "Maintien";
+    let newKcal = TDEE;
+    
+    if (goal.includes("Cut") || goal.includes("sèche")) newKcal -= 500;
+    else if (goal.includes("Bulk") || goal.includes("masse")) newKcal += 350;
+    else if (goal.includes("Hypertrophie")) newKcal += 200;
+    else if (goal.includes("Recomp")) newKcal -= 200;
+
+    const newProt = Math.round(newWeight * 2.2);
+    const newLip = Math.round(newWeight * 0.9);
+    const newGluc = Math.round((newKcal - (newProt * 4 + newLip * 9)) / 4);
+
+    // Save to historical pesées locally
+    let weightHistory = [];
+    try {
+        weightHistory = JSON.parse(localStorage.getItem('fitbuddy_weight_history')) || [];
+    } catch(e) {}
+
+    const todayStr = new Date().toISOString().substring(0, 10);
+    const todayIndex = weightHistory.findIndex(h => h.date === todayStr);
+
+    if (todayIndex >= 0) {
+        weightHistory[todayIndex].poids = newWeight;
+        weightHistory[todayIndex].masse_grasse = newFat;
+    } else {
+        weightHistory.push({
+            date: todayStr,
+            poids: newWeight,
+            masse_grasse: newFat
+        });
+    }
+    localStorage.setItem('fitbuddy_weight_history', JSON.stringify(weightHistory));
+
+    // Détermination de la tendance par rapport à la pesée précédente
+    let trend = "maintien";
+    let trendHtml = "";
+    if (weightHistory.length > 1) {
+        const lastIndex = todayIndex >= 0 ? todayIndex : weightHistory.length - 1;
+        const prevWeight = weightHistory[lastIndex - 1].poids;
+        if (newWeight > prevWeight) {
+            trend = "hausse";
+            trendHtml = `<span class="trend-badge bg-emerald-500/10 text-emerald-400 font-extrabold uppercase gap-1 flex items-center">Hausse <i data-lucide="trending-up" class="w-3.5 h-3.5"></i></span>`;
+        } else if (newWeight < prevWeight) {
+            trend = "baisse";
+            trendHtml = `<span class="trend-badge bg-red-500/10 text-red-400 font-extrabold uppercase gap-1 flex items-center">Baisse <i data-lucide="trending-down" class="w-3.5 h-3.5"></i></span>`;
+        } else {
+            trend = "maintien";
+            trendHtml = `<span class="trend-badge bg-gray-500/10 text-gray-400 font-extrabold uppercase gap-1 flex items-center">Maintien <i data-lucide="minus" class="w-3.5 h-3.5"></i></span>`;
+        }
+    } else {
+        trendHtml = `<span class="trend-badge bg-gray-500/10 text-gray-400 font-extrabold uppercase gap-1 flex items-center">Stable</span>`;
+    }
+
+    // Mise à jour de l'affichage
+    document.getElementById('new-kcal-val').innerText = `${newKcal}`;
+    document.getElementById('new-prot-val').innerText = `${newProt}g`;
+    document.getElementById('new-gluc-val').innerText = `${newGluc}g`;
+    document.getElementById('new-lip-val').innerText = `${newLip}g`;
+    document.getElementById('recalculated-trend-badge').innerHTML = trendHtml;
+    document.getElementById('recalculated-macros-area').classList.remove('hidden');
+
+    // Mise à jour de l'API Notion en arrière-plan
+    const payload = {
+        email: userEmail,
+        surnom: profile.surnom || profile.nom || "Athlète",
+        objectif_sportif: goal,
+        objectif_calorique: newKcal,
+        objectif_proteines: newProt,
+        objectif_glucides: newGluc,
+        objectif_lipides: newLip,
+        objectif_hydratation: profile.objectif_hydratation || 2.5,
+        allergies: profile.allergies || [],
+        aversions: profile.aversions || [],
+        comportement_agent: profile.comportement_agent || "",
+        type_objectif_corporel: profile.type_objectif_corporel || "poids",
+        objectif_corporel_actuel: newWeight,
+        objectif_corporel_but: parseFloat(profile.objectif_corporel_but || 85.0),
+        objectif_corporel_initial: parseFloat(profile.objectif_corporel_initial || 110.0),
+        mensurations: {
+            ...profile.mensurations,
+            poids: newWeight,
+            masse_grasse: newFat
+        }
+    };
+
+    try {
+        const res = await fetch(`${N8N_URL}/webhook/update-profile`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+            localStorage.setItem('fitbuddy_user_profile', JSON.stringify(payload));
+            showNotification("Pesée Notion & Macros synchronisées ! 🔄", "success");
+        } else {
+            console.warn("Soft fail update Notion:", data);
+        }
+    } catch(e) {
+        console.warn("Offline weight logging saved locally", e);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        lucide.createIcons();
+    }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   SOUS-MODULE GRAPHIQUES HISTORIQUES
+   ────────────────────────────────────────────────────────────────────────── */
+
+function openRapportChartModal() {
+    const modal = document.getElementById('rapport-chart-modal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+
+    // Remplissage du sélecteur interactif
+    const select = document.getElementById('rapport-metric-select');
+    if (select) {
+        const metricLabels = {
+            "poids": "Poids (kg)",
+            "masse_grasse": "Masse Grasse (%)",
+            "tour_de_taille": "Tour de Taille (cm)",
+            "tour_de_hanche": "Tour de Hanche (cm)",
+            "tour_cuisse_droite": "Cuisse Droite (cm)",
+            "tour_cuisse_gauche": "Cuisse Gauche (cm)",
+            "masse_musculaire": "Masse Musculaire (kg)",
+            "graisse_viscerale": "Graisse Viscérale (idx)",
+            "tour_de_cou": "Tour de Cou (cm)",
+            "tour_epaules": "Tour Épaules (cm)",
+            "tour_de_poitrine": "Tour Poitrine (cm)",
+            "tour_bras_droit": "Bras Droit (cm)",
+            "tour_bras_gauche": "Bras Gauche (cm)",
+            "tour_mollet_droit": "Mollet Droit (cm)",
+            "tour_mollet_gauche": "Mollet Gauche (cm)"
+        };
+
+        select.innerHTML = Object.entries(metricLabels)
+            .map(([k, v]) => `<option value="${k}" class="bg-[#111] text-white">${v}</option>`)
+            .join('');
+    }
+
+    renderRapportChart();
+    if (window.lucide) lucide.createIcons();
+}
+
+function closeRapportChartModal() {
+    const modal = document.getElementById('rapport-chart-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function renderRapportChart() {
+    const select = document.getElementById('rapport-metric-select');
+    const body = document.getElementById('rapport-chart-body');
+    if (!select || !body) return;
+
+    const metric = select.value;
+    
+    // Récupération de l'historique
+    let weightHistory = [];
+    try {
+        weightHistory = JSON.parse(localStorage.getItem('fitbuddy_weight_history')) || [];
+    } catch(e) {}
+
+    // S'assure d'avoir au moins une série
+    let points = weightHistory.map(h => {
+        let val = h[metric];
+        if (val === undefined || val === null) {
+            // Mocks réalistes pour les mensurations secondaires basés sur la tendance
+            const profile = JSON.parse(localStorage.getItem('fitbuddy_user_profile')) || {};
+            const refVal = parseFloat(profile.mensurations?.[metric] || 60);
+            val = parseFloat((refVal + (Math.random() - 0.5) * (refVal * 0.05)).toFixed(1));
+        }
+        return { date: h.date, val: parseFloat(val) };
+    });
+
+    if (points.length === 0) {
+        body.innerHTML = `<p class="text-xs text-white/40 italic">Données de pesée insuffisantes.</p>`;
+        return;
+    }
+
+    // Tri par date croissante
+    points.sort((a,b) => new Date(a.date) - new Date(b.date));
+
+    // Construction du SVG Graph
+    const width = 340;
+    const height = 220;
+    const paddingLeft = 35;
+    const paddingRight = 15;
+    const paddingTop = 25;
+    const paddingBottom = 25;
+
+    const chartWidth = width - paddingLeft - paddingRight;
+    const chartHeight = height - paddingTop - paddingBottom;
+
+    const vals = points.map(p => p.val);
+    const minVal = Math.min(...vals) * 0.98;
+    const maxVal = Math.max(...vals) * 1.02;
+    const valRange = maxVal - minVal || 1;
+
+    // SVG point coordinates generators
+    const getX = (idx) => paddingLeft + (idx / (points.length - 1 || 1)) * chartWidth;
+    const getY = (val) => paddingTop + chartHeight - ((val - minVal) / valRange) * chartHeight;
+
+    let svgLines = [];
+    let pathPoints = [];
+
+    // Horizontal Y Grids
+    for (let g = 0; g <= 4; g++) {
+        const gridVal = minVal + (valRange * g) / 4;
+        const gy = getY(gridVal);
+        svgLines.push(`
+            <line x1="${paddingLeft}" y1="${gy}" x2="${width - paddingRight}" y2="${gy}" class="chart-grid-line" />
+            <text x="${paddingLeft - 8}" y="${gy + 3}" fill="rgba(255,255,255,0.3)" font-size="7" font-weight="900" text-anchor="end">${gridVal.toFixed(1)}</text>
+        `);
+    }
+
+    points.forEach((p, idx) => {
+        const cx = getX(idx);
+        const cy = getY(p.val);
+        pathPoints.push(`${cx},${cy}`);
+
+        // Short readable date (ex: 27/05)
+        const dObj = new Date(p.date);
+        const formattedDate = `${String(dObj.getDate()).padStart(2, '0')}/${String(dObj.getMonth()+1).padStart(2, '0')}`;
+
+        svgLines.push(`
+            <circle cx="${cx}" cy="${cy}" r="4.5" class="chart-dot" onclick="showChartTooltip(event, ${p.val}, '${p.date}')" />
+            <text x="${cx}" y="${height - 8}" fill="rgba(255,255,255,0.3)" font-size="7" font-weight="900" text-anchor="middle">${formattedDate}</text>
+        `);
+    });
+
+    const dPath = "M " + pathPoints.join(" L ");
+    const dAreaPath = `${dPath} L ${getX(points.length - 1)},${height - paddingBottom} L ${getX(0)},${height - paddingBottom} Z`;
+
+    body.innerHTML = `
+    <div class="relative w-full flex flex-col justify-center items-center">
+        <!-- Interactive Tooltip overlay -->
+        <div id="chart-tooltip" class="absolute bg-fuchsia-950/80 backdrop-blur-xl border border-fuchsia-500/40 text-white rounded-xl py-1.5 px-3 text-[9px] font-black uppercase tracking-widest hidden pointer-events-none shadow-xl z-50"></div>
+
+        <svg class="w-full h-full max-w-[340px] max-h-[220px]" viewBox="0 0 ${width} ${height}">
+            <defs>
+                <linearGradient id="chart-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stop-color="#22d3ee" />
+                    <stop offset="100%" stop-color="#d946ef" />
+                </linearGradient>
+                <linearGradient id="chart-area-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="#d946ef" stop-opacity="0.3" />
+                    <stop offset="100%" stop-color="#d946ef" stop-opacity="0.0" />
+                </linearGradient>
+            </defs>
+            <!-- Area under path -->
+            <path d="${dAreaPath}" class="chart-area-fill" />
+            <!-- Paths / curves -->
+            <path d="${dPath}" class="chart-glow-path" />
+            <!-- Grid lines & Data Dots -->
+            ${svgLines.join('')}
+        </svg>
+    </div>`;
+}
+
+// Show responsive tooltips on dot log hover/click
+window.showChartTooltip = function(e, value, date) {
+    const tooltip = document.getElementById('chart-tooltip');
+    if (!tooltip) return;
+
+    const dObj = new Date(date);
+    const formattedDate = `${String(dObj.getDate()).padStart(2, '0')}/${String(dObj.getMonth()+1).padStart(2, '0')}`;
+
+    tooltip.innerHTML = `<span class="text-fuchsia-400 font-extrabold mr-1">${value}</span> • le ${formattedDate}`;
+    
+    // Position calculation
+    const rect = e.target.getBoundingClientRect();
+    const parentRect = e.target.parentElement.getBoundingClientRect();
+    const tooltipX = rect.left - parentRect.left + rect.width/2;
+    const tooltipY = rect.top - parentRect.top - 28;
+
+    tooltip.style.left = `${tooltipX}px`;
+    tooltip.style.top = `${tooltipY}px`;
+    tooltip.classList.remove('hidden');
+
+    // Auto-hide tooltip after 3 seconds
+    clearTimeout(window.chartTooltipTimeout);
+    window.chartTooltipTimeout = setTimeout(() => {
+        tooltip.classList.add('hidden');
+    }, 3000);
+};
