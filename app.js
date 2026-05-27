@@ -2696,13 +2696,51 @@ function openIngredientSearchModal(row = null) {
                     timestamp: new Date().toISOString()
                 };
                 
-                const res = await fetch(`${N8N_URL}/webhook/add-and-log-aliment`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', "ngrok-skip-browser-warning": "69420" },
-                    body: JSON.stringify(payload)
-                });
+                let res;
+                let isWebhookAvailable = true;
+                try {
+                    res = await fetch(`${N8N_URL}/webhook/add-and-log-aliment`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', "ngrok-skip-browser-warning": "69420" },
+                        body: JSON.stringify(payload)
+                    });
+                    if (res.status === 404) {
+                        isWebhookAvailable = false;
+                    }
+                } catch (fetchErr) {
+                    isWebhookAvailable = false;
+                }
                 
-                if (!res.ok) throw new Error("Erreur de sauvegarde et log");
+                // Fallback to Webhook 1 (add-aliment) if Webhook 4 (add-and-log-aliment) is not active yet!
+                if (!isWebhookAvailable || (res && !res.ok && res.status !== 500)) {
+                    console.log("add-and-log-aliment (Webhook 4) not available or failed. Falling back to add-aliment (Webhook 1)...");
+                    
+                    const fallbackPayload = {
+                        email: userEmail,
+                        nom: nom,
+                        kcal: kcal,
+                        prot: prot,
+                        gluc: gluc,
+                        lip: lip,
+                        unite_spe: unite_spe,
+                        poids_ref: poids_ref
+                    };
+                    
+                    const resAdd = await fetch(`${N8N_URL}/webhook/add-aliment`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', "ngrok-skip-browser-warning": "69420" },
+                        body: JSON.stringify(fallbackPayload)
+                    });
+                    
+                    if (!resAdd.ok) throw new Error("Erreur de sauvegarde fallback");
+                    
+                    alert("Aliment créé dans la base Notion ! Note : La consommation n'a pas pu être enregistrée car le webhook de suivi macro (webhook 4) n'est pas encore créé sur n8n.");
+                    closeNewAlimentModal();
+                    closeIngredientSearchModal();
+                    return;
+                }
+                
+                if (res && !res.ok) throw new Error("Erreur de sauvegarde et log");
                 
                 closeNewAlimentModal();
                 closeIngredientSearchModal();
