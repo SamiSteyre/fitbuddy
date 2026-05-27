@@ -9,6 +9,8 @@
     let currentList = [];
     let isListening = false;
     let recipesCache = []; 
+    let searchModalMode = "recipe"; 
+    let activeConsumedFood = null; 
 
     window.addEventListener('load', () => { 
         lucide.createIcons();
@@ -32,6 +34,18 @@
     window.handleIngredientSearchModalInput = handleIngredientSearchModalInput;
     window.addCustomIngredientFromModal = addCustomIngredientFromModal;
     window.selectIngredientFromModal = selectIngredientFromModal;
+
+    // Features: Fiche nutritionnelle IA & Suivi Macro individuel
+    window.openMacroFoodPicker = openMacroFoodPicker;
+    window.openNewAlimentModal = openNewAlimentModal;
+    window.closeNewAlimentModal = closeNewAlimentModal;
+    window.togglePoidsRefField = togglePoidsRefField;
+    window.toggleNewAlimentLogQty = toggleNewAlimentLogQty;
+    window.analyzeNutritionLabel = analyzeNutritionLabel;
+    window.submitNewAliment = submitNewAliment;
+    window.openConsumeFoodQtyModal = openConsumeFoodQtyModal;
+    window.closeConsumeFoodQtyModal = closeConsumeFoodQtyModal;
+    window.submitConsumeFoodQty = submitConsumeFoodQty;
 
     let otpTimerInterval = null;
 
@@ -1659,6 +1673,10 @@ function openAiGenerationModal() {
                 <i data-lucide="utensils" class="w-4 h-4 text-cyan-400"></i>
                 <span class="text-[11px] font-black text-cyan-400 uppercase tracking-widest">Ajouter un repas aux macros</span>
             </button>
+            <button onclick="openMacroFoodPicker()" class="w-full flex items-center justify-center gap-3 p-4 rounded-2xl border border-cyan-500/30 bg-cyan-500/5 active:scale-95 transition-transform mt-2">
+                <i data-lucide="apple" class="w-4 h-4 text-cyan-400"></i>
+                <span class="text-[11px] font-black text-cyan-400 uppercase tracking-widest">Ajouter un aliment aux macros</span>
+            </button>
 
             <!-- NOUVEAU BOUTON DISCRET -->
             <button onclick="openMacroGoalsModal()" class="w-full mt-4 py-2 text-center text-[9px] font-bold text-white/20 hover:text-white/50 uppercase tracking-widest transition-colors">
@@ -2200,6 +2218,9 @@ function recalculateDuration() {
 function openIngredientSearchModal(row = null) {
         console.log("DEBUG: openIngredientSearchModal called with row:", row);
         activeEditingRow = row;
+        if (row !== null) {
+            searchModalMode = "recipe";
+        }
         const modal = document.getElementById('ingredient-search-modal');
         console.log("DEBUG: modal element found:", modal);
         if (modal) {
@@ -2212,9 +2233,29 @@ function openIngredientSearchModal(row = null) {
         console.log("DEBUG: input element found:", input);
         if (input) {
             input.value = "";
+            if (searchModalMode === "macro") {
+                input.placeholder = "Rechercher un aliment aux macros...";
+            } else {
+                input.placeholder = "Rechercher un ingrédient...";
+            }
             document.getElementById('ingredient-search-results').innerHTML = '<p class="text-[10px] text-white/20 text-center py-4 italic">Saisissez au moins 2 caractères pour rechercher</p>';
             setTimeout(() => input.focus(), 100);
         }
+
+        const btnCustom = document.getElementById('btn-custom-ingredient');
+        if (btnCustom) {
+            if (searchModalMode === "macro") {
+                btnCustom.innerHTML = `<i data-lucide="plus-circle" class="w-4 h-4"></i> Ajouter et consommer cet aliment`;
+                btnCustom.onclick = () => {
+                    const query = document.getElementById('ingredient-search-input').value.trim();
+                    openNewAlimentModal(query);
+                };
+            } else {
+                btnCustom.innerHTML = `<i data-lucide="plus-circle" class="w-4 h-4"></i> Ajouter un ingrédient personnalisé`;
+                btnCustom.onclick = () => addCustomIngredientFromModal();
+            }
+        }
+
         if (window.lucide) lucide.createIcons();
     }
 
@@ -2248,16 +2289,28 @@ function openIngredientSearchModal(row = null) {
                 const aliments = await res.json();
                 
                 if (aliments && aliments.length > 0) {
-                    resultsContainer.innerHTML = aliments.map(a => `
+                    resultsContainer.innerHTML = aliments.map(a => {
+                        const nameEscaped = a.nom.replace(/'/g, "\\'");
+                        const uniteSpeEscaped = (a.unite_spe || '').replace(/'/g, "\\'");
+                        
+                        let clickHandler = "";
+                        if (searchModalMode === "macro") {
+                            clickHandler = `openConsumeFoodQtyModal('${a.id}', '${nameEscaped}', ${a.kcal_100g || 0}, ${a.prot_100g || 0}, ${a.gluc_100g || 0}, ${a.lip_100g || 0}, '${uniteSpeEscaped}', ${a.poids_ref || 1})`;
+                        } else {
+                            clickHandler = `selectIngredientFromModal('${a.id}', '${nameEscaped}', ${a.kcal_100g || 0}, ${a.prot_100g || 0}, ${a.gluc_100g || 0}, ${a.lip_100g || 0}, '${uniteSpeEscaped}', ${a.poids_ref || 1})`;
+                        }
+                        
+                        return `
                         <div class="p-4 bg-white/[0.02] border border-white/5 rounded-xl flex items-center justify-between cursor-pointer hover:bg-cyan-500/10 active:scale-[0.98] transition-all"
-                             onclick="selectIngredientFromModal('${a.id}', '${a.nom.replace(/'/g, "\\'")}', ${a.kcal_100g}, ${a.prot_100g}, ${a.gluc_100g}, ${a.lip_100g}, '${a.unite_spe || ''}', ${a.poids_ref || 0})">
+                             onclick="${clickHandler}">
                             <div class="text-left pr-4">
                                 <p class="text-xs font-bold text-white">${a.nom}</p>
                                 <p class="text-[9px] text-white/40 mt-0.5">${a.unite_spe ? `1 ${a.unite_spe} = ${a.poids_ref}g | ` : ''}${a.kcal_100g} kcal/100g</p>
                             </div>
                             <i data-lucide="plus" class="w-4 h-4 text-cyan-400 flex-none"></i>
                         </div>
-                    `).join('');
+                        `;
+                    }).join('');
                 } else {
                     resultsContainer.innerHTML = '<p class="text-[10px] text-white/20 text-center py-4 italic">Aucun aliment trouvé</p>';
                 }
@@ -2364,6 +2417,404 @@ function openIngredientSearchModal(row = null) {
         closeIngredientSearchModal();
         lucide.createIcons();
         recalculateMacros();
+    }
+
+    /* --- NOUVELLES FONCTIONS : FICHE NUTRITIONNELLE IA & SUIVI MACRO INDIVIDUEL --- */
+
+    function openMacroFoodPicker() {
+        searchModalMode = "macro";
+        openIngredientSearchModal(null);
+    }
+
+    function openNewAlimentModal(prefilledName = "") {
+        const nameInput = document.getElementById('new-aliment-name');
+        if (nameInput) {
+            nameInput.value = prefilledName;
+        }
+        
+        // Reset and clear inputs
+        const kcalInput = document.getElementById('new-aliment-kcal');
+        const protInput = document.getElementById('new-aliment-prot');
+        const glucInput = document.getElementById('new-aliment-gluc');
+        const lipInput = document.getElementById('new-aliment-lip');
+        const unitInput = document.getElementById('new-aliment-unit');
+        const poidsRefInput = document.getElementById('new-aliment-poids-ref');
+        const logCheck = document.getElementById('new-aliment-log-check');
+        const logQty = document.getElementById('new-aliment-log-qty');
+        const fileInput = document.getElementById('nutrition-label-file');
+        
+        if (kcalInput) kcalInput.value = "";
+        if (protInput) protInput.value = "";
+        if (glucInput) glucInput.value = "";
+        if (lipInput) lipInput.value = "";
+        if (unitInput) unitInput.value = "Grammes";
+        if (poidsRefInput) poidsRefInput.value = 1;
+        if (fileInput) fileInput.value = "";
+        
+        // Toggle the "J'ai mangé cet aliment" checkbox visibility based on mode
+        const logCheckboxContainer = document.getElementById('new-aliment-log-checkbox-container');
+        if (logCheckboxContainer) {
+            if (searchModalMode === "macro") {
+                logCheckboxContainer.classList.remove('hidden');
+                if (logCheck) logCheck.checked = true;
+            } else {
+                logCheckboxContainer.classList.add('hidden');
+                if (logCheck) logCheck.checked = false;
+            }
+        }
+        
+        if (logQty) logQty.value = 100;
+        
+        togglePoidsRefField();
+        toggleNewAlimentLogQty();
+        
+        const modal = document.getElementById('new-aliment-modal');
+        if (modal) {
+            modal.style.display = 'flex';
+        }
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function closeNewAlimentModal() {
+        const modal = document.getElementById('new-aliment-modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    function togglePoidsRefField() {
+        const unitSelect = document.getElementById('new-aliment-unit');
+        const poidsRefContainer = document.getElementById('new-aliment-poids-ref-container');
+        const poidsRefInput = document.getElementById('new-aliment-poids-ref');
+        
+        if (unitSelect && unitSelect.value === 'Grammes') {
+            if (poidsRefContainer) poidsRefContainer.classList.add('hidden');
+            if (poidsRefInput) poidsRefInput.value = 1;
+        } else {
+            if (poidsRefContainer) poidsRefContainer.classList.remove('hidden');
+            if (poidsRefInput && poidsRefInput.value === "1") poidsRefInput.value = "";
+        }
+        toggleNewAlimentLogQty();
+    }
+
+    function toggleNewAlimentLogQty() {
+        const logCheck = document.getElementById('new-aliment-log-check');
+        const qtyContainer = document.getElementById('new-aliment-log-qty-container');
+        const unitSelect = document.getElementById('new-aliment-unit');
+        const logUnitSelect = document.getElementById('new-aliment-log-unit-select');
+        const logQtyInput = document.getElementById('new-aliment-log-qty');
+        
+        if (logCheck && logCheck.checked) {
+            if (qtyContainer) qtyContainer.classList.remove('hidden');
+            if (logUnitSelect && unitSelect) {
+                let options = `<option value="Grammes">g</option>`;
+                const unitVal = unitSelect.value;
+                if (unitVal && unitVal !== "Grammes") {
+                    options += `<option value="${unitVal}">${unitVal}</option>`;
+                }
+                logUnitSelect.innerHTML = options;
+                if (unitVal && unitVal !== "Grammes") {
+                    logUnitSelect.value = unitVal;
+                    if (logQtyInput && (logQtyInput.value === "100" || logQtyInput.value === "")) logQtyInput.value = 1;
+                } else {
+                    logUnitSelect.value = "Grammes";
+                    if (logQtyInput && (logQtyInput.value === "1" || logQtyInput.value === "")) logQtyInput.value = 100;
+                }
+            }
+        } else {
+            if (qtyContainer) qtyContainer.classList.add('hidden');
+        }
+    }
+
+    async function analyzeNutritionLabel(input) {
+        if (!input.files || input.files.length === 0) return;
+        const file = input.files[0];
+        
+        const btn = document.getElementById('btn-analyze-label');
+        const originalText = btn ? btn.innerHTML : "Analyser l'étiquette (Photo IA)";
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> Analyse en cours...`;
+            if (window.lucide) lucide.createIcons();
+        }
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        try {
+            const res = await fetch(`${N8N_URL}/webhook/analyze-nutrition-label`, {
+                method: 'POST',
+                headers: { "ngrok-skip-browser-warning": "69420" },
+                body: formData
+            });
+            const data = await res.json();
+            
+            // Accept both short-form (kcal/p/g/l) and long-form keys
+            const kcal = data.kcal || data.calories || 0;
+            const prot = data.p || data.prot || data.proteines || 0;
+            const gluc = data.g || data.gluc || data.glucides || 0;
+            const lip = data.l || data.lip || data.lipides || 0;
+            
+            const kcalInput = document.getElementById('new-aliment-kcal');
+            const protInput = document.getElementById('new-aliment-prot');
+            const glucInput = document.getElementById('new-aliment-gluc');
+            const lipInput = document.getElementById('new-aliment-lip');
+            
+            if (kcalInput) kcalInput.value = kcal;
+            if (protInput) protInput.value = prot;
+            if (glucInput) glucInput.value = gluc;
+            if (lipInput) lipInput.value = lip;
+            
+        } catch (e) {
+            console.error("Erreur d'analyse d'image par l'IA:", e);
+            alert("Erreur lors de l'analyse de l'image. Veuillez saisir les valeurs manuellement.");
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+                if (window.lucide) lucide.createIcons();
+            }
+        }
+    }
+
+    async function submitNewAliment() {
+        const nom = document.getElementById('new-aliment-name').value.trim();
+        const kcal = parseFloat(document.getElementById('new-aliment-kcal').value) || 0;
+        const prot = parseFloat(document.getElementById('new-aliment-prot').value) || 0;
+        const gluc = parseFloat(document.getElementById('new-aliment-gluc').value) || 0;
+        const lip = parseFloat(document.getElementById('new-aliment-lip').value) || 0;
+        const unite_spe = document.getElementById('new-aliment-unit').value;
+        const poids_ref = parseFloat(document.getElementById('new-aliment-poids-ref').value) || 1;
+        
+        if (!nom) {
+            alert("Veuillez saisir un nom pour l'aliment.");
+            return;
+        }
+        
+        const logCheck = document.getElementById('new-aliment-log-check');
+        const isLogged = logCheck && logCheck.checked;
+        
+        const btn = document.getElementById('btn-confirm-new-aliment');
+        if (btn) btn.disabled = true;
+        
+        try {
+            if (isLogged) {
+                const qte = parseFloat(document.getElementById('new-aliment-log-qty').value) || 1;
+                const uniteConso = document.getElementById('new-aliment-log-unit-select').value;
+                
+                let rawWeight = qte;
+                if (uniteConso !== 'Grammes') {
+                    rawWeight = qte * poids_ref;
+                }
+                
+                const total_kcal = (kcal / 100) * rawWeight;
+                const total_prot = (prot / 100) * rawWeight;
+                const total_glu = (gluc / 100) * rawWeight;
+                const total_lip = (lip / 100) * rawWeight;
+                
+                const payload = {
+                    email: userEmail,
+                    userName: localStorage.getItem('fitbuddy_user_name') || "",
+                    nom: nom,
+                    kcal: kcal,
+                    prot: prot,
+                    gluc: gluc,
+                    lip: lip,
+                    kcal_100g: kcal,
+                    prot_100g: prot,
+                    gluc_100g: gluc,
+                    lip_100g: lip,
+                    unite_spe: unite_spe,
+                    poids_ref: poids_ref,
+                    quantite: qte,
+                    unite: uniteConso,
+                    total_kcal: total_kcal,
+                    total_prot: total_prot,
+                    total_glu: total_glu,
+                    total_lip: total_lip,
+                    timestamp: new Date().toISOString()
+                };
+                
+                const res = await fetch(`${N8N_URL}/webhook/add-and-log-aliment`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', "ngrok-skip-browser-warning": "69420" },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (!res.ok) throw new Error("Erreur de sauvegarde et log");
+                
+                closeNewAlimentModal();
+                closeIngredientSearchModal();
+                triggerQuickAction('macros');
+            } else {
+                const payload = {
+                    email: userEmail,
+                    nom: nom,
+                    kcal: kcal,
+                    prot: prot,
+                    gluc: gluc,
+                    lip: lip,
+                    unite_spe: unite_spe,
+                    poids_ref: poids_ref
+                };
+                
+                const res = await fetch(`${N8N_URL}/webhook/add-aliment`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', "ngrok-skip-browser-warning": "69420" },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (!res.ok) throw new Error("Erreur de sauvegarde");
+                const newAliment = await res.json();
+                
+                const returnId = newAliment.id || newAliment.pageId || "";
+                
+                closeNewAlimentModal();
+                
+                if (searchModalMode === "recipe") {
+                    selectIngredientFromModal(
+                        returnId, 
+                        nom, 
+                        kcal, 
+                        prot, 
+                        gluc, 
+                        lip, 
+                        unite_spe, 
+                        poids_ref
+                    );
+                } else {
+                    closeIngredientSearchModal();
+                }
+            }
+        } catch (err) {
+            console.error("Erreur d'ajout de l'aliment:", err);
+            alert("Erreur lors de la création de l'aliment. Veuillez réessayer.");
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    }
+
+    function openConsumeFoodQtyModal(id, nom, kcal100, prot100, gluc100, lip100, uniteSpe, poidsRef) {
+        activeConsumedFood = { 
+            id: id, 
+            nom: nom, 
+            kcal_100g: kcal100, 
+            prot_100g: prot100, 
+            gluc_100g: gluc100, 
+            lip_100g: lip100, 
+            unite_spe: uniteSpe, 
+            poids_ref: poidsRef 
+        };
+        
+        const nameText = document.getElementById('consume-qty-food-name');
+        if (nameText) nameText.innerText = nom;
+        
+        const unitSelect = document.getElementById('consume-qty-unit-select');
+        const qtyInput = document.getElementById('consume-qty-value');
+        
+        if (unitSelect) {
+            let options = `<option value="Grammes">g (Grammes)</option>`;
+            if (uniteSpe && uniteSpe !== "Grammes") {
+                options += `<option value="${uniteSpe}">${uniteSpe}</option>`;
+            }
+            unitSelect.innerHTML = options;
+            
+            if (uniteSpe && uniteSpe !== "Grammes") {
+                unitSelect.value = uniteSpe;
+                if (qtyInput) qtyInput.value = 1;
+            } else {
+                unitSelect.value = "Grammes";
+                if (qtyInput) qtyInput.value = 100;
+            }
+
+            unitSelect.onchange = () => {
+                if (qtyInput) {
+                    if (unitSelect.value === "Grammes") {
+                        qtyInput.value = 100;
+                    } else {
+                        qtyInput.value = 1;
+                    }
+                }
+            };
+        }
+        
+        const modal = document.getElementById('consume-food-qty-modal');
+        if (modal) modal.style.display = 'flex';
+        
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function closeConsumeFoodQtyModal() {
+        activeConsumedFood = null;
+        const modal = document.getElementById('consume-food-qty-modal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    async function submitConsumeFoodQty() {
+        if (!activeConsumedFood) return;
+        
+        const qtyVal = parseFloat(document.getElementById('consume-qty-value').value) || 0;
+        const unitVal = document.getElementById('consume-qty-unit-select').value;
+        
+        if (qtyVal <= 0) {
+            alert("Veuillez saisir une quantité supérieure à 0.");
+            return;
+        }
+        
+        const btn = document.getElementById('btn-confirm-consume-qty');
+        if (btn) btn.disabled = true;
+        
+        try {
+            const poids_ref = activeConsumedFood.poids_ref || 1;
+            let rawWeight = qtyVal;
+            if (unitVal !== 'Grammes') {
+                rawWeight = qtyVal * poids_ref;
+            }
+            
+            const total_kcal = (activeConsumedFood.kcal_100g / 100) * rawWeight;
+            const total_prot = (activeConsumedFood.prot_100g / 100) * rawWeight;
+            const total_glu = (activeConsumedFood.gluc_100g / 100) * rawWeight;
+            const total_lip = (activeConsumedFood.lip_100g / 100) * rawWeight;
+            
+            const payload = {
+                email: userEmail,
+                userName: localStorage.getItem('fitbuddy_user_name') || "",
+                alimentId: activeConsumedFood.id,
+                nom: activeConsumedFood.nom,
+                kcal_100g: activeConsumedFood.kcal_100g,
+                prot_100g: activeConsumedFood.prot_100g,
+                gluc_100g: activeConsumedFood.gluc_100g,
+                lip_100g: activeConsumedFood.lip_100g,
+                kcal: activeConsumedFood.kcal_100g,
+                prot: activeConsumedFood.prot_100g,
+                gluc: activeConsumedFood.gluc_100g,
+                lip: activeConsumedFood.lip_100g,
+                quantite: qtyVal,
+                unite: unitVal,
+                total_kcal: total_kcal,
+                total_prot: total_prot,
+                total_glu: total_glu,
+                total_lip: total_lip,
+                timestamp: new Date().toISOString()
+            };
+            
+            const res = await fetch(`${N8N_URL}/webhook/log-consumed-food`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', "ngrok-skip-browser-warning": "69420" },
+                body: JSON.stringify(payload)
+            });
+            
+            if (!res.ok) throw new Error("Erreur de log consommation");
+            
+            closeConsumeFoodQtyModal();
+            closeIngredientSearchModal();
+            triggerQuickAction('macros');
+        } catch (err) {
+            console.error("Erreur de log consommation aliment:", err);
+            alert("Erreur lors de l'enregistrement de votre consommation. Veuillez réessayer.");
+        } finally {
+            if (btn) btn.disabled = false;
+        }
     }
 
 
