@@ -2246,14 +2246,13 @@ function openIngredientSearchModal(row = null) {
         if (btnCustom) {
             if (searchModalMode === "macro") {
                 btnCustom.innerHTML = `<i data-lucide="plus-circle" class="w-4 h-4"></i> Ajouter et consommer cet aliment`;
-                btnCustom.onclick = () => {
-                    const query = document.getElementById('ingredient-search-input').value.trim();
-                    openNewAlimentModal(query);
-                };
             } else {
                 btnCustom.innerHTML = `<i data-lucide="plus-circle" class="w-4 h-4"></i> Ajouter un ingrédient personnalisé`;
-                btnCustom.onclick = () => addCustomIngredientFromModal();
             }
+            btnCustom.onclick = () => {
+                const query = document.getElementById('ingredient-search-input').value.trim();
+                openNewAlimentModal(query);
+            };
         }
 
         if (window.lucide) lucide.createIcons();
