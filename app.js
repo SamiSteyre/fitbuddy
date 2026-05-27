@@ -2202,7 +2202,7 @@ let searchTimeout;
                 const aliments = await res.json();
                 if (aliments && aliments.length > 0 && list) {
                     list.innerHTML = aliments.map(a => `
-                        <div class="px-4 py-2 hover:bg-cyan-500/20 cursor-pointer text-xs text-white border-b border-white/5" onpointerdown="event.preventDefault(); selectIngredient(this, '${a.id}', '${a.nom.replace(/'/g, "\\'")}', ${a.kcal_100g}, ${a.prot_100g}, ${a.gluc_100g}, ${a.lip_100g}, '${a.unite_spe || ''}', ${a.poids_ref || 0})">
+                        <div class="px-4 py-2 hover:bg-cyan-500/20 cursor-pointer text-xs text-white border-b border-white/5" onmousedown="event.preventDefault();" onclick="selectIngredient(this, '${a.id}', '${a.nom.replace(/'/g, "\\'")}', ${a.kcal_100g}, ${a.prot_100g}, ${a.gluc_100g}, ${a.lip_100g}, '${a.unite_spe || ''}', ${a.poids_ref || 0})">
                             ${a.nom} <span class="text-[8px] text-cyan-400 ml-2">${a.kcal_100g}kcal/100g</span>
                         </div>`).join('');
                     list.classList.remove('hidden');
