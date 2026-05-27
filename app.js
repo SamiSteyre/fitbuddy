@@ -2726,9 +2726,21 @@ function openIngredientSearchModal(row = null) {
                 });
                 
                 if (!res.ok) throw new Error("Erreur de sauvegarde");
-                const newAliment = await res.json();
                 
-                const returnId = newAliment.id || newAliment.pageId || "";
+                // Robust parsing to handle non-JSON or default n8n "Workflow started" text responses safely
+                let returnId = "";
+                try {
+                    const responseText = await res.text();
+                    try {
+                        const newAliment = JSON.parse(responseText);
+                        const dataObj = Array.isArray(newAliment) ? newAliment[0] : newAliment;
+                        returnId = dataObj.id || dataObj.pageId || "";
+                    } catch (jsonErr) {
+                        console.warn("Could not parse n8n webhook response as JSON (default response text?). Falling back to custom row.", jsonErr);
+                    }
+                } catch (textErr) {
+                    console.warn("Failed to read response body text.", textErr);
+                }
                 
                 closeNewAlimentModal();
                 
