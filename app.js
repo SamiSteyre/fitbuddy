@@ -757,6 +757,7 @@
         ];
         
         const mensurationsPayload = {};
+        mensurationsPayload["email"] = userEmail;
         metricsList.forEach(key => {
             const el = document.getElementById(`m-${key}`);
             if (el && el.value.trim() !== "") {
