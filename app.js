@@ -1454,6 +1454,7 @@ async function deleteRecipe(id) {
 let activeEditingRow = null;
     function addIngredientRow() {
         console.log("DEBUG: addIngredientRow called!");
+        searchModalMode = "recipe";
         openIngredientSearchModal(null);
     }
 
@@ -2266,6 +2267,22 @@ function openIngredientSearchModal(row = null) {
     let modalSearchTimeout;
     async function handleIngredientSearchModalInput(input) {
         const query = input.value.trim();
+        
+        // Dynamically update custom button text
+        const btnCustom = document.getElementById('btn-custom-ingredient');
+        if (btnCustom) {
+            if (query) {
+                btnCustom.innerHTML = `<i data-lucide="plus-circle" class="w-4 h-4"></i> Ajouter "${query}"`;
+            } else {
+                if (searchModalMode === "macro") {
+                    btnCustom.innerHTML = `<i data-lucide="plus-circle" class="w-4 h-4"></i> Ajouter un aliment personnalisé`;
+                } else {
+                    btnCustom.innerHTML = `<i data-lucide="plus-circle" class="w-4 h-4"></i> Ajouter un ingrédient personnalisé`;
+                }
+            }
+            if (window.lucide) lucide.createIcons();
+        }
+
         const resultsContainer = document.getElementById('ingredient-search-results');
         if (!resultsContainer) return;
 
@@ -2576,13 +2593,20 @@ function openIngredientSearchModal(row = null) {
         if (!input.files || input.files.length === 0) return;
         let file = input.files[0];
         
-        const btn = document.getElementById('btn-analyze-label');
-        const originalText = btn ? btn.innerHTML : "Analyser l'étiquette (Photo IA)";
-        if (btn) {
-            btn.disabled = true;
-            btn.innerHTML = `<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> Compression...`;
-            if (window.lucide) lucide.createIcons();
+        const btnCamera = document.getElementById('btn-analyze-camera');
+        const btnGallery = document.getElementById('btn-analyze-gallery');
+        const originalTextCamera = btnCamera ? btnCamera.innerHTML : "Appareil Photo";
+        const originalTextGallery = btnGallery ? btnGallery.innerHTML : "Galerie";
+        
+        if (btnCamera) {
+            btnCamera.disabled = true;
+            btnCamera.innerHTML = `<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> Compression...`;
         }
+        if (btnGallery) {
+            btnGallery.disabled = true;
+            btnGallery.innerHTML = `<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> Compression...`;
+        }
+        if (window.lucide) lucide.createIcons();
         
         try {
             // Compress and resize image if it is an image file
@@ -2595,10 +2619,13 @@ function openIngredientSearchModal(row = null) {
                 }
             }
             
-            if (btn) {
-                btn.innerHTML = `<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> Analyse en cours...`;
-                if (window.lucide) lucide.createIcons();
+            if (btnCamera) {
+                btnCamera.innerHTML = `<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> Analyse...`;
             }
+            if (btnGallery) {
+                btnGallery.innerHTML = `<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> Analyse...`;
+            }
+            if (window.lucide) lucide.createIcons();
             
             const formData = new FormData();
             formData.append('file', file);
@@ -2630,11 +2657,15 @@ function openIngredientSearchModal(row = null) {
             console.error("Erreur d'analyse d'image par l'IA:", e);
             alert("Erreur lors de l'analyse de l'image. Veuillez saisir les valeurs manuellement.");
         } finally {
-            if (btn) {
-                btn.disabled = false;
-                btn.innerHTML = originalText;
-                if (window.lucide) lucide.createIcons();
+            if (btnCamera) {
+                btnCamera.disabled = false;
+                btnCamera.innerHTML = originalTextCamera;
             }
+            if (btnGallery) {
+                btnGallery.disabled = false;
+                btnGallery.innerHTML = originalTextGallery;
+            }
+            if (window.lucide) lucide.createIcons();
         }
     }
 

@@ -523,10 +523,18 @@
                 <!-- Bouton Photo IA -->
                 <div class="bg-purple-950/20 border border-purple-500/20 rounded-2xl p-3 flex flex-col items-center gap-2">
                     <p class="text-[8px] font-bold text-purple-400 uppercase tracking-wider text-center">Remplissage rapide par étiquette</p>
+                    
                     <input type="file" id="nutrition-label-file" class="hidden" accept="image/*" onchange="analyzeNutritionLabel(this)">
-                    <button type="button" id="btn-analyze-label" onclick="document.getElementById('nutrition-label-file').click()" class="w-full bg-purple-600 hover:bg-purple-500 py-2 rounded-xl text-[10px] font-black text-white uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg shadow-purple-500/10">
-                        <i data-lucide="camera" class="w-3.5 h-3.5"></i> Analyser l'étiquette (Photo IA)
-                    </button>
+                    <input type="file" id="nutrition-label-camera" class="hidden" accept="image/*" capture="environment" onchange="analyzeNutritionLabel(this)">
+                    
+                    <div class="grid grid-cols-2 gap-2 w-full">
+                        <button type="button" id="btn-analyze-camera" onclick="document.getElementById('nutrition-label-camera').click()" class="bg-purple-600 hover:bg-purple-500 py-2.5 rounded-xl text-[9px] font-black text-white uppercase tracking-widest flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-lg shadow-purple-500/10">
+                            <i data-lucide="camera" class="w-3.5 h-3.5"></i> Appareil Photo
+                        </button>
+                        <button type="button" id="btn-analyze-gallery" onclick="document.getElementById('nutrition-label-file').click()" class="bg-white/10 hover:bg-white/20 py-2.5 rounded-xl text-[9px] font-black text-white uppercase tracking-widest flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-lg">
+                            <i data-lucide="image" class="w-3.5 h-3.5"></i> Galerie
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Ratios Macros -->
