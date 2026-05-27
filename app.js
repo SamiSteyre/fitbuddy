@@ -1439,6 +1439,7 @@ async function deleteRecipe(id) {
 }
 let activeEditingRow = null;
     function addIngredientRow() {
+        console.log("DEBUG: addIngredientRow called!");
         openIngredientSearchModal(null);
     }
 
@@ -2197,9 +2198,18 @@ function recalculateDuration() {
     }
 
 function openIngredientSearchModal(row = null) {
+        console.log("DEBUG: openIngredientSearchModal called with row:", row);
         activeEditingRow = row;
-        document.getElementById('ingredient-search-modal').style.display = 'flex';
+        const modal = document.getElementById('ingredient-search-modal');
+        console.log("DEBUG: modal element found:", modal);
+        if (modal) {
+            modal.style.display = 'flex';
+            console.log("DEBUG: modal display set to flex!");
+        } else {
+            console.error("DEBUG ERROR: ingredient-search-modal not found in DOM!");
+        }
         const input = document.getElementById('ingredient-search-input');
+        console.log("DEBUG: input element found:", input);
         if (input) {
             input.value = "";
             document.getElementById('ingredient-search-results').innerHTML = '<p class="text-[10px] text-white/20 text-center py-4 italic">Saisissez au moins 2 caractères pour rechercher</p>';
