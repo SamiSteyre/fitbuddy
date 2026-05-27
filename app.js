@@ -1337,9 +1337,9 @@ function renderIngredientRow(nom = "", qte = "", ratios = {kcal:0, p:0, g:0, l:0
                     
                     <div class="flex-1 flex items-center relative ml-1">
                         <input type="text" value="${nom}" 
-                            ${isLinked ? `readonly onclick="openIngredientSearchModal(this.closest('.ingredient-row'))" class="cursor-pointer"` : 'oninput="recalculateMacros()"'}
+                            ${isLinked ? `readonly onclick="openIngredientSearchModal(this.closest('.ingredient-row'))"` : 'oninput="recalculateMacros()"'}
                             placeholder="${isLinked ? 'Sélectionner un aliment...' : 'Nom de l\'ingrédient...'}" 
-                            class="w-full bg-transparent text-[13px] text-white/80 outline-none ingredient-name">
+                            class="w-full bg-transparent text-[13px] text-white/80 outline-none ingredient-name ${isLinked ? 'cursor-pointer' : ''}">
                         <button type="button" onclick="openIngredientSearchModal(this.closest('.ingredient-row'))" class="text-white/30 hover:text-cyan-400 p-1 flex-none transition-colors" title="Rechercher/Lier un ingrédient">
                             <i data-lucide="search" class="w-3.5 h-3.5"></i>
                         </button>
@@ -2252,7 +2252,7 @@ function openIngredientSearchModal(row = null) {
                     resultsContainer.innerHTML = '<p class="text-[10px] text-white/20 text-center py-4 italic">Aucun aliment trouvé</p>';
                 }
             } catch (e) {
-                resultsContainer.innerHTML = '<p class-[10px] text-red-400 text-center py-4 italic">Erreur lors de la recherche</p>';
+                resultsContainer.innerHTML = '<p class="text-[10px] text-red-400 text-center py-4 italic">Erreur lors de la recherche</p>';
             } finally {
                 if (window.lucide) lucide.createIcons();
             }
