@@ -26,6 +26,12 @@
     window.logout = logout;
     window.switchToView = switchToView;
     window.saveProfileData = saveProfileData;
+    window.addIngredientRow = addIngredientRow;
+    window.openIngredientSearchModal = openIngredientSearchModal;
+    window.closeIngredientSearchModal = closeIngredientSearchModal;
+    window.handleIngredientSearchModalInput = handleIngredientSearchModalInput;
+    window.addCustomIngredientFromModal = addCustomIngredientFromModal;
+    window.selectIngredientFromModal = selectIngredientFromModal;
 
     let otpTimerInterval = null;
 
