@@ -2589,7 +2589,7 @@ function openIngredientSearchModal(row = null) {
             // Compress and resize image if it is an image file
             if (file.type.startsWith('image/')) {
                 try {
-                    file = await compressAndResizeImage(file, 1024, 0.7);
+                    file = await compressAndResizeImage(file, 1600, 0.85);
                     console.log("Image compressed successfully. New size:", (file.size / 1024).toFixed(1) + " KB");
                 } catch (compressErr) {
                     console.warn("Failed to compress image, sending original file:", compressErr);
