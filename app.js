@@ -3836,6 +3836,33 @@ function openMacroGoalsModal() {
     document.getElementById('macro-goals-modal').style.display = 'flex';
     document.getElementById('macro-goals-form').classList.remove('hidden');
     document.getElementById('macro-goals-results').classList.add('hidden');
+    
+    // Pre-populate from cached user profile
+    const cachedProfileStr = localStorage.getItem('fitbuddy_user_profile');
+    if (cachedProfileStr) {
+        try {
+            const profile = JSON.parse(cachedProfileStr);
+            const sportGoal = profile.objectif_sportif || "Maintien";
+            
+            // Map long database sport goal strings to short option values in macro modal select
+            let selectVal = "Maintien";
+            if (sportGoal.includes("Hypertrophie")) selectVal = "Hypertrophie";
+            else if (sportGoal.includes("Bulk")) selectVal = "Bulk";
+            else if (sportGoal.includes("Cut")) selectVal = "Cut";
+            else if (sportGoal.includes("Maintien")) selectVal = "Maintien";
+            else if (sportGoal.includes("Recomp")) selectVal = "Recomp";
+            else if (sportGoal.includes("Force")) selectVal = "Force";
+            else if (sportGoal.includes("Endurance")) selectVal = "Endurance";
+            
+            const objSelect = document.getElementById('mg-objectif');
+            if (objSelect) {
+                objSelect.value = selectVal;
+            }
+        } catch (e) {
+            console.error("Erreur lors du pré-remplissage des objectifs macros :", e);
+        }
+    }
+    
     toggleMacroSlider(); // Initialise l'état du curseur
     if (window.lucide) lucide.createIcons();
 }
