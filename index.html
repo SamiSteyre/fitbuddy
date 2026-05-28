@@ -40,26 +40,7 @@
             </button>
         </div>
 
-        <div class="flex items-center gap-2">
-            <button onclick="triggerQuickAction('calendar')" class="p-2 bg-rose-500/10 border border-rose-500/30 rounded-lg active:scale-90 transition-transform">
-                <i data-lucide="calendar" class="w-4 h-4 text-rose-400"></i>
-            </button>
-            <button onclick="triggerQuickAction('cuisine')" class="p-2 bg-cyan-500/10 border border-cyan-500/30 rounded-lg active:scale-90 transition-transform">
-                <i data-lucide="chef-hat" class="w-4 h-4 text-cyan-400"></i>
-            </button>
-            <button onclick="triggerQuickAction('courses')" class="p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg active:scale-90 transition-transform">
-                <i data-lucide="shopping-cart" class="w-4 h-4 text-amber-500"></i>
-            </button>
-            <button onclick="triggerQuickAction('macros')" class="p-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg active:scale-90 transition-transform">
-                <i data-lucide="pie-chart" class="w-4 h-4 text-emerald-500"></i>
-            </button>
-            <button onclick="triggerQuickAction('training')" class="p-2 bg-purple-500/10 border border-purple-500/30 rounded-lg active:scale-90 transition-transform">
-                <i data-lucide="dumbbell" class="w-4 h-4 text-purple-400"></i>
-            </button>
-            <button onclick="triggerQuickAction('rapport')" class="p-2 bg-fuchsia-500/10 border border-fuchsia-500/30 rounded-lg active:scale-90 transition-transform" title="Rapport Matinal">
-                <i data-lucide="trending-up" class="w-4 h-4 text-fuchsia-400"></i>
-            </button>
-        </div>
+        <!-- Navigation cleared into the Radial Glass Wheel Menu -->
     </header>
 
     <main id="main-content" class="flex-1 flex flex-col overflow-hidden relative">
@@ -689,6 +670,34 @@
     </div>
 
     <!-- Modale Saisie Rapide Dynamique (gérée en JS) -->
+
+    <!-- RADIALL GLASS WHEEL MENU (BOTTOM LEFT ABOVE MIC) -->
+    <div id="radial-menu-container" class="radial-menu-container">
+        <!-- Sub-buttons -->
+        <button id="radial-item-1" onclick="triggerRadialAction('calendar')" class="radial-item bg-stone-900/90 border border-rose-500/30 text-rose-400" title="Calendrier">
+            <i data-lucide="calendar" class="w-5 h-5"></i>
+        </button>
+        <button id="radial-item-2" onclick="triggerRadialAction('cuisine')" class="radial-item bg-stone-900/90 border border-cyan-500/30 text-cyan-400" title="Cuisine">
+            <i data-lucide="chef-hat" class="w-5 h-5"></i>
+        </button>
+        <button id="radial-item-3" onclick="triggerRadialAction('courses')" class="radial-item bg-stone-900/90 border border-amber-500/30 text-amber-500" title="Liste de Courses">
+            <i data-lucide="shopping-cart" class="w-5 h-5"></i>
+        </button>
+        <button id="radial-item-4" onclick="triggerRadialAction('macros')" class="radial-item bg-stone-900/90 border border-emerald-500/30 text-emerald-400" title="Macros & Eau">
+            <i data-lucide="pie-chart" class="w-5 h-5"></i>
+        </button>
+        <button id="radial-item-5" onclick="triggerRadialAction('training')" class="radial-item bg-stone-900/90 border border-purple-500/30 text-purple-400" title="Entraînement">
+            <i data-lucide="dumbbell" class="w-5 h-5"></i>
+        </button>
+        <button id="radial-item-6" onclick="triggerRadialAction('rapport')" class="radial-item bg-stone-900/90 border border-fuchsia-500/30 text-fuchsia-400" title="Rapport Matinal">
+            <i data-lucide="trending-up" class="w-5 h-5"></i>
+        </button>
+        
+        <!-- Main trigger button -->
+        <button id="radial-trigger" onclick="toggleRadialMenu()" class="radial-trigger bg-slate-900/85 border border-cyan-500/30 text-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.2)] animate-pulse" title="Navigation Hub">
+            <i id="radial-trigger-icon" data-lucide="compass" class="w-5.5 h-5.5 transition-transform duration-500"></i>
+        </button>
+    </div>
 
     <script src="app.js?v=4"></script>
 </body>

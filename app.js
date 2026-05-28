@@ -4740,3 +4740,45 @@ window.showChartTooltip = function(e, value, date) {
         tooltip.classList.add('hidden');
     }, 3000);
 };
+
+/* ──────────────────────────────────────────────────────────────────────────
+   HUB DE NAVIGATION RADIAL (RADIAL GLASS WHEEL)
+   ────────────────────────────────────────────────────────────────────────── */
+
+window.toggleRadialMenu = function() {
+    const container = document.getElementById('radial-menu-container');
+    const icon = document.getElementById('radial-trigger-icon');
+    if (!container || !icon) return;
+
+    const isOpen = container.classList.toggle('open');
+    if (isOpen) {
+        icon.style.transform = 'rotate(135deg)';
+        icon.setAttribute('data-lucide', 'x');
+    } else {
+        icon.style.transform = 'rotate(0deg)';
+        icon.setAttribute('data-lucide', 'compass');
+    }
+    
+    // Stop pulsing animation on trigger button after first interaction
+    const trigger = document.getElementById('radial-trigger');
+    if (trigger) {
+        trigger.classList.remove('animate-pulse');
+    }
+    
+    lucide.createIcons();
+};
+
+window.triggerRadialAction = function(action) {
+    triggerQuickAction(action);
+    window.toggleRadialMenu();
+};
+
+// Automatic closing when clicking outside the radial menu hub
+document.addEventListener('click', function(e) {
+    const container = document.getElementById('radial-menu-container');
+    if (container && container.classList.contains('open')) {
+        if (!container.contains(e.target)) {
+            window.toggleRadialMenu();
+        }
+    }
+});
