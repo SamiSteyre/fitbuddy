@@ -2183,33 +2183,23 @@ async function triggerQuickAction(type) {
         const currentName = localStorage.getItem('fitbuddy_user_name');
         
         if (type === 'rapport') {
-            let profileData = null;
             try {
-                const resProf = await fetch(`${N8N_URL}/webhook/get-profile`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '69420' },
-                    body: JSON.stringify({ email: userEmail })
-                });
-                const dataProf = await resProf.json();
-                if (dataProf.success) profileData = dataProf.user;
-            } catch (eProf) {
-                console.warn("Failed fetching live profile, using cache", eProf);
-                try {
-                    profileData = JSON.parse(localStorage.getItem('fitbuddy_user_profile'));
-                } catch(eCache) {}
-            }
-
-            let macrosData = null;
-            try {
-                const resMacros = await fetch(`${N8N_URL}/webhook/quick-action`, { 
+                const res = await fetch(`${N8N_URL}/webhook/quick-action`, { 
                     method: 'POST', 
                     headers: { 'Content-Type': 'application/json', "ngrok-skip-browser-warning": "69420" }, 
-                    body: JSON.stringify({ action: 'macros', email: userEmail, userName: userEmail, nom: userEmail }) 
+                    body: JSON.stringify({ action: 'rapport', email: userEmail, userName: currentName, nom: currentName }) 
                 });
-                macrosData = await resMacros.json();
-            } catch(eMacros) {}
-
-            switchToRapport({ profile: profileData, macros: macrosData });
+                const responseData = await res.json();
+                const r = Array.isArray(responseData) ? responseData[0] : responseData;
+                switchToRapport(r);
+            } catch (err) {
+                console.warn("Rapport live fetch failed, using local fallback", err);
+                let cachedProfile = null;
+                try {
+                    cachedProfile = JSON.parse(localStorage.getItem('fitbuddy_user_profile'));
+                } catch(eCache) {}
+                switchToRapport({ profile: cachedProfile, veille: null, historique: null });
+            }
             return;
         }
 
