@@ -4074,7 +4074,12 @@ async function switchToRapport(data) {
 
     // Partie 1 : Bilan macro de la veille
     let actualKcal = 0, actualProt = 0, actualGlu = 0, actualLip = 0;
-    if (data.macros && data.macros.calories) {
+    if (data.veille) {
+        actualKcal = parseFloat(data.veille.calories_consommees) || 0;
+        actualProt = parseFloat(data.veille.proteines_consommees) || 0;
+        actualGlu = parseFloat(data.veille.glucides_consommes) || 0;
+        actualLip = parseFloat(data.veille.lipides_consommes) || 0;
+    } else if (data.macros && data.macros.calories) {
         actualKcal = parseFloat(data.macros.calories.current) || 0;
         actualProt = parseFloat(data.macros.proteins.current) || 0;
         actualGlu = parseFloat(data.macros.carbs.current) || 0;
