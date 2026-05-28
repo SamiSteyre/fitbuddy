@@ -329,6 +329,10 @@
         .radial-trigger:active {
             transform: scale(0.9);
         }
+
+        .radial-trigger i {
+            pointer-events: none; /* Ensure icons do not block button hit targets */
+        }
         
         .radial-item {
             position: absolute;
@@ -343,10 +347,15 @@
             backdrop-filter: blur(16px);
             cursor: pointer;
             z-index: 1;
-            pointer-events: auto;
+            pointer-events: none; /* Disable click events when closed to avoid blocking trigger */
             transform: translate(0, 0) scale(0);
             opacity: 0;
             transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.4s ease;
+        }
+
+        /* Enable click events on items only when expanded */
+        .radial-menu-container.open .radial-item {
+            pointer-events: auto;
         }
         
         /* Positions when menu is open, preserving active scale down from translated center */
