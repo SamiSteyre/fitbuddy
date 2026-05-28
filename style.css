@@ -301,7 +301,6 @@
             text-transform: uppercase;
         }
 
-        /* --- RADIAL GLASS WHEEL MENU --- */
         .radial-menu-container {
             position: fixed;
             bottom: 85px;
@@ -309,7 +308,6 @@
             width: 52px;
             height: 52px;
             z-index: 9999;
-            pointer-events: none;
         }
         
         .radial-trigger {

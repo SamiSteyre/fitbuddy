@@ -4763,12 +4763,41 @@ window.triggerRadialAction = function(action) {
     window.toggleRadialMenu();
 };
 
+// Bind direct clicks and prevent propagation on load
+window.initRadialMenu = function() {
+    const trigger = document.getElementById('radial-trigger');
+    if (trigger) {
+        // Remove older event listeners by replacing the node or using clone if necessary, 
+        // but since we call it once, a clean addEventListener is standard.
+        // We ensure we only bind once by setting a flag on the element.
+        if (!trigger.dataset.bound) {
+            trigger.addEventListener('click', function(e) {
+                e.stopPropagation(); // Stops event bubbling to prevent document auto-close
+                window.toggleRadialMenu();
+            });
+            trigger.dataset.bound = "true";
+        }
+    }
+
+    const container = document.getElementById('radial-menu-container');
+    if (container) {
+        if (!container.dataset.bound) {
+            container.addEventListener('click', function(e) {
+                e.stopPropagation(); // Prevent clicks inside the container from bubbling
+            });
+            container.dataset.bound = "true";
+        }
+    }
+};
+
+// Initialize immediately and on DOMContentLoaded
+window.initRadialMenu();
+document.addEventListener('DOMContentLoaded', window.initRadialMenu);
+
 // Automatic closing when clicking outside the radial menu hub
 document.addEventListener('click', function(e) {
     const container = document.getElementById('radial-menu-container');
     if (container && container.classList.contains('open')) {
-        if (!container.contains(e.target)) {
-            window.toggleRadialMenu();
-        }
+        window.toggleRadialMenu();
     }
 });
