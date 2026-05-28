@@ -4747,25 +4747,15 @@ window.showChartTooltip = function(e, value, date) {
 
 window.toggleRadialMenu = function() {
     const container = document.getElementById('radial-menu-container');
-    const icon = document.getElementById('radial-trigger-icon');
-    if (!container || !icon) return;
+    if (!container) return;
 
-    const isOpen = container.classList.toggle('open');
-    if (isOpen) {
-        icon.style.transform = 'rotate(135deg)';
-        icon.setAttribute('data-lucide', 'x');
-    } else {
-        icon.style.transform = 'rotate(0deg)';
-        icon.setAttribute('data-lucide', 'compass');
-    }
+    container.classList.toggle('open');
     
     // Stop pulsing animation on trigger button after first interaction
     const trigger = document.getElementById('radial-trigger');
     if (trigger) {
         trigger.classList.remove('animate-pulse');
     }
-    
-    lucide.createIcons();
 };
 
 window.triggerRadialAction = function(action) {
