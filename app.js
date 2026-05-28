@@ -4124,11 +4124,39 @@ async function switchToRapport(data) {
         localStorage.setItem('fitbuddy_weight_history', JSON.stringify(weightHistory));
     }
 
-    // Calcul de la moyenne des 7 dernières mesures
+    const bodyMetric = profile.type_objectif_corporel || "poids";
+    
+    // Détermination de l'unité et du libellé selon la métrique active de l'objectif
+    let metricUnit = "kg";
+    let metricLabel = "Mesures";
+    if (bodyMetric === "poids" || bodyMetric === "masse_musculaire") {
+        metricUnit = "kg";
+        metricLabel = "Pesées";
+    } else if (bodyMetric === "masse_grasse") {
+        metricUnit = "%";
+        metricLabel = "Masse Grasse";
+    } else if (bodyMetric === "graisse_viscerale") {
+        metricUnit = "idx";
+        metricLabel = "Graisse Viscérale";
+    } else {
+        metricUnit = "cm";
+        metricLabel = "Mensurations";
+    }
+
+    // Calcul de la moyenne des 7 dernières mesures pour la métrique active
     const last7Weights = weightHistory.slice(-7);
-    const avgWeight = parseFloat((last7Weights.reduce((acc, curr) => acc + curr.poids, 0) / last7Weights.length).toFixed(1));
+    const getMetricVal = (item) => {
+        let val = item[bodyMetric];
+        if (val === undefined || val === null) {
+            const refVal = parseFloat(profile.mensurations?.[bodyMetric] || (bodyMetric === "masse_grasse" ? 22 : 60));
+            val = refVal;
+        }
+        return parseFloat(val);
+    };
+
+    const avgWeight = parseFloat((last7Weights.reduce((acc, curr) => acc + getMetricVal(curr), 0) / last7Weights.length).toFixed(1));
     const previousAvg = last7Weights.length > 1 
-        ? parseFloat((last7Weights.slice(0, -1).reduce((acc, curr) => acc + curr.poids, 0) / (last7Weights.length - 1)).toFixed(1))
+        ? parseFloat((last7Weights.slice(0, -1).reduce((acc, curr) => acc + getMetricVal(curr), 0) / (last7Weights.length - 1)).toFixed(1))
         : avgWeight;
 
     const isLosingGoal = targetWeight < initialWeight;
@@ -4272,9 +4300,9 @@ async function switchToRapport(data) {
                     <h4 class="text-xs font-black text-white uppercase tracking-wider">3. Progression vers l'objectif</h4>
                 </div>
                 <div class="flex items-center gap-2">
-                    <span class="text-[8px] font-black text-white/30 uppercase">Pesées (Moyenne mobile des 7 dernières)</span>
+                    <span class="text-[8px] font-black text-white/30 uppercase">${metricLabel} (Moyenne mobile des 7 dernières)</span>
                     <span class="trend-badge ${progressTrendTowardsGoal ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}">
-                        ${avgWeight} kg
+                        ${avgWeight} ${metricUnit}
                         <i data-lucide="${progressTrendTowardsGoal ? 'arrow-down-right' : 'arrow-up-right'}" class="w-3 h-3"></i>
                     </span>
                 </div>
@@ -4288,15 +4316,15 @@ async function switchToRapport(data) {
             <div class="grid grid-cols-3 gap-2 text-center pt-2">
                 <div class="space-y-1">
                     <span class="text-[8px] font-bold text-white/30 uppercase">Départ</span>
-                    <p class="text-xs font-black text-white">${initialWeight} kg</p>
+                    <p class="text-xs font-black text-white">${initialWeight} ${metricUnit}</p>
                 </div>
                 <div class="space-y-1 border-x border-white/5">
                     <span class="text-[8px] font-bold text-cyan-400 uppercase">Actuel</span>
-                    <p class="text-xs font-black text-cyan-400">${currentWeight} kg</p>
+                    <p class="text-xs font-black text-cyan-400">${currentWeight} ${metricUnit}</p>
                 </div>
                 <div class="space-y-1">
                     <span class="text-[8px] font-bold text-purple-400 uppercase">Cible</span>
-                    <p class="text-xs font-black text-purple-400">${targetWeight} kg</p>
+                    <p class="text-xs font-black text-purple-400">${targetWeight} ${metricUnit}</p>
                 </div>
             </div>
         </div>
