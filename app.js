@@ -4077,10 +4077,10 @@ async function switchToRapport(data) {
     const initialWeight = parseFloat(profile.objectif_corporel_initial || 110.0);
     const currentFat = parseFloat(profile.mensurations?.masse_grasse || 22.0);
 
-    const goalKcal = parseFloat(profile.objectif_calorique || 2000);
-    const goalProt = parseFloat(profile.objectif_proteines || 150);
-    const goalGlu = parseFloat(profile.objectif_glucides || 200);
-    const goalLip = parseFloat(profile.objectif_lipides || 70);
+    const goalKcal = parseFloat(data.veille?.goal_kcal || profile.objectif_calorique || 2000);
+    const goalProt = parseFloat(data.veille?.goal_prot || profile.objectif_proteines || 150);
+    const goalGlu = parseFloat(data.veille?.goal_glu || profile.objectif_glucides || 200);
+    const goalLip = parseFloat(data.veille?.goal_lip || profile.objectif_lipides || 70);
 
     // Partie 1 : Bilan macro de la veille
     let actualKcal = 0, actualProt = 0, actualGlu = 0, actualLip = 0;
