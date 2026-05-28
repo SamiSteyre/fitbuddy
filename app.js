@@ -4365,26 +4365,53 @@ function drawMountainProgression(initial, target, current) {
     // Generates curvilinear paths in SVG format
     let points = [];
     for (let p = 0; p <= 100; p += 2) {
-        points.push(`${pathX(p)},${pathY(p)}`);
+        points.push(`${pathX(p).toFixed(1)},${pathY(p).toFixed(1)}`);
     }
     const dPath = "M " + points.join(" L ");
+
+    // The physical foreground mountain shape is exactly the filled region under the trail ridge curve
+    const mountainPathD = `M 25,190 L ${points.join(" L ")} L 275,190 Z`;
+
+    // Secondary background mountain curve for dynamic layered depth (parallax effect)
+    let bgPoints = [];
+    for (let p = 0; p <= 100; p += 2) {
+        const bgX = 60 + (285 - 60) * (p / 100);
+        const bgY = 180 - 100 * Math.pow(p / 100, 1.2);
+        bgPoints.push(`${bgX.toFixed(1)},${bgY.toFixed(1)}`);
+    }
+    const bgMountainD = `M 60,190 L ${bgPoints.join(" L ")} L 285,190 Z`;
+
+    // Active progress trail line up to climber's current position
+    let progressPoints = [];
+    for (let p = 0; p <= progress; p += 2) {
+        progressPoints.push(`${pathX(p).toFixed(1)},${pathY(p).toFixed(1)}`);
+    }
+    if (progress > 0 && progress % 2 !== 0) {
+        progressPoints.push(`${cx},${cy}`);
+    }
+    const dProgressPath = progressPoints.length > 0 ? "M " + progressPoints.join(" L ") : "";
 
     return `
     <svg class="mountain-svg" viewBox="0 0 300 200">
         <defs>
             <linearGradient id="mountain-gradient" x1="0%" y1="100%" x2="100%" y2="0%">
-                <stop offset="0%" stop-color="#1e1b4b" stop-opacity="0.6"/>
-                <stop offset="100%" stop-color="#4c1d95" stop-opacity="0.3"/>
+                <stop offset="0%" stop-color="#1e1b4b" stop-opacity="0.85"/>
+                <stop offset="100%" stop-color="#4c1d95" stop-opacity="0.4"/>
             </linearGradient>
         </defs>
-        <!-- The background physical mountain shapes -->
-        <polygon points="10,190 150,40 290,190" fill="url(#mountain-gradient)" stroke="rgba(255,255,255,0.05)" stroke-width="1" />
-        <polygon points="100,190 200,80 290,190" fill="#1e1b4b" opacity="0.4" />
+        <!-- 1. Background secondary mountain peak for depth -->
+        <path d="${bgMountainD}" fill="#1e1b4b" opacity="0.45" />
+
+        <!-- 2. Foreground main mountain body exactly contoured under the curve -->
+        <path d="${mountainPathD}" fill="url(#mountain-gradient)" stroke="rgba(255,255,255,0.06)" stroke-width="1.5" />
         
-        <!-- The dashed curved trail -->
+        <!-- 3. The dashed curved trail (complete route) -->
         <path d="${dPath}" class="mountain-path" />
+
+        <!-- 4. Glowing active progress path (completed portion of the route) -->
+        ${dProgressPath ? `<path d="${dProgressPath}" class="mountain-path-progress" />` : ''}
         
-        <!-- Mountain Peak Flag -->
+        <!-- Mountain Peak Flag (Planted exactly at the top summit coordinate 275, 40) -->
         <g transform="translate(275, 40)">
             <line x1="0" y1="0" x2="0" y2="-18" stroke="#f43f5e" stroke-width="2" />
             <polygon points="0,-18 12,-13 0,-8" class="mountain-flag" />
