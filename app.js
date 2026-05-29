@@ -4271,6 +4271,86 @@ async function switchToRapport(data) {
 
     // Dessin de la montagne SVG avec les paramètres de l'objectif actif
     const mountainSvgHtml = drawMountainProgression(initialVal, targetVal, currentVal);
+    // Recalculateur intelligent client-side pour le Volet 2
+    const prevEntry = weightHistory.length > 1 ? weightHistory[weightHistory.length - 2] : null;
+    const prevWeight = parseFloat(prevEntry?.poids || currentWeight);
+    const prevFat = parseFloat(prevEntry?.masse_grasse || currentFat);
+
+    const getMacrosForWeight = (w) => {
+        const taille = parseFloat(profile.taille || 180);
+        const age = parseFloat(profile.age || 30);
+        const activityCoeff = 1.375; // Active
+        
+        const BMR = 10 * w + 6.25 * taille - 5 * age + 5;
+        const TDEE = Math.round(BMR * activityCoeff);
+        
+        const goal = profile.objectif_sportif || "Maintien";
+        let kcal = TDEE;
+        
+        if (goal.includes("Cut") || goal.includes("sèche")) kcal -= 500;
+        else if (goal.includes("Bulk") || goal.includes("masse")) kcal += 350;
+        else if (goal.includes("Hypertrophie")) kcal += 200;
+        else if (goal.includes("Recomp")) kcal -= 200;
+
+        const prot = Math.round(w * 2.2);
+        const lip = Math.round(w * 0.9);
+        const gluc = Math.round((kcal - (prot * 4 + lip * 9)) / 4);
+        
+        return { kcal, prot, gluc, lip };
+    };
+
+    const newMacros = getMacrosForWeight(currentWeight);
+    const oldMacros = getMacrosForWeight(prevWeight);
+
+    const diffKcal = newMacros.kcal - oldMacros.kcal;
+    const diffProt = newMacros.prot - oldMacros.prot;
+    const diffGluc = newMacros.gluc - oldMacros.gluc;
+    const diffLip = newMacros.lip - oldMacros.lip;
+
+    const formatDiff = (diff, unit = "") => {
+        if (diff > 0) return `<span class="text-emerald-400 font-extrabold">+${diff}${unit} ⬆️</span>`;
+        if (diff < 0) return `<span class="text-orange-400 font-extrabold">${diff}${unit} ⬇️</span>`;
+        return `<span class="text-white/40 font-extrabold">0${unit} ➡️</span>`;
+    };
+
+    const diffKcalHtml = formatDiff(diffKcal, " kcal");
+    const diffProtHtml = formatDiff(diffProt, "g");
+    const diffGlucHtml = formatDiff(diffGluc, "g");
+    const diffLipHtml = formatDiff(diffLip, "g");
+
+    const diffWeight = currentWeight - prevWeight;
+    const diffFat = currentFat - prevFat;
+
+    const diffWeightHtml = diffWeight > 0 
+        ? `<span class="text-[9px] font-bold text-emerald-400 block mt-0.5">+${diffWeight.toFixed(1)} kg ⬆️</span>`
+        : diffWeight < 0 
+            ? `<span class="text-[9px] font-bold text-orange-400 block mt-0.5">${diffWeight.toFixed(1)} kg ⬇️</span>`
+            : `<span class="text-[9px] font-bold text-white/30 block mt-0.5">Stable ➡️</span>`;
+
+    const diffFatHtml = diffFat > 0 
+        ? `<span class="text-[9px] font-bold text-emerald-400 block mt-0.5">+${diffFat.toFixed(1)}% ⬆️</span>`
+        : diffFat < 0 
+            ? `<span class="text-[9px] font-bold text-orange-400 block mt-0.5">${diffFat.toFixed(1)}% ⬇️</span>`
+            : `<span class="text-[9px] font-bold text-white/30 block mt-0.5">Stable ➡️</span>`;
+
+    let trendHtml = "";
+    if (diffWeight > 0) {
+        trendHtml = `<span class="trend-badge bg-emerald-500/10 text-emerald-400 font-extrabold uppercase gap-1 flex items-center text-[8px] py-0.5 px-2 rounded-md border border-emerald-500/30">Hausse <i data-lucide="trending-up" class="w-3 h-3"></i></span>`;
+    } else if (diffWeight < 0) {
+        trendHtml = `<span class="trend-badge bg-orange-500/10 text-orange-400 font-extrabold uppercase gap-1 flex items-center text-[8px] py-0.5 px-2 rounded-md border border-orange-500/30">Baisse <i data-lucide="trending-down" class="w-3 h-3"></i></span>`;
+    } else {
+        trendHtml = `<span class="trend-badge bg-gray-500/10 text-gray-400 font-extrabold uppercase gap-1 flex items-center text-[8px] py-0.5 px-2 rounded-md border border-gray-500/30">Stable <i data-lucide="minus" class="w-3 h-3"></i></span>`;
+    }
+
+    let tylerExplanation = "";
+    if (diffWeight < 0) {
+        tylerExplanation = `Super boulot, ${nickname} ! Ta pesée est en baisse de **${Math.abs(diffWeight).toFixed(1)} kg**. Ton métabolisme s'ajuste pour consommer un peu moins d'énergie au repos. Tyler a donc recalibré tes apports pour maintenir ton déficit calorique de manière chirurgicale, tout en maintenant ton quota de protéines de sécurité à 2.2g par kg de poids de corps.`;
+    } else if (diffWeight > 0) {
+        tylerExplanation = `Ton poids est en hausse de **${diffWeight.toFixed(1)} kg**. Pas de panique, cela peut être dû à une rétention d'eau, du glycogène ou de la croissance musculaire. Tyler a légèrement augmenté tes apports pour soutenir ton métabolisme et tes entraînements. Continue de pousser fort !`;
+    } else {
+        tylerExplanation = `Ton poids est parfaitement stable à **${currentWeight} kg**. Ton métabolisme tourne à plein régime et est en équilibre. Tes macros de maintenance ou de déficit sont parfaitement calées pour cette semaine.`;
+    }
+
 
     let html = `
     <div class="p-2 space-y-6 pb-24 animate-in fade-in duration-500 overflow-y-auto no-scrollbar h-full">
@@ -4340,47 +4420,81 @@ async function switchToRapport(data) {
                     <i data-lucide="scale" class="w-4 h-4 text-fuchsia-400"></i>
                     <h4 class="text-xs font-black text-white uppercase tracking-wider">2. Ajustement des macros</h4>
                 </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3">
-                <div class="space-y-1">
-                    <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Poids actuel (kg)</label>
-                    <input type="number" id="rapport-weight-input" value="${currentWeight}" step="0.1" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white font-black text-center outline-none focus:border-fuchsia-500">
-                </div>
-                <div class="space-y-1">
-                    <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Masse Grasse (%)</label>
-                    <input type="number" id="rapport-fat-input" value="${currentFat}" step="0.1" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white font-black text-center outline-none focus:border-fuchsia-500">
+                <div class="flex items-center gap-1.5">
+                    ${trendHtml}
                 </div>
             </div>
 
-            <button onclick="updateRapportWeightAndFat()" id="btn-save-rapport-peso" class="w-full bg-fuchsia-600 hover:bg-fuchsia-500 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest shadow-lg shadow-fuchsia-500/20 flex items-center justify-center gap-2 active:scale-95 transition-transform">
-                <i data-lucide="check" class="w-3.5 h-3.5"></i> Enregistrer la pesée
-            </button>
+            <!-- Dernière Pesée Enregistrée -->
+            <div class="grid grid-cols-2 gap-3 bg-white/[0.02] p-3 rounded-2xl border border-white/5">
+                <div class="text-center p-2">
+                    <span class="text-[8px] font-bold text-white/40 uppercase block mb-0.5">Poids enregistré</span>
+                    <p class="text-sm font-black text-white">${currentWeight} kg</p>
+                    ${diffWeightHtml}
+                </div>
+                <div class="text-center p-2 border-l border-white/5">
+                    <span class="text-[8px] font-bold text-white/40 uppercase block mb-0.5">Masse Grasse</span>
+                    <p class="text-sm font-black text-white">${currentFat}%</p>
+                    ${diffFatHtml}
+                </div>
+            </div>
 
-            <!-- Recalculated values output block -->
-            <div id="recalculated-macros-area" class="space-y-3 bg-white/[0.02] p-4 rounded-2xl border border-white/5 hidden">
-                <div class="flex justify-between items-center mb-1">
-                    <h5 class="text-[9px] font-black text-fuchsia-400 uppercase tracking-widest">Nouveaux besoins évalués</h5>
-                    <span id="recalculated-trend-badge" class=""></span>
+            <!-- Grille Comparative des Macros -->
+            <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                    <h5 class="text-[9px] font-black text-fuchsia-400 uppercase tracking-widest">Recalcul de Tyler</h5>
+                    <span class="text-[8px] font-bold text-cyan-400 uppercase">Basé sur Mifflin-St Jeor</span>
                 </div>
-                <div class="grid grid-cols-4 gap-2">
-                    <div class="bg-black/50 p-2 rounded-xl text-center">
-                        <span class="text-[7px] font-bold text-orange-400 uppercase block">Kcal</span>
-                        <span id="new-kcal-val" class="text-xs font-black text-white">-</span>
-                    </div>
-                    <div class="bg-black/50 p-2 rounded-xl text-center">
-                        <span class="text-[7px] font-bold text-blue-400 uppercase block">Prot</span>
-                        <span id="new-prot-val" class="text-xs font-black text-white">-</span>
-                    </div>
-                    <div class="bg-black/50 p-2 rounded-xl text-center">
-                        <span class="text-[7px] font-bold text-green-400 uppercase block">Gluc</span>
-                        <span id="new-gluc-val" class="text-xs font-black text-white">-</span>
-                    </div>
-                    <div class="bg-black/50 p-2 rounded-xl text-center">
-                        <span class="text-[7px] font-bold text-red-400 uppercase block">Lip</span>
-                        <span id="new-lip-val" class="text-xs font-black text-white">-</span>
-                    </div>
+                
+                <div class="overflow-x-auto rounded-2xl border border-white/5 bg-black/30">
+                    <table class="w-full text-left border-collapse text-[10px]">
+                        <thead>
+                            <tr class="border-b border-white/5 bg-white/[0.02]">
+                                <th class="p-3 text-[8px] font-bold text-white/40 uppercase">Macro</th>
+                                <th class="p-3 text-[8px] font-bold text-white/40 uppercase text-center">Avant</th>
+                                <th class="p-3 text-[8px] font-bold text-white/40 uppercase text-center">Après</th>
+                                <th class="p-3 text-[8px] font-bold text-white/40 uppercase text-right">Variation</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-white/5 text-white/80 font-medium">
+                            <tr>
+                                <td class="p-3 font-bold text-orange-400">Calories</td>
+                                <td class="p-3 text-center text-white/60">${oldMacros.kcal} kcal</td>
+                                <td class="p-3 text-center font-black text-white">${newMacros.kcal} kcal</td>
+                                <td class="p-3 text-right font-black">${diffKcalHtml}</td>
+                            </tr>
+                            <tr>
+                                <td class="p-3 font-bold text-blue-400">Protéines</td>
+                                <td class="p-3 text-center text-white/60">${oldMacros.prot}g</td>
+                                <td class="p-3 text-center font-black text-white">${newMacros.prot}g</td>
+                                <td class="p-3 text-right font-black">${diffProtHtml}</td>
+                            </tr>
+                            <tr>
+                                <td class="p-3 font-bold text-green-400">Glucides</td>
+                                <td class="p-3 text-center text-white/60">${oldMacros.gluc}g</td>
+                                <td class="p-3 text-center font-black text-white">${newMacros.gluc}g</td>
+                                <td class="p-3 text-right font-black">${diffGlucHtml}</td>
+                            </tr>
+                            <tr>
+                                <td class="p-3 font-bold text-red-400">Lipides</td>
+                                <td class="p-3 text-center text-white/60">${oldMacros.lip}g</td>
+                                <td class="p-3 text-center font-black text-white">${newMacros.lip}g</td>
+                                <td class="p-3 text-right font-black">${diffLipHtml}</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
+            </div>
+
+            <!-- Message d'accompagnement de l'agent -->
+            <div class="bg-fuchsia-950/10 border border-fuchsia-500/10 rounded-2xl p-4 space-y-1.5">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="info" class="w-3.5 h-3.5 text-fuchsia-400"></i>
+                    <span class="text-[8px] font-black text-fuchsia-400 uppercase tracking-widest">Note métabolique de Tyler</span>
+                </div>
+                <p class="text-[10px] text-white/60 leading-relaxed font-medium">
+                    ${tylerExplanation}
+                </p>
             </div>
         </div>
 
