@@ -802,9 +802,13 @@
         const cachedProfile = stringToJson(localStorage.getItem('fitbuddy_user_profile')) || {};
         const oldWeight = parseFloat(cachedProfile.mensurations?.poids || 0);
         const oldFat = parseFloat(cachedProfile.mensurations?.masse_grasse || 0);
+        const oldMuscle = parseFloat(cachedProfile.mensurations?.masse_musculaire || 0);
+
         const newWeight = parseFloat(mensurationsPayload.poids || 0);
         const newFat = parseFloat(mensurationsPayload.masse_grasse || 0);
-        const weightOrFatChanged = (oldWeight !== newWeight || oldFat !== newFat);
+        const newMuscle = parseFloat(mensurationsPayload.masse_musculaire || 0);
+
+        const bodyCompositionChanged = (oldWeight !== newWeight || oldFat !== newFat || oldMuscle !== newMuscle);
 
         const payload = {
             email: userEmail,
@@ -825,7 +829,8 @@
             type_objectif_corporel: document.getElementById('prof-body-metric').value,
             objectif_corporel_actuel: parseFloat(document.getElementById('prof-body-current').value) || 0,
             objectif_corporel_but: parseFloat(document.getElementById('prof-body-target').value) || 0,
-            weight_or_fat_changed: weightOrFatChanged,
+            weight_or_fat_changed: bodyCompositionChanged,
+            body_composition_changed: bodyCompositionChanged,
             mensurations: mensurationsPayload
         };
 
@@ -4184,6 +4189,12 @@ async function switchToRapport(data) {
         profile.mensurations?.masse_grasse || 
         22.0
     );
+    const currentMuscle = parseFloat(
+        latestHistoryEntry?.masse_musculaire || 
+        (bodyMetric === "masse_musculaire" ? profile.objectif_corporel_actuel : null) || 
+        profile.mensurations?.masse_musculaire || 
+        45.0
+    );
 
     // Active metric current value for the mountain progression
     let currentVal = parseFloat(profile.objectif_corporel_actuel);
@@ -4291,6 +4302,7 @@ async function switchToRapport(data) {
     const prevEntry = weightHistory.length > 1 ? weightHistory[weightHistory.length - 2] : null;
     const prevWeight = parseFloat(prevEntry?.poids || currentWeight);
     const prevFat = parseFloat(prevEntry?.masse_grasse || currentFat);
+    const prevMuscle = parseFloat(prevEntry?.masse_musculaire || currentMuscle);
 
     const getMacrosForWeight = (w) => {
         const taille = parseFloat(profile.taille || 180);
@@ -4336,6 +4348,7 @@ async function switchToRapport(data) {
 
     const diffWeight = currentWeight - prevWeight;
     const diffFat = currentFat - prevFat;
+    const diffMuscle = currentMuscle - prevMuscle;
 
     const diffWeightHtml = diffWeight > 0 
         ? `<span class="text-[9px] font-bold text-emerald-400 block mt-0.5">+${diffWeight.toFixed(1)} kg ⬆️</span>`
@@ -4347,6 +4360,12 @@ async function switchToRapport(data) {
         ? `<span class="text-[9px] font-bold text-emerald-400 block mt-0.5">+${diffFat.toFixed(1)}% ⬆️</span>`
         : diffFat < 0 
             ? `<span class="text-[9px] font-bold text-orange-400 block mt-0.5">${diffFat.toFixed(1)}% ⬇️</span>`
+            : `<span class="text-[9px] font-bold text-white/30 block mt-0.5">Stable ➡️</span>`;
+
+    const diffMuscleHtml = diffMuscle > 0 
+        ? `<span class="text-[9px] font-bold text-emerald-400 block mt-0.5">+${diffMuscle.toFixed(1)} kg ⬆️</span>`
+        : diffMuscle < 0 
+            ? `<span class="text-[9px] font-bold text-orange-400 block mt-0.5">${diffMuscle.toFixed(1)} kg ⬇️</span>`
             : `<span class="text-[9px] font-bold text-white/30 block mt-0.5">Stable ➡️</span>`;
 
     let trendHtml = "";
@@ -4444,9 +4463,9 @@ async function switchToRapport(data) {
             </div>
 
             <!-- Dernière Pesée Enregistrée -->
-            <div class="grid grid-cols-2 gap-3 bg-white/[0.02] p-3 rounded-2xl border border-white/5">
+            <div class="grid grid-cols-3 gap-2 bg-white/[0.02] p-3 rounded-2xl border border-white/5">
                 <div class="text-center p-2">
-                    <span class="text-[8px] font-bold text-white/40 uppercase block mb-0.5">Poids enregistré</span>
+                    <span class="text-[8px] font-bold text-white/40 uppercase block mb-0.5">Poids</span>
                     <p class="text-sm font-black text-white">${currentWeight} kg</p>
                     ${diffWeightHtml}
                 </div>
@@ -4454,6 +4473,11 @@ async function switchToRapport(data) {
                     <span class="text-[8px] font-bold text-white/40 uppercase block mb-0.5">Masse Grasse</span>
                     <p class="text-sm font-black text-white">${currentFat}%</p>
                     ${diffFatHtml}
+                </div>
+                <div class="text-center p-2 border-l border-white/5">
+                    <span class="text-[8px] font-bold text-white/40 uppercase block mb-0.5">Masse Muscle</span>
+                    <p class="text-sm font-black text-white">${currentMuscle} kg</p>
+                    ${diffMuscleHtml}
                 </div>
             </div>
 
