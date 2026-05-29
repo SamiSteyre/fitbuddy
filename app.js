@@ -800,15 +800,35 @@
         });
 
         const cachedProfile = stringToJson(localStorage.getItem('fitbuddy_user_profile')) || {};
-        const oldWeight = parseFloat(cachedProfile.mensurations?.poids || 0);
-        const oldFat = parseFloat(cachedProfile.mensurations?.masse_grasse || 0);
-        const oldMuscle = parseFloat(cachedProfile.mensurations?.masse_musculaire || 0);
+        
+        let bodyCompositionChanged = false;
+        metricsList.forEach(key => {
+            const el = document.getElementById(`m-${key}`);
+            if (el) {
+                const newVal = el.value.trim() !== "" ? parseFloat(el.value) : null;
+                let oldVal = null;
+                if (cachedProfile.mensurations && cachedProfile.mensurations[key] !== undefined && cachedProfile.mensurations[key] !== null) {
+                    oldVal = cachedProfile.mensurations[key];
+                } else if (cachedProfile[key] !== undefined && cachedProfile[key] !== null) {
+                    oldVal = cachedProfile[key];
+                }
+                
+                const parsedNew = newVal !== null ? parseFloat(newVal) : 0;
+                const parsedOld = oldVal !== null ? parseFloat(oldVal) : 0;
+                
+                if (parsedNew !== parsedOld) {
+                    bodyCompositionChanged = true;
+                }
+            }
+        });
+        
+        const oldGoal = cachedProfile.objectif_sportif || "";
+        const newGoal = document.getElementById('prof-sport-goal').value || "";
+        if (oldGoal !== newGoal) {
+            bodyCompositionChanged = true;
+        }
 
         const newWeight = parseFloat(mensurationsPayload.poids || 0);
-        const newFat = parseFloat(mensurationsPayload.masse_grasse || 0);
-        const newMuscle = parseFloat(mensurationsPayload.masse_musculaire || 0);
-
-        const bodyCompositionChanged = (oldWeight !== newWeight || oldFat !== newFat || oldMuscle !== newMuscle);
 
         let calculatedKcal = parseFloat(document.getElementById('prof-kcal').value) || 0;
         let calculatedProt = parseFloat(document.getElementById('prof-prot').value) || 0;
@@ -897,8 +917,33 @@
             
             if (data.success) {
                 const cached = stringToJson(localStorage.getItem('fitbuddy_user_profile')) || {};
-                const updatedProfile = { ...cached, ...payload };
                 
+                // Merge response macro estimations if present (recalculated by backend/Tyler)
+                const finalKcal = data.objectif_calorique !== undefined ? parseFloat(data.objectif_calorique) : payload.objectif_calorique;
+                const finalProt = data.objectif_proteines !== undefined ? parseFloat(data.objectif_proteines) : payload.objectif_proteines;
+                const finalGluc = data.objectif_glucides !== undefined ? parseFloat(data.objectif_glucides) : payload.objectif_glucides;
+                const finalLip = data.objectif_lipides !== undefined ? parseFloat(data.objectif_lipides) : payload.objectif_lipides;
+
+                const updatedProfile = { 
+                    ...cached, 
+                    ...payload,
+                    objectif_calorique: finalKcal,
+                    objectif_proteines: finalProt,
+                    objectif_glucides: finalGluc,
+                    objectif_lipides: finalLip
+                };
+                
+                // Update UI input values with final values
+                const kcalEl = document.getElementById('prof-kcal');
+                const protEl = document.getElementById('prof-prot');
+                const gluEl = document.getElementById('prof-glu');
+                const lipEl = document.getElementById('prof-lip');
+                
+                if (kcalEl && data.objectif_calorique !== undefined) kcalEl.value = finalKcal;
+                if (protEl && data.objectif_proteines !== undefined) protEl.value = finalProt;
+                if (gluEl && data.objectif_glucides !== undefined) gluEl.value = finalGluc;
+                if (lipEl && data.objectif_lipides !== undefined) lipEl.value = finalLip;
+
                 localStorage.setItem('fitbuddy_user_profile', JSON.stringify(updatedProfile));
                 localStorage.setItem('fitbuddy_user_name', payload.surnom || storedName);
                 updateUserNameUI(payload.surnom || storedName);
