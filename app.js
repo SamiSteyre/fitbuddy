@@ -20,6 +20,29 @@
     let activeShoppingFilter = "coloc"; // Par défaut
     let activeRecipeFilter = "coloc";   // Par défaut
 
+    function extractOwnerEmail(item) {
+        if (!item) return "";
+        if (item.property_utilisateur) return item.property_utilisateur;
+        if (item.utilisateur) return item.utilisateur;
+        if (item.email) return item.email;
+        if (item.property_email) return item.property_email;
+
+        // Notion raw properties structure
+        const props = item.properties || {};
+        for (const key of Object.keys(props)) {
+            const kl = key.toLowerCase();
+            if (kl === "utilisateur" || kl === "email" || kl === "propriétaire" || kl === "proprietaire") {
+                const prop = props[key];
+                if (!prop) continue;
+                if (prop.type === "email" && prop.email) return prop.email;
+                if (prop.type === "rich_text" && prop.rich_text && prop.rich_text.length > 0) return prop.rich_text[0].plain_text || "";
+                if (prop.type === "select" && prop.select) return prop.select.name || "";
+                if (typeof prop === "string") return prop;
+            }
+        }
+        return "";
+    }
+
     function getFilteredItems(allItems, activeFilter) {
         const currentUserEmail = (localStorage.getItem('fitbuddy_email') || "").trim().toLowerCase();
         
@@ -34,7 +57,7 @@
         }
 
         return allItems.filter(item => {
-            const owner = (item.property_utilisateur || item.utilisateur || item.email || "").trim().toLowerCase();
+            const owner = extractOwnerEmail(item).trim().toLowerCase();
             
             // Si pas de propriétaire (ancien élément Notion), il reste visible par défaut (public)
             if (!owner) return true;
