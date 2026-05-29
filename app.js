@@ -559,7 +559,7 @@
 
                 <!-- Actions du Profil -->
                 <div class="space-y-3 pt-4">
-                    <button onclick="saveProfileData()" id="btn-save-profile" class="w-full bg-cyan-500 hover:bg-cyan-400 py-4.5 rounded-2xl text-xs font-black text-black uppercase tracking-widest shadow-lg shadow-cyan-500/25 flex items-center justify-center gap-2 active:scale-[0.98] transition-all">
+                    <button onclick="saveProfileData()" id="btn-save-profile" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 py-4 rounded-2xl text-[10px] font-black text-white uppercase tracking-widest shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/30 flex items-center justify-center gap-2 active:scale-[0.97] transition-all border border-cyan-400/20">
                         <i data-lucide="save" class="w-4 h-4"></i> Enregistrer les modifications
                     </button>
                     
@@ -4278,19 +4278,6 @@ async function switchToRapport(data) {
         <div class="category-badge mb-2 !bg-fuchsia-500/10 border-fuchsia-500/20">
             <i data-lucide="trending-up" class="w-3.5 h-3.5 text-fuchsia-400"></i>
             <h2 class="text-[10px] font-black text-white uppercase tracking-[0.15em]">Mon Rapport Matinal</h2>
-        </div>
-
-        <div class="bg-white/5 border border-white/10 rounded-3xl p-5 space-y-4 shadow-xl">
-            <div class="flex justify-between items-center">
-                <div>
-                    <h3 class="text-sm font-black text-white tracking-tight">Rapport Automatique</h3>
-                    <p class="text-[9px] text-white/40 uppercase tracking-widest">Calculé tous les matins à 04:59</p>
-                </div>
-                <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" checked class="sr-only peer">
-                    <div class="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-fuchsia-400 after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-fuchsia-950/40 peer-checked:border peer-checked:border-fuchsia-500/30"></div>
-                </label>
-            </div>
         </div>
 
         <!-- VOLET 1 : Bilan macro de la veille -->
