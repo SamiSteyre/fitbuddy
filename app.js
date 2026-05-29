@@ -1198,7 +1198,7 @@ const getProp = (obj, keywords) => {
         };
 
         const rawQuants = getProp(recipe, ['quantit_saisie', 'quantite_saisie', 'quantit_unit', 'quantite_unite']) || getProp(recipe, ['quantit']);
-        const rawUnites = getProp(recipe, ['unite_utilisee', 'unit_utilis', 'unite_sp']);
+        const rawUnites = getProp(recipe, ['unite_utilisee', 'unit_utilis']);
         const rawPoids = getProp(recipe, ['poids_ref', 'poids_r_f']);
         const rawUnitesSpe = getProp(recipe, ['unite_spe', 'unit_sp_']);
 
