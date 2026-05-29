@@ -799,6 +799,13 @@
             }
         });
 
+        const cachedProfile = stringToJson(localStorage.getItem('fitbuddy_user_profile')) || {};
+        const oldWeight = parseFloat(cachedProfile.mensurations?.poids || 0);
+        const oldFat = parseFloat(cachedProfile.mensurations?.masse_grasse || 0);
+        const newWeight = parseFloat(mensurationsPayload.poids || 0);
+        const newFat = parseFloat(mensurationsPayload.masse_grasse || 0);
+        const weightOrFatChanged = (oldWeight !== newWeight || oldFat !== newFat);
+
         const payload = {
             email: userEmail,
             surnom: document.getElementById('prof-nickname').value.trim(),
@@ -818,6 +825,7 @@
             type_objectif_corporel: document.getElementById('prof-body-metric').value,
             objectif_corporel_actuel: parseFloat(document.getElementById('prof-body-current').value) || 0,
             objectif_corporel_but: parseFloat(document.getElementById('prof-body-target').value) || 0,
+            weight_or_fat_changed: weightOrFatChanged,
             mensurations: mensurationsPayload
         };
 
