@@ -1359,21 +1359,21 @@ function switchToCooking(data) {
         });
 
         // --- INJECTION DE L'ONGLET DE FILTRAGE GLASSMORPHIC ---
-        let html = `
-        <div class="px-4 pt-2 pb-1">
-            <div class="glass-segmented-control flex p-1 bg-white/5 border border-white/10 rounded-2xl backdrop-blur-xl relative">
-                <button onclick="setRecipeFilter('coloc')" class="flex-1 py-2 text-[10px] font-black uppercase tracking-wider text-center rounded-xl transition-all duration-300 ${activeRecipeFilter === 'coloc' ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20' : 'text-white/40 hover:text-white'}">
-                    👥 Coloc
-                </button>
-                <button onclick="setRecipeFilter('perso')" class="flex-1 py-2 text-[10px] font-black uppercase tracking-wider text-center rounded-xl transition-all duration-300 ${activeRecipeFilter === 'perso' ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20' : 'text-white/40 hover:text-white'}">
-                    👤 Perso
-                </button>
-                <button onclick="setRecipeFilter('tout')" class="flex-1 py-2 text-[10px] font-black uppercase tracking-wider text-center rounded-xl transition-all duration-300 ${activeRecipeFilter === 'tout' ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20' : 'text-white/40 hover:text-white'}">
-                    🌐 Tout
-                </button>
-            </div>
-        </div>
-        <div class="p-2 space-y-10 animate-in fade-in duration-500">`;
+        let html = "";
+        if (currentGroupMembers.length > 0 && currentGroupName) {
+            html += `
+            <div class="px-4 pt-2 pb-1">
+                <div class="glass-segmented-control flex p-1 bg-white/5 border border-white/10 rounded-2xl backdrop-blur-xl relative">
+                    <button onclick="setRecipeFilter('coloc')" class="flex-1 py-2 text-[10px] font-black uppercase tracking-wider text-center rounded-xl transition-all duration-300 ${activeRecipeFilter === 'coloc' ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20' : 'text-white/40 hover:text-white'}">
+                        👥 ${currentGroupName}
+                    </button>
+                    <button onclick="setRecipeFilter('perso')" class="flex-1 py-2 text-[10px] font-black uppercase tracking-wider text-center rounded-xl transition-all duration-300 ${activeRecipeFilter === 'perso' ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20' : 'text-white/40 hover:text-white'}">
+                        👤 Perso
+                    </button>
+                </div>
+            </div>`;
+        }
+        html += `<div class="p-2 space-y-10 animate-in fade-in duration-500">`;
 
         Object.keys(sections).forEach(title => {
             const list = sections[title];
@@ -2086,21 +2086,23 @@ function openAiGenerationModal() {
         const container = document.getElementById('view-shopping'); 
         if(!container) return;
         
-        container.innerHTML = `
-        <div class="px-4 pt-2 pb-1 flex-none font-bold">
-            <div class="glass-segmented-control flex p-1 bg-white/5 border border-white/10 rounded-2xl backdrop-blur-xl relative">
-                <button onclick="setShoppingFilter('coloc')" class="flex-1 py-2 text-[10px] font-black uppercase tracking-wider text-center rounded-xl transition-all duration-300 ${activeShoppingFilter === 'coloc' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'text-white/40 hover:text-white'}">
-                    👥 Coloc
-                </button>
-                <button onclick="setShoppingFilter('perso')" class="flex-1 py-2 text-[10px] font-black uppercase tracking-wider text-center rounded-xl transition-all duration-300 ${activeShoppingFilter === 'perso' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'text-white/40 hover:text-white'}">
-                    👤 Perso
-                </button>
-                <button onclick="setShoppingFilter('tout')" class="flex-1 py-2 text-[10px] font-black uppercase tracking-wider text-center rounded-xl transition-all duration-300 ${activeShoppingFilter === 'tout' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'text-white/40 hover:text-white'}">
-                    🌐 Tout
-                </button>
-            </div>
-        </div>
-        <div id="shopping-content" class="space-y-6 p-4 flex-1 overflow-y-auto"></div>`;
+        let html = "";
+        if (currentGroupMembers.length > 0 && currentGroupName) {
+            html += `
+            <div class="px-4 pt-2 pb-1 flex-none font-bold">
+                <div class="glass-segmented-control flex p-1 bg-white/5 border border-white/10 rounded-2xl backdrop-blur-xl relative">
+                    <button onclick="setShoppingFilter('coloc')" class="flex-1 py-2 text-[10px] font-black uppercase tracking-wider text-center rounded-xl transition-all duration-300 ${activeShoppingFilter === 'coloc' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'text-white/40 hover:text-white'}">
+                        👥 ${currentGroupName}
+                    </button>
+                    <button onclick="setShoppingFilter('perso')" class="flex-1 py-2 text-[10px] font-black uppercase tracking-wider text-center rounded-xl transition-all duration-300 ${activeShoppingFilter === 'perso' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'text-white/40 hover:text-white'}">
+                        👤 Perso
+                    </button>
+                </div>
+            </div>`;
+        }
+        
+        html += `<div id="shopping-content" class="space-y-6 p-4 flex-1 overflow-y-auto"></div>`;
+        container.innerHTML = html;
 
         const content = document.getElementById('shopping-content');
         if(!content) return;
