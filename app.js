@@ -836,6 +836,14 @@
                 localStorage.setItem('fitbuddy_user_profile', JSON.stringify(updatedProfile));
                 localStorage.setItem('fitbuddy_user_name', payload.surnom || storedName);
                 updateUserNameUI(payload.surnom || storedName);
+
+                if (data.tyler_note) {
+                    localStorage.setItem('fitbuddy_tyler_metabolic_note', data.tyler_note);
+                } else if (data.tyler_explanation) {
+                    localStorage.setItem('fitbuddy_tyler_metabolic_note', data.tyler_explanation);
+                } else {
+                    localStorage.removeItem('fitbuddy_tyler_metabolic_note');
+                }
                 
                 showNotification("Profil Notion mis à jour avec succès !", "success");
                 switchToProfile(); 
@@ -4342,13 +4350,15 @@ async function switchToRapport(data) {
         trendHtml = `<span class="trend-badge bg-gray-500/10 text-gray-400 font-extrabold uppercase gap-1 flex items-center text-[8px] py-0.5 px-2 rounded-md border border-gray-500/30">Stable <i data-lucide="minus" class="w-3 h-3"></i></span>`;
     }
 
-    let tylerExplanation = "";
-    if (diffWeight < 0) {
-        tylerExplanation = `Super boulot, ${nickname} ! Ta pesée est en baisse de **${Math.abs(diffWeight).toFixed(1)} kg**. Ton métabolisme s'ajuste pour consommer un peu moins d'énergie au repos. Tyler a donc recalibré tes apports pour maintenir ton déficit calorique de manière chirurgicale, tout en maintenant ton quota de protéines de sécurité à 2.2g par kg de poids de corps.`;
-    } else if (diffWeight > 0) {
-        tylerExplanation = `Ton poids est en hausse de **${diffWeight.toFixed(1)} kg**. Pas de panique, cela peut être dû à une rétention d'eau, du glycogène ou de la croissance musculaire. Tyler a légèrement augmenté tes apports pour soutenir ton métabolisme et tes entraînements. Continue de pousser fort !`;
-    } else {
-        tylerExplanation = `Ton poids est parfaitement stable à **${currentWeight} kg**. Ton métabolisme tourne à plein régime et est en équilibre. Tes macros de maintenance ou de déficit sont parfaitement calées pour cette semaine.`;
+    let tylerExplanation = localStorage.getItem('fitbuddy_tyler_metabolic_note') || "";
+    if (!tylerExplanation) {
+        if (diffWeight < 0) {
+            tylerExplanation = `Super boulot, ${nickname} ! Ta pesée est en baisse de **${Math.abs(diffWeight).toFixed(1)} kg**. Ton métabolisme s'ajuste pour consommer un peu moins d'énergie au repos. Tyler a donc recalibré tes apports pour maintenir ton déficit calorique de manière chirurgicale, tout en maintenant ton quota de protéines de sécurité à 2.2g par kg de poids de corps.`;
+        } else if (diffWeight > 0) {
+            tylerExplanation = `Ton poids est en hausse de **${diffWeight.toFixed(1)} kg**. Pas de panique, cela peut être dû à une rétention d'eau, du glycogène ou de la croissance musculaire. Tyler a légèrement augmenté tes apports pour soutenir ton métabolisme et tes entraînements. Continue de pousser fort !`;
+        } else {
+            tylerExplanation = `Ton poids est parfaitement stable à **${currentWeight} kg**. Ton métabolisme tourne à plein régime et est en équilibre. Tes macros de maintenance ou de déficit sont parfaitement calées pour cette semaine.`;
+        }
     }
 
 
