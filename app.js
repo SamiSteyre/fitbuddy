@@ -810,6 +810,59 @@
 
         const bodyCompositionChanged = (oldWeight !== newWeight || oldFat !== newFat || oldMuscle !== newMuscle);
 
+        let calculatedKcal = parseFloat(document.getElementById('prof-kcal').value) || 0;
+        let calculatedProt = parseFloat(document.getElementById('prof-prot').value) || 0;
+        let calculatedGluc = parseFloat(document.getElementById('prof-glu').value) || 0;
+        let calculatedLip = parseFloat(document.getElementById('prof-lip').value) || 0;
+
+        if (bodyCompositionChanged && newWeight > 0) {
+            const heightInput = document.getElementById('m-taille');
+            const height = parseFloat(heightInput ? heightInput.value : "") || parseFloat(cachedProfile.mensurations?.taille) || 180;
+            
+            let age = 30;
+            if (birthDateVal) {
+                const birthYear = new Date(birthDateVal).getFullYear();
+                const currentYear = new Date().getFullYear();
+                if (!isNaN(birthYear)) {
+                    age = currentYear - birthYear;
+                }
+            } else {
+                age = parseFloat(cachedProfile.age || 30);
+            }
+            
+            const activityCoeff = 1.375; // Active
+            const BMR = 10 * newWeight + 6.25 * height - 5 * age + 5;
+            const TDEE = Math.round(BMR * activityCoeff);
+            
+            const goal = document.getElementById('prof-sport-goal').value || "Maintien";
+            let kcal = TDEE;
+            
+            if (goal.includes("Cut") || goal.includes("sèche")) kcal -= 500;
+            else if (goal.includes("Bulk") || goal.includes("masse")) kcal += 350;
+            else if (goal.includes("Hypertrophie")) kcal += 200;
+            else if (goal.includes("Recomp")) kcal -= 200;
+
+            const prot = Math.round(newWeight * 2.2);
+            const lip = Math.round(newWeight * 0.9);
+            const gluc = Math.round((kcal - (prot * 4 + lip * 9)) / 4);
+
+            calculatedKcal = kcal;
+            calculatedProt = prot;
+            calculatedGluc = gluc;
+            calculatedLip = lip;
+
+            // Sync with profile form inputs so they reflect the change instantly
+            const kcalEl = document.getElementById('prof-kcal');
+            const protEl = document.getElementById('prof-prot');
+            const gluEl = document.getElementById('prof-glu');
+            const lipEl = document.getElementById('prof-lip');
+            
+            if (kcalEl) kcalEl.value = kcal;
+            if (protEl) protEl.value = prot;
+            if (gluEl) gluEl.value = gluc;
+            if (lipEl) lipEl.value = lip;
+        }
+
         const payload = {
             email: userEmail,
             surnom: document.getElementById('prof-nickname').value.trim(),
@@ -818,10 +871,10 @@
             birthday: birthDateVal || null,
             property_date_anniversaire: birthDateVal || null,
             objectif_sportif: document.getElementById('prof-sport-goal').value,
-            objectif_calorique: parseFloat(document.getElementById('prof-kcal').value) || 0,
-            objectif_proteines: parseFloat(document.getElementById('prof-prot').value) || 0,
-            objectif_glucides: parseFloat(document.getElementById('prof-glu').value) || 0,
-            objectif_lipides: parseFloat(document.getElementById('prof-lip').value) || 0,
+            objectif_calorique: calculatedKcal,
+            objectif_proteines: calculatedProt,
+            objectif_glucides: calculatedGluc,
+            objectif_lipides: calculatedLip,
             objectif_hydratation: parseFloat(document.getElementById('prof-water').value) || 0,
             allergies: allergies,
             aversions: dislikes,
