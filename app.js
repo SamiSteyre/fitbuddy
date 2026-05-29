@@ -12,6 +12,43 @@
     let searchModalMode = "recipe"; 
     let activeConsumedFood = null; 
 
+    // Liste dynamique des e-mails membres du groupe (chargée depuis le profil)
+    let currentGroupMembers = []; 
+    let currentGroupName = "";
+
+    // États actifs des filtres de vue (perso, coloc, tout)
+    let activeShoppingFilter = "coloc"; // Par défaut
+    let activeRecipeFilter = "coloc";   // Par défaut
+
+    function getFilteredItems(allItems, activeFilter) {
+        const currentUserEmail = (localStorage.getItem('fitbuddy_email') || "").trim().toLowerCase();
+        
+        // Liste dynamique des e-mails du groupe (avec fallback sur l'e-mail perso si aucun groupe)
+        let groupEmails = currentGroupMembers.length > 0 
+            ? currentGroupMembers.map(email => email.trim().toLowerCase())
+            : [currentUserEmail];
+        
+        // S'assurer que l'utilisateur connecté fait toujours partie de son groupe de filtrage
+        if (!groupEmails.includes(currentUserEmail)) {
+            groupEmails.push(currentUserEmail);
+        }
+
+        return allItems.filter(item => {
+            const owner = (item.property_utilisateur || item.utilisateur || item.email || "").trim().toLowerCase();
+            
+            // Si pas de propriétaire (ancien élément Notion), il reste visible par défaut (public)
+            if (!owner) return true;
+
+            if (activeFilter === "perso") {
+                return owner === currentUserEmail;
+            } else if (activeFilter === "coloc") {
+                return groupEmails.includes(owner);
+            } else {
+                return true; // Tout afficher
+            }
+        });
+    }
+
     window.addEventListener('load', () => { 
         lucide.createIcons();
         if (storedName) updateUserNameUI(storedName);
@@ -266,6 +303,12 @@
     function renderProfileUI(user) {
         const container = document.getElementById('view-profile');
         if (!container) return;
+
+        const membresRaw = user.membres_groupe || user.membresGroupe || "";
+        currentGroupName = user.nom_groupe || user.nomGroupe || "";
+        currentGroupMembers = typeof membresRaw === 'string' 
+            ? membresRaw.split(',').map(s => s.trim()).filter(Boolean)
+            : (Array.isArray(membresRaw) ? membresRaw : []);
 
         const nickname = user.surnom || user.nom || "Utilisateur";
         const name = user.nom || "";
@@ -557,6 +600,30 @@
                     </div>
                 </div>
 
+                <!-- Ma Coloc / Mon Groupe -->
+                <div class="bg-white/5 border border-white/10 rounded-3xl p-5 space-y-4 shadow-xl">
+                    <div class="flex items-center gap-2 border-b border-white/10 pb-3">
+                        <i data-lucide="users" class="w-4 h-4 text-cyan-400"></i>
+                        <h4 class="text-xs font-black text-white uppercase tracking-wider">Ma Coloc / Mon Groupe</h4>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Nom de la Coloc / Groupe</label>
+                        <input type="text" id="profile-group-name" value="${currentGroupName}" placeholder="Ex: Coloc Steyre" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-500 placeholder-white/20">
+                    </div>
+                    <div class="space-y-2 pt-2">
+                        <div class="flex justify-between items-center">
+                            <label class="text-[9px] font-bold text-cyan-400 uppercase ml-1">Colocataires (Adresse E-mail)</label>
+                            <button type="button" onclick="window.addGroupMemberTag()" class="text-[9px] font-black text-cyan-400 uppercase tracking-widest flex items-center gap-1 active:scale-95 transition-transform"><i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Ajouter</button>
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="email" id="new-group-member-email" placeholder="coloc@exemple.com" class="flex-1 bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-500 placeholder-white/20">
+                        </div>
+                        <div id="group-members-tags" class="flex flex-wrap gap-2 pt-2 min-h-6">
+                            <!-- Rempli dynamiquement en JS -->
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Actions du Profil -->
                 <div class="space-y-3 pt-4">
                     <button onclick="saveProfileData()" id="btn-save-profile" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 py-4 rounded-2xl text-[10px] font-black text-white uppercase tracking-widest shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/30 flex items-center justify-center gap-2 active:scale-[0.97] transition-all border border-cyan-400/20">
@@ -593,6 +660,54 @@
                 window.addAversionTag();
             });
         }
+
+        window.renderGroupMembersTags = function() {
+            const container = document.getElementById('group-members-tags');
+            if (!container) return;
+            
+            if (currentGroupMembers.length === 0) {
+                container.innerHTML = '<span class="text-[10px] text-white/20 italic">Aucun colocataire</span>';
+                return;
+            }
+            
+            container.innerHTML = currentGroupMembers.map((email, idx) => `
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[10px] font-bold">
+                    ${email}
+                    <button type="button" onclick="window.removeGroupMember(${idx})" class="w-3.5 h-3.5 rounded-full bg-red-500/10 hover:bg-red-500 hover:text-black flex items-center justify-center text-red-400 text-[8px] transition-all">
+                        ✕
+                    </button>
+                </span>
+            `).join('');
+            if (window.lucide) lucide.createIcons();
+        };
+
+        window.addGroupMemberTag = function() {
+            const input = document.getElementById('new-group-member-email');
+            if (!input) return;
+            const email = input.value.trim().toLowerCase();
+            
+            if (!email || !email.includes('@')) {
+                alert("⚠️ Veuillez saisir une adresse e-mail valide.");
+                return;
+            }
+            
+            if (currentGroupMembers.includes(email)) {
+                alert("⚠️ Cet utilisateur est déjà présent dans la liste.");
+                return;
+            }
+            
+            currentGroupMembers.push(email);
+            input.value = "";
+            window.renderGroupMembersTags();
+        };
+
+        window.removeGroupMember = function(idx) {
+            currentGroupMembers.splice(idx, 1);
+            window.renderGroupMembersTags();
+        };
+        
+        // Premier rendu
+        setTimeout(() => { window.renderGroupMembersTags(); }, 50);
     }
 
     function showCustomPrompt(title, placeholder, callback) {
@@ -883,6 +998,10 @@
             if (lipEl) lipEl.value = lip;
         }
 
+        const groupNameInput = document.getElementById('profile-group-name');
+        const finalGroupName = groupNameInput ? groupNameInput.value.trim() : "";
+        const finalGroupMembers = currentGroupMembers.join(', ');
+
         const payload = {
             email: userEmail,
             surnom: document.getElementById('prof-nickname').value.trim(),
@@ -904,6 +1023,8 @@
             objectif_corporel_but: parseFloat(document.getElementById('prof-body-target').value) || 0,
             weight_or_fat_changed: bodyCompositionChanged,
             body_composition_changed: bodyCompositionChanged,
+            nom_groupe: finalGroupName,
+            membres_groupe: finalGroupMembers,
             mensurations: mensurationsPayload
         };
 
@@ -1166,8 +1287,17 @@ function switchToCooking(data) {
         if(btnPlus) { btnPlus.classList.remove('hidden'); btnPlus.style.display = 'flex'; }
         
         const d = data.data || data;
-        
-        // SUPPRESSION DE "Menu de la semaine" ET "Suggestions de Tyler"
+        const allRecipes = Array.isArray(d) ? d : (d.recipes || []);
+        recipesCache = allRecipes; 
+
+        // On les garde dans le cache pour éviter les erreurs, mais on ne les affiche plus
+        if(d.menuMidi) { recipesCache.push(d.menuMidi); }
+        if(d.menuSoir) { recipesCache.push(d.menuSoir); }
+        if(d.suggestionsTyler) { recipesCache = [...recipesCache, ...d.suggestionsTyler]; }
+
+        // --- FILTRAGE DYNAMIQUE DES RECETTES ---
+        const filteredRecipes = getFilteredItems(allRecipes, activeRecipeFilter);
+
         const sections = {
             "Entrées": [],
             "Plats": [],
@@ -1181,16 +1311,8 @@ function switchToCooking(data) {
             "Desserts": "cookie",
             "Autres": "layout-grid"
         };
-
-        const allRecipes = Array.isArray(d) ? d : (d.recipes || []);
-        recipesCache = allRecipes; 
         
-        // On les garde dans le cache pour éviter les erreurs, mais on ne les affiche plus
-        if(d.menuMidi) { recipesCache.push(d.menuMidi); }
-        if(d.menuSoir) { recipesCache.push(d.menuSoir); }
-        if(d.suggestionsTyler) { recipesCache = [...recipesCache, ...d.suggestionsTyler]; }
-        
-        allRecipes.forEach(r => {
+        filteredRecipes.forEach(r => {
             let catsRaw = r.property_cat_gorie || r.categorie || r.categories || "Autres";
             let cats = (typeof catsRaw === 'string') ? catsRaw.split(',').map(s => s.trim()) : (Array.isArray(catsRaw) ? catsRaw : [catsRaw]);
 
@@ -1213,7 +1335,22 @@ function switchToCooking(data) {
             }
         });
 
-        let html = `<div class="p-2 space-y-10 animate-in fade-in duration-500">`;
+        // --- INJECTION DE L'ONGLET DE FILTRAGE GLASSMORPHIC ---
+        let html = `
+        <div class="px-4 pt-2 pb-1">
+            <div class="glass-segmented-control flex p-1 bg-white/5 border border-white/10 rounded-2xl backdrop-blur-xl relative">
+                <button onclick="setRecipeFilter('coloc')" class="flex-1 py-2 text-[10px] font-black uppercase tracking-wider text-center rounded-xl transition-all duration-300 ${activeRecipeFilter === 'coloc' ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20' : 'text-white/40 hover:text-white'}">
+                    👥 Coloc
+                </button>
+                <button onclick="setRecipeFilter('perso')" class="flex-1 py-2 text-[10px] font-black uppercase tracking-wider text-center rounded-xl transition-all duration-300 ${activeRecipeFilter === 'perso' ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20' : 'text-white/40 hover:text-white'}">
+                    👤 Perso
+                </button>
+                <button onclick="setRecipeFilter('tout')" class="flex-1 py-2 text-[10px] font-black uppercase tracking-wider text-center rounded-xl transition-all duration-300 ${activeRecipeFilter === 'tout' ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20' : 'text-white/40 hover:text-white'}">
+                    🌐 Tout
+                </button>
+            </div>
+        </div>
+        <div class="p-2 space-y-10 animate-in fade-in duration-500">`;
 
         Object.keys(sections).forEach(title => {
             const list = sections[title];
@@ -1264,6 +1401,12 @@ function switchToCooking(data) {
         lucide.createIcons();
         setTimeout(() => { container.scrollTo({ top: 0, behavior: 'instant' }); }, 100);
     }
+
+    // Fonction de bascule de filtre
+    window.setRecipeFilter = function(filter) {
+        activeRecipeFilter = filter;
+        switchToCooking({ data: recipesCache });
+    };
 
     function openRecipe(id) {
         const isNew = (!id || id === 'null');
@@ -1874,8 +2017,17 @@ function openAiGenerationModal() {
     if(!container) return;
     document.getElementById('floating-plus').classList.add('hidden');
 
-    let items = (Array.isArray(data)) ? data : (data.items || data.data || []);
-    currentList = items
+    let rawItems = (Array.isArray(data)) ? data : (data.items || data.data || []);
+    
+    // Garder une référence des éléments bruts pour le changement de filtre instantané
+    if (!window.shoppingCacheRaw || Array.isArray(data)) {
+        window.shoppingCacheRaw = rawItems;
+    }
+
+    // --- FILTRAGE DYNAMIQUE DE LA LISTE DE COURSES ---
+    const filteredRaw = getFilteredItems(window.shoppingCacheRaw, activeShoppingFilter);
+
+    currentList = filteredRaw
         .filter(i => {
             const s = (i.property_statut || i.statut || i.status || "in_basket").toLowerCase().trim();
             return s === "in_basket";
@@ -1898,9 +2050,11 @@ function openAiGenerationModal() {
                 unite: i.property_unite || i.unite || "",
                 rayon: (i.property_rayon || i.rayon || i.category || "Autres").trim(),
                 photo: photoStr,
+                utilisateur: i.property_utilisateur || i.utilisateur || i.email || "",
                 isPurchased: false
             };
         });       
+
     renderShopping(); 
     setTimeout(() => { container.scrollTo({ top: 0, behavior: 'instant' }); }, 100);
 }
@@ -1908,7 +2062,23 @@ function openAiGenerationModal() {
     function renderShopping() {
         const container = document.getElementById('view-shopping'); 
         if(!container) return;
-        container.innerHTML = `<div id="shopping-content" class="space-y-6"></div>`;
+        
+        container.innerHTML = `
+        <div class="px-4 pt-2 pb-1 flex-none font-bold">
+            <div class="glass-segmented-control flex p-1 bg-white/5 border border-white/10 rounded-2xl backdrop-blur-xl relative">
+                <button onclick="setShoppingFilter('coloc')" class="flex-1 py-2 text-[10px] font-black uppercase tracking-wider text-center rounded-xl transition-all duration-300 ${activeShoppingFilter === 'coloc' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'text-white/40 hover:text-white'}">
+                    👥 Coloc
+                </button>
+                <button onclick="setShoppingFilter('perso')" class="flex-1 py-2 text-[10px] font-black uppercase tracking-wider text-center rounded-xl transition-all duration-300 ${activeShoppingFilter === 'perso' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'text-white/40 hover:text-white'}">
+                    👤 Perso
+                </button>
+                <button onclick="setShoppingFilter('tout')" class="flex-1 py-2 text-[10px] font-black uppercase tracking-wider text-center rounded-xl transition-all duration-300 ${activeShoppingFilter === 'tout' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'text-white/40 hover:text-white'}">
+                    🌐 Tout
+                </button>
+            </div>
+        </div>
+        <div id="shopping-content" class="space-y-6 p-4 flex-1 overflow-y-auto"></div>`;
+
         const content = document.getElementById('shopping-content');
         if(!content) return;
         RAYONS.forEach(r => {
@@ -1920,6 +2090,12 @@ function openAiGenerationModal() {
         const purchased = currentList.filter(i => i.isPurchased);
         if (purchased.length > 0) appendCategory(content, "PANIER", purchased, true);
     }
+
+    // Fonction de bascule de filtre courses
+    window.setShoppingFilter = function(filter) {
+        activeShoppingFilter = filter;
+        switchToShopping(window.shoppingCacheRaw);
+    };
 
 function appendCategory(container, title, items, isPurchased = false) {
     const section = document.createElement('div');
