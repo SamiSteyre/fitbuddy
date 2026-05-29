@@ -4060,12 +4060,137 @@ async function switchToRapport(data) {
     if (!container) return;
     document.getElementById('floating-plus').classList.add('hidden');
 
-    const profile = data.profile || {};
+    // Merging profile from n8n fetch and local storage for maximum resilience and freshness
+    let cachedProfile = null;
+    try {
+        cachedProfile = JSON.parse(localStorage.getItem('fitbuddy_user_profile'));
+    } catch(e) {}
+    const profile = { ...cachedProfile, ...(data.profile || {}) };
+    
+    // Save the combined profile back to local storage
+    if (data.profile) {
+        localStorage.setItem('fitbuddy_user_profile', JSON.stringify(profile));
+    }
+
     const nickname = profile.surnom || profile.nom || "Athlète";
-    const currentWeight = parseFloat(profile.objectif_corporel_actuel || profile.mensurations?.poids || 103.6);
+
+    // 1. Normalize and parse weightHistory from data.historique (Notion mensurations database)
+    let weightHistory = [];
+    if (data.historique && Array.isArray(data.historique) && data.historique.length > 0) {
+        weightHistory = data.historique.map(item => {
+            const normalized = {};
+            
+            // Normalize Date
+            let rawDate = item.date || item.Date || item.created_time || "";
+            if (rawDate && typeof rawDate === 'object') {
+                rawDate = rawDate.start || rawDate.date?.start || "";
+            }
+            if (rawDate && typeof rawDate === 'string') {
+                normalized.date = rawDate.substring(0, 10);
+            } else {
+                normalized.date = new Date().toISOString().substring(0, 10);
+            }
+            
+            // Normalize all known metrics
+            const metricKeys = [
+                "poids", "masse_grasse", "tour_de_taille", "tour_de_hanche", 
+                "tour_cuisse_droite", "tour_cuisse_gauche", "masse_musculaire", 
+                "graisse_viscerale", "tour_de_cou", "tour_epaules", 
+                "tour_de_poitrine", "tour_bras_droit", "tour_bras_gauche", 
+                "tour_mollet_droit", "tour_mollet_gauche"
+            ];
+            
+            metricKeys.forEach(key => {
+                let val = item[key];
+                if (val === undefined || val === null) {
+                    // Try alternative naming keys
+                    const alternativeNames = [
+                        key,
+                        key.toLowerCase(),
+                        key.toUpperCase(),
+                        key.replace(/_/g, ' '),
+                        key.replace(/_/g, '-'),
+                    ];
+                    for (const alt of alternativeNames) {
+                        if (item[alt] !== undefined && item[alt] !== null) {
+                            val = item[alt];
+                            break;
+                        }
+                    }
+                }
+                
+                if (val && typeof val === 'object') {
+                    val = val.number !== undefined ? val.number : (val.rich_text || val.title || val.select?.name || null);
+                }
+                
+                if (val !== undefined && val !== null) {
+                    const parsedVal = parseFloat(val);
+                    if (!isNaN(parsedVal)) {
+                        normalized[key] = parsedVal;
+                    }
+                }
+            });
+            
+            return normalized;
+        });
+        
+        // Sort chronologically by date
+        weightHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
+        
+        // Save the real history to local storage so the graphs display the real data
+        localStorage.setItem('fitbuddy_weight_history', JSON.stringify(weightHistory));
+    } else {
+        try {
+            weightHistory = JSON.parse(localStorage.getItem('fitbuddy_weight_history')) || [];
+        } catch(e) {}
+    }
+
+    const bodyMetric = profile.type_objectif_corporel || "poids";
+    
+    // Determine active goal parameters (representing active bodyMetric)
+    const targetVal = parseFloat(profile.objectif_corporel_but || 85.0);
+    const initialVal = parseFloat(profile.objectif_corporel_initial || 110.0);
+    
+    const latestHistoryEntry = weightHistory.length > 0 ? weightHistory[weightHistory.length - 1] : null;
+
+    // Resolve current weight and current fat from the latest recorded history or profile
+    const currentWeight = parseFloat(
+        latestHistoryEntry?.poids || 
+        (bodyMetric === "poids" ? profile.objectif_corporel_actuel : null) || 
+        profile.mensurations?.poids || 
+        103.6
+    );
     const targetWeight = parseFloat(profile.objectif_corporel_but || 85.0);
     const initialWeight = parseFloat(profile.objectif_corporel_initial || 110.0);
-    const currentFat = parseFloat(profile.mensurations?.masse_grasse || 22.0);
+    const currentFat = parseFloat(
+        latestHistoryEntry?.masse_grasse || 
+        (bodyMetric === "masse_grasse" ? profile.objectif_corporel_actuel : null) || 
+        profile.mensurations?.masse_grasse || 
+        22.0
+    );
+
+    // Active metric current value for the mountain progression
+    let currentVal = parseFloat(profile.objectif_corporel_actuel);
+    if (isNaN(currentVal) || currentVal === 0) {
+        currentVal = parseFloat(latestHistoryEntry?.[bodyMetric] || profile.mensurations?.[bodyMetric] || currentWeight);
+    }
+
+    // Generate fallback history if still absolutely empty
+    if (weightHistory.length === 0) {
+        const today = new Date();
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(today.getDate() - i * 3);
+            const factor = i / 6;
+            const w = parseFloat((targetWeight + (initialWeight - targetWeight) * (0.2 + factor * 0.7) + (Math.random() - 0.5)).toFixed(1));
+            weightHistory.push({
+                date: d.toISOString().substring(0, 10),
+                poids: w,
+                masse_grasse: parseFloat((currentFat + (Math.random() - 0.5) * 1.5).toFixed(1))
+            });
+        }
+        localStorage.setItem('fitbuddy_weight_history', JSON.stringify(weightHistory));
+    }
 
     const goalKcal = parseFloat(data.veille?.goal_kcal || profile.objectif_calorique || 2000);
     const goalProt = parseFloat(data.veille?.goal_prot || profile.objectif_proteines || 150);
@@ -4105,31 +4230,6 @@ async function switchToRapport(data) {
         if (pct > 105) return `<span class="px-2 py-0.5 rounded-md bg-red-500/10 border border-red-500/30 text-red-400 text-[8px] font-black uppercase">Dépassement</span>`;
         return `<span class="px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[8px] font-black uppercase">Sous-atteint</span>`;
     };
-
-    // Historique des pesées local pour initialiser les graphiques
-    let weightHistory = [];
-    try {
-        weightHistory = JSON.parse(localStorage.getItem('fitbuddy_weight_history')) || [];
-    } catch(e) {}
-
-    if (weightHistory.length === 0) {
-        // Pré-remplissage réaliste descendant
-        const today = new Date();
-        for (let i = 6; i >= 0; i--) {
-            const d = new Date();
-            d.setDate(today.getDate() - i * 3);
-            const factor = i / 6;
-            const w = parseFloat((targetWeight + (initialWeight - targetWeight) * (0.2 + factor * 0.7) + (Math.random() - 0.5)).toFixed(1));
-            weightHistory.push({
-                date: d.toISOString().substring(0, 10),
-                poids: w,
-                masse_grasse: parseFloat((currentFat + (Math.random() - 0.5) * 1.5).toFixed(1))
-            });
-        }
-        localStorage.setItem('fitbuddy_weight_history', JSON.stringify(weightHistory));
-    }
-
-    const bodyMetric = profile.type_objectif_corporel || "poids";
     
     // Détermination de l'unité et du libellé selon la métrique active de l'objectif
     let metricUnit = "kg";
@@ -4164,13 +4264,13 @@ async function switchToRapport(data) {
         ? parseFloat((last7Weights.slice(0, -1).reduce((acc, curr) => acc + getMetricVal(curr), 0) / (last7Weights.length - 1)).toFixed(1))
         : avgWeight;
 
-    const isLosingGoal = targetWeight < initialWeight;
+    const isLosingGoal = targetVal < initialVal;
     const progressTrendTowardsGoal = isLosingGoal 
         ? (avgWeight <= previousAvg) 
         : (avgWeight >= previousAvg);
 
-    // Dessin de la montagne SVG
-    const mountainSvgHtml = drawMountainProgression(initialWeight, targetWeight, currentWeight);
+    // Dessin de la montagne SVG avec les paramètres de l'objectif actif
+    const mountainSvgHtml = drawMountainProgression(initialVal, targetVal, currentVal);
 
     let html = `
     <div class="p-2 space-y-6 pb-24 animate-in fade-in duration-500 overflow-y-auto no-scrollbar h-full">
@@ -4241,7 +4341,7 @@ async function switchToRapport(data) {
                     <h5 class="text-[9px] font-black text-fuchsia-400 uppercase tracking-widest">Analyse de Tyler</h5>
                 </div>
                 <p class="text-[11px] text-white/80 leading-relaxed font-medium">
-                    "Salut ${nickname} ! J'ai passé au crible ton bilan de la veille. Ton apport en protéines est solide à ${actualProt}g. Le contrôle calorique est très bon (${pKcal}% d'atteinte). Attention à ton léger pic de glucides, mais ton niveau d'activité physique compense parfaitement cette tendance. Maintiens le cap ce matin !"
+                    "${data.veille?.analyse_tyler || data.veille?.analyse || `Salut ${nickname} ! J'ai passé au crible ton bilan de la veille. Ton apport en protéines est solide à ${actualProt}g. Le contrôle calorique est très bon (${pKcal}% d'atteinte). Attention à ton léger pic de glucides, mais ton niveau d'activité physique compense parfaitement cette tendance. Maintiens le cap ce matin !`}"
                 </p>
             </div>
         </div>
@@ -4321,15 +4421,15 @@ async function switchToRapport(data) {
             <div class="grid grid-cols-3 gap-2 text-center pt-2">
                 <div class="space-y-1">
                     <span class="text-[8px] font-bold text-white/30 uppercase">Départ</span>
-                    <p class="text-xs font-black text-white">${initialWeight} ${metricUnit}</p>
+                    <p class="text-xs font-black text-white">${initialVal} ${metricUnit}</p>
                 </div>
                 <div class="space-y-1 border-x border-white/5">
                     <span class="text-[8px] font-bold text-cyan-400 uppercase">Actuel</span>
-                    <p class="text-xs font-black text-cyan-400">${currentWeight} ${metricUnit}</p>
+                    <p class="text-xs font-black text-cyan-400">${currentVal} ${metricUnit}</p>
                 </div>
                 <div class="space-y-1">
                     <span class="text-[8px] font-bold text-purple-400 uppercase">Cible</span>
-                    <p class="text-xs font-black text-purple-400">${targetWeight} ${metricUnit}</p>
+                    <p class="text-xs font-black text-purple-400">${targetVal} ${metricUnit}</p>
                 </div>
             </div>
         </div>
