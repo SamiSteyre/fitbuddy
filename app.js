@@ -59,13 +59,12 @@
         return allItems.filter(item => {
             const owner = extractOwnerEmail(item).trim().toLowerCase();
             
-            // Si pas de propriétaire (ancien élément Notion), il reste visible par défaut (public)
-            if (!owner) return true;
-
             if (activeFilter === "perso") {
+                // Dans la vue perso, on ne montre que les éléments créés par l'utilisateur connecté (les éléments sans propriétaire sont masqués)
                 return owner === currentUserEmail;
             } else if (activeFilter === "coloc") {
-                return groupEmails.includes(owner);
+                // Dans la vue coloc, on montre les éléments du groupe ET les éléments sans propriétaire (considérés comme publics/modèles)
+                return !owner || groupEmails.includes(owner);
             } else {
                 return true; // Tout afficher
             }
