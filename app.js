@@ -482,7 +482,7 @@
                 <div class="bg-white/5 border border-white/10 rounded-3xl p-5 space-y-4 shadow-xl">
                     <div class="flex items-center gap-4">
                         <div onclick="document.getElementById('profile-photo-input').click()" class="cursor-pointer relative w-14 h-14 rounded-2xl overflow-hidden border border-white/10 bg-white/5 group shadow-lg flex items-center justify-center">
-                            ${(user.photo_profil || user.photoProfil) ? `<img id="profile-preview-img" src="${(user.photo_profil || user.photoProfil).startsWith('http') || (user.photo_profil || user.photoProfil).startsWith('data:') || (user.photo_profil || user.photoProfil).startsWith('images/') ? (user.photo_profil || user.photoProfil) : 'images/profils/' + (user.photo_profil || user.photoProfil)}" class="w-full h-full object-cover">` : `<img id="profile-preview-img" class="hidden w-full h-full object-cover"><div id="profile-fallback-avatar" class="w-full h-full flex items-center justify-center bg-cyan-500/10 text-cyan-400 font-black text-xl">${nickname.charAt(0).toUpperCase()}</div>`}
+                            ${(user.photo_profil || user.photoProfil) ? `<img id="profile-preview-img" src="${(user.photo_profil || user.photoProfil).startsWith('http') || (user.photo_profil || user.photoProfil).startsWith('data:') || (user.photo_profil || user.photoProfil).startsWith('images/') ? (user.photo_profil || user.photoProfil) : 'images/photoprofil/' + (user.photo_profil || user.photoProfil)}" class="w-full h-full object-cover">` : `<img id="profile-preview-img" class="hidden w-full h-full object-cover"><div id="profile-fallback-avatar" class="w-full h-full flex items-center justify-center bg-cyan-500/10 text-cyan-400 font-black text-xl">${nickname.charAt(0).toUpperCase()}</div>`}
                             <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                                 <i data-lucide="camera" class="w-4 h-4 text-white"></i>
                             </div>
@@ -1101,7 +1101,7 @@
         const payload = {
             email: userEmail,
             surnom: document.getElementById('prof-nickname').value.trim(),
-            photo_profil: profilePhotoFilename ? `images/profils/${profilePhotoFilename}` : (profileImgEl ? profileImgEl.src : ""),
+            photo_profil: profilePhotoFilename ? `images/photoprofil/${profilePhotoFilename}` : (profileImgEl ? profileImgEl.src : ""),
             photoUploadPayload: profilePhotoUploadPayload,
             date_anniversaire: birthDateVal || null,
             date_naissance: birthDateVal || null,
@@ -5637,7 +5637,7 @@ function getMemberAvatarUrl(emailOrNick) {
         const profile = stringToJson(localStorage.getItem('fitbuddy_user_profile')) || {};
         if (profile.photo_profil || profile.photoProfil) {
             const path = profile.photo_profil || profile.photoProfil;
-            return path.startsWith('http') || path.startsWith('data:') || path.startsWith('images/') ? path : `images/profils/${path}`;
+            return path.startsWith('http') || path.startsWith('data:') || path.startsWith('images/') ? path : `images/photoprofil/${path}`;
         }
         return null;
     }
