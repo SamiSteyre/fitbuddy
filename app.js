@@ -500,7 +500,7 @@
                     <div class="space-y-1.5 pt-1">
                         <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Ou choisir un avatar rapide</label>
                         <div class="flex gap-2.5 overflow-x-auto no-scrollbar py-1">
-                            {[
+                            ${[
                                 { name: "💪 Fit", url: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=150&auto=format&fit=crop&q=60" },
                                 { name: "🍳 Chef", url: "https://images.unsplash.com/photo-1577219491135-ce391730fb2c?w=150&auto=format&fit=crop&q=60" },
                                 { name: "🧘 Zen", url: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=150&auto=format&fit=crop&q=60" },
@@ -5403,6 +5403,8 @@ window.initRadialMenu = function() {
             container.dataset.bound = "true";
         }
     }
+};
+
 // Initialize immediately and on DOMContentLoaded
 window.initRadialMenu();
 document.addEventListener('DOMContentLoaded', window.initRadialMenu);
