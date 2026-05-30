@@ -713,7 +713,7 @@
             if (!container) return;
             
             if (currentGroupMembers.length === 0) {
-                container.innerHTML = '<span class="text-[10px] text-white/20 italic">Aucun colocataire</span>';
+                container.innerHTML = '<span class="text-[10px] text-white/20 italic">Aucun membre</span>';
                 return;
             }
             
@@ -1048,6 +1048,18 @@
         const groupNameInput = document.getElementById('profile-group-name');
         const finalGroupName = groupNameInput ? groupNameInput.value.trim() : "";
         
+        // Récupérer une adresse éventuellement en cours de saisie dans le champ de membre
+        const newMemberEmailInput = document.getElementById('new-group-member-email');
+        if (newMemberEmailInput) {
+            const rawEmail = newMemberEmailInput.value.trim().toLowerCase();
+            if (rawEmail && rawEmail.includes('@')) {
+                if (!currentGroupMembers.map(m => m.trim().toLowerCase()).includes(rawEmail)) {
+                    currentGroupMembers.push(rawEmail);
+                }
+                newMemberEmailInput.value = ""; // Vider le champ après capture
+            }
+        }
+
         // Notre adresse e-mail s'ajoute automatiquement au groupe si un nom de groupe est présent
         if (finalGroupName) {
             const normalizedEmail = (userEmail || "").trim().toLowerCase();
