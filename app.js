@@ -647,23 +647,23 @@
                     </div>
                 </div>
 
-                <!-- Ma Coloc / Mon Groupe -->
+                <!-- Mon groupe d'utilisateurs -->
                 <div class="bg-white/5 border border-white/10 rounded-3xl p-5 space-y-4 shadow-xl">
                     <div class="flex items-center gap-2 border-b border-white/10 pb-3">
                         <i data-lucide="users" class="w-4 h-4 text-cyan-400"></i>
-                        <h4 class="text-xs font-black text-white uppercase tracking-wider">Ma Coloc / Mon Groupe</h4>
+                        <h4 class="text-xs font-black text-white uppercase tracking-wider">Mon groupe d'utilisateurs</h4>
                     </div>
                     <div class="space-y-2">
-                        <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Nom de la Coloc / Groupe</label>
-                        <input type="text" id="profile-group-name" value="${currentGroupName}" placeholder="Ex: Coloc Steyre" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-500 placeholder-white/20">
+                        <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Nom du groupe d'utilisateurs</label>
+                        <input type="text" id="profile-group-name" value="${currentGroupName}" placeholder="Ex: Groupe Steyre" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-500 placeholder-white/20">
                     </div>
                     <div class="space-y-2 pt-2">
                         <div class="flex justify-between items-center">
-                            <label class="text-[9px] font-bold text-cyan-400 uppercase ml-1">Colocataires (Adresse E-mail)</label>
+                            <label class="text-[9px] font-bold text-cyan-400 uppercase ml-1">membres (adresse e-mail)</label>
                             <button type="button" onclick="window.addGroupMemberTag()" class="text-[9px] font-black text-cyan-400 uppercase tracking-widest flex items-center gap-1 active:scale-95 transition-transform"><i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Ajouter</button>
                         </div>
                         <div class="flex gap-2">
-                            <input type="email" id="new-group-member-email" placeholder="coloc@exemple.com" class="flex-1 bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-500 placeholder-white/20">
+                            <input type="email" id="new-group-member-email" placeholder="membre@exemple.com" class="flex-1 bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-500 placeholder-white/20">
                         </div>
                         <div id="group-members-tags" class="flex flex-wrap gap-2 pt-2 min-h-6">
                             <!-- Rempli dynamiquement en JS -->
@@ -1047,6 +1047,15 @@
 
         const groupNameInput = document.getElementById('profile-group-name');
         const finalGroupName = groupNameInput ? groupNameInput.value.trim() : "";
+        
+        // Notre adresse e-mail s'ajoute automatiquement au groupe si un nom de groupe est présent
+        if (finalGroupName) {
+            const normalizedEmail = (userEmail || "").trim().toLowerCase();
+            if (normalizedEmail && !currentGroupMembers.map(m => m.trim().toLowerCase()).includes(normalizedEmail)) {
+                currentGroupMembers.push(normalizedEmail);
+            }
+        }
+        
         const finalGroupMembers = currentGroupMembers.join(', ');
 
         const payload = {
