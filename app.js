@@ -3839,8 +3839,12 @@ async function sendRecipeToCart() {
     function renderRecipePicker() {
         const body = document.getElementById('recipe-picker-body');
         if(!body) return;
+        
+        // Filter recipes dynamically based on active user group or personal solo recipes
+        const filtered = getFilteredItems(recipesCache, activeRecipeFilter);
+
         const unique = []; const seen = new Set();
-        recipesCache.forEach(r => {
+        filtered.forEach(r => {
             const id = String(r.id);
             if (!seen.has(id) && (r.property_nom || r.name || r.nom)) { seen.add(id); unique.push(r); }
         });
