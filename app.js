@@ -5967,6 +5967,8 @@ window.openMealActionModal = function(day, slot, recipeId) {
     const duration = document.getElementById('meal-action-duration');
     const chefSelect = document.getElementById('meal-chef-selection-container');
     const chefAvatars = document.getElementById('meal-chef-avatars');
+    const consumersSelect = document.getElementById('meal-consumers-selection-container');
+    const consumersAvatars = document.getElementById('meal-consumers-avatars');
     
     if(!modal) return;
     
@@ -5989,22 +5991,59 @@ window.openMealActionModal = function(day, slot, recipeId) {
     const path = photoStr || 'default-recipe.jpg';
     img.src = path.startsWith('http') || path.startsWith('data:') ? path : `images/recettes/${path}`;
     
-    // Si nous sommes dans un groupe, afficher la liste des colocs pour choisir qui cuisine
+    // Si nous sommes dans un groupe, afficher la liste des colocs pour choisir qui cuisine et qui mange
     const groupEmails = currentGroupMembers.length > 0 
         ? currentGroupMembers.map(e => e.trim().toLowerCase())
         : [(userEmail || "").trim().toLowerCase()];
         
+    const weekCode = getWeekCode(window.currentCalendarMonday);
+    const existing = cookedMealsCache.find(m => m.weekCode === weekCode && m.day === day.toLowerCase() && m.slot === slot);
+    
+    if (existing) {
+        window.selectedMealChefEmail = existing.chef || (userEmail || "").toLowerCase();
+        window.selectedMealConsumers = existing.prepare_pour || [...groupEmails];
+    } else {
+        window.selectedMealChefEmail = (userEmail || "").toLowerCase();
+        window.selectedMealConsumers = [...groupEmails]; // Par défaut, tout le monde mange le repas
+    }
+    
+    // Rendu "Qui a cuisiné ?"
     if (groupEmails.length > 1) {
         chefSelect.classList.remove('hidden');
         chefAvatars.innerHTML = groupEmails.map(email => `
-            <div onclick="selectMealChef('${email}')" id="chef-opt-${email.replace(/[^a-z0-9]/g, '-')}" class="visual-avatar-select w-10 h-10 rounded-2xl overflow-hidden flex items-center justify-center border-2 border-transparent ${email === (userEmail || "").toLowerCase() ? 'selected border-cyan-400 shadow-md' : ''}">
+            <div onclick="selectMealChef('${email}')" id="chef-opt-${email.replace(/[^a-z0-9]/g, '-')}" class="visual-avatar-select w-10 h-10 rounded-2xl overflow-hidden flex items-center justify-center border-2 border-transparent ${email === window.selectedMealChefEmail ? 'selected border-cyan-400 shadow-md' : ''}">
                 ${renderUserAvatarBadge(email, "w-full h-full")}
             </div>
         `).join('');
-        window.selectedMealChefEmail = (userEmail || "").toLowerCase();
     } else {
         chefSelect.classList.add('hidden');
-        window.selectedMealChefEmail = (userEmail || "").toLowerCase();
+    }
+    
+    // Rendu "Préparé pour" (Nouveau)
+    if (groupEmails.length > 1) {
+        consumersSelect.classList.remove('hidden');
+        consumersAvatars.innerHTML = groupEmails.map(email => {
+            const isSelected = window.selectedMealConsumers.includes(email);
+            return `
+                <div onclick="window.toggleMealConsumer('${email}')" id="consumer-opt-${email.replace(/[^a-z0-9]/g, '-')}" class="visual-avatar-select w-10 h-10 rounded-2xl overflow-hidden flex items-center justify-center border-2 border-transparent transition-all cursor-pointer ${isSelected ? 'selected border-cyan-400 shadow-md' : 'opacity-40'}">
+                    ${renderUserAvatarBadge(email, "w-full h-full")}
+                </div>
+            `;
+        }).join('');
+    } else {
+        consumersSelect.classList.add('hidden');
+    }
+    
+    // Style du bouton de confirmation
+    const confirmBtn = document.getElementById('btn-confirm-cooked');
+    if (existing) {
+        confirmBtn.innerText = "Décocher";
+        confirmBtn.classList.remove('bg-cyan-500', 'text-black');
+        confirmBtn.classList.add('bg-red-500/20', 'border', 'border-red-500/50', 'text-red-400');
+    } else {
+        confirmBtn.innerText = "Cuisiné !";
+        confirmBtn.classList.add('bg-cyan-500', 'text-black');
+        confirmBtn.classList.remove('bg-red-500/20', 'border', 'border-red-500/50', 'text-red-400');
     }
     
     // Attacher le trigger pour remplacer la recette
@@ -6022,8 +6061,30 @@ window.openMealActionModal = function(day, slot, recipeId) {
     lucide.createIcons();
 };
 
+window.toggleMealConsumer = function(email) {
+    if (!window.selectedMealConsumers) window.selectedMealConsumers = [];
+    const idx = window.selectedMealConsumers.indexOf(email);
+    const target = document.getElementById(`consumer-opt-${email.replace(/[^a-z0-9]/g, '-')}`);
+    
+    if (idx > -1) {
+        // Empêcher de désélectionner tout le monde (au moins 1 personne doit manger)
+        if (window.selectedMealConsumers.length === 1) return;
+        window.selectedMealConsumers.splice(idx, 1);
+        if (target) {
+            target.classList.remove('selected', 'border-cyan-400');
+            target.classList.add('opacity-40');
+        }
+    } else {
+        window.selectedMealConsumers.push(email);
+        if (target) {
+            target.classList.add('selected', 'border-cyan-400');
+            target.classList.remove('opacity-40');
+        }
+    }
+};
+
 window.selectMealChef = function(email) {
-    document.querySelectorAll('.visual-avatar-select').forEach(el => el.classList.remove('selected', 'border-cyan-400'));
+    document.querySelectorAll('#meal-chef-avatars .visual-avatar-select').forEach(el => el.classList.remove('selected', 'border-cyan-400'));
     const target = document.getElementById(`chef-opt-${email.replace(/[^a-z0-9]/g, '-')}`);
     if (target) target.classList.add('selected', 'border-cyan-400');
     window.selectedMealChefEmail = email;
@@ -6053,12 +6114,34 @@ window.confirmMealCooked = function(prepTime) {
             slot: activeMealSlot,
             chef: window.selectedMealChefEmail,
             recipeId: activeMealRecipeId,
-            duree: prepTime
+            duree: prepTime,
+            prepare_pour: window.selectedMealConsumers || [(userEmail || "").toLowerCase()]
         });
         showNotification("Cuisiné ! Temps de préparation ajouté ✓", "success");
     }
     
     localStorage.setItem('fitbuddy_cooked_meals', JSON.stringify(cookedMealsCache));
+    
+    // Synchroniser avec n8n en arrière-plan
+    try {
+        fetch(`${N8N_URL}/webhook/calendar-action`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'toggle-meal',
+                weekCode: weekCode,
+                day: activeMealDay.toLowerCase(),
+                slot: activeMealSlot,
+                chef: window.selectedMealChefEmail,
+                recipeId: activeMealRecipeId,
+                duree: prepTime,
+                prepare_pour: window.selectedMealConsumers || [(userEmail || "").toLowerCase()],
+                fait: existingIndex === -1,
+                email: userEmail
+            })
+        });
+    } catch(e) {}
+    
     closeMealActionModal();
     window.renderCalendarEngine();
 };
