@@ -2456,6 +2456,16 @@ function appendCategory(container, title, items, isPurchased = false) {
         const chat = document.getElementById('view-chat');
         if (chat) {
             chat.innerHTML += `<div class="msg-user p-4 max-w-[80%] text-xs shadow-lg animate-in slide-in-from-right-4 font-semibold">✨ Demande d'évaluation nutritionnelle pour "${recipeName}"</div>`;
+            chat.innerHTML += `
+                <div id="tyler-typing-indicator" class="msg-agent p-4 max-w-[90%] text-xs shadow-xl flex items-center gap-2 border border-purple-500/20 bg-purple-500/5 animate-pulse">
+                    <div class="flex gap-1 items-center mr-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-bounce" style="animation-delay: 0ms"></span>
+                        <span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-bounce" style="animation-delay: 150ms"></span>
+                        <span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-bounce" style="animation-delay: 300ms"></span>
+                    </div>
+                    <span class="text-purple-300 font-medium italic">Tyler réfléchit...</span>
+                </div>
+            `;
             chat.scrollTop = chat.scrollHeight;
         }
 
@@ -2465,10 +2475,16 @@ function appendCategory(container, title, items, isPurchased = false) {
             });
             const responseData = await res.json();
             const r = Array.isArray(responseData) ? responseData[0] : responseData;
+            
+            const indicator = document.getElementById('tyler-typing-indicator');
+            if (indicator) indicator.remove();
+            
             if (r.output && chat) { chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl">${r.output}</div>`; }
             if (r.audio_base64 && r.audio_base64 !== "empty") { new Audio("data:audio/mp3;base64," + r.audio_base64).play(); }
             if (chat) chat.scrollTop = chat.scrollHeight;
         } catch(e) {
+            const indicator = document.getElementById('tyler-typing-indicator');
+            if (indicator) indicator.remove();
             if (chat) chat.innerHTML += `<div class="text-red-400 text-xs italic p-2">⚠️ Échec de la communication avec Tyler.</div>`;
         } finally {
             btn.disabled = false; btn.innerHTML = originalContent;
@@ -2486,12 +2502,25 @@ function appendCategory(container, title, items, isPurchased = false) {
         const chat = document.getElementById('view-chat');
         if(!chat) return;
         chat.innerHTML += `<div class="msg-user p-4 max-w-[80%] text-xs shadow-lg animate-in slide-in-from-right-4 font-semibold">${msg}</div>`;
+        chat.innerHTML += `
+            <div id="tyler-typing-indicator" class="msg-agent p-4 max-w-[90%] text-xs shadow-xl flex items-center gap-2 border border-purple-500/20 bg-purple-500/5 animate-pulse">
+                <div class="flex gap-1 items-center mr-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-bounce" style="animation-delay: 0ms"></span>
+                    <span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-bounce" style="animation-delay: 150ms"></span>
+                    <span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-bounce" style="animation-delay: 300ms"></span>
+                </div>
+                <span class="text-purple-300 font-medium italic">Tyler réfléchit...</span>
+            </div>
+        `;
         input.value = ''; chat.scrollTop = chat.scrollHeight;
 
         try {
             const res = await fetch(`${N8N_URL}/webhook/chat-agent`, { method: 'POST', headers: {'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '69420'}, body: JSON.stringify({ message: msg, email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') }) });
             const responseData = await res.json();
             const r = Array.isArray(responseData) ? responseData[0] : responseData;
+            
+            const indicator = document.getElementById('tyler-typing-indicator');
+            if (indicator) indicator.remove();
             
             if (r.output) { chat.innerHTML += `<div class="msg-agent p-4 max-w-[90%] text-xs shadow-xl">${r.output}</div>`; }
             if (r.audio_base64 && r.audio_base64 !== "empty") { new Audio("data:audio/mp3;base64," + r.audio_base64).play(); }
@@ -2502,7 +2531,14 @@ function appendCategory(container, title, items, isPurchased = false) {
             else if (actionStr.includes("shopping") || actionStr.includes("course")) switchToShopping(r);
             else if (actionStr.includes("calendar") || actionStr.includes("planning") || actionStr.includes("calendrier")) switchToCalendar(r);
             chat.scrollTop = chat.scrollHeight;
-        } catch(e) {}
+        } catch(e) {
+            const indicator = document.getElementById('tyler-typing-indicator');
+            if (indicator) indicator.remove();
+            if (chat) {
+                chat.innerHTML += `<div class="text-red-400 text-xs italic p-2">⚠️ Échec de la communication avec Tyler.</div>`;
+                chat.scrollTop = chat.scrollHeight;
+            }
+        }
     }
 
     function showView(viewId) {
@@ -3128,7 +3164,13 @@ function openIngredientSearchModal(row = null) {
         const isLogged = logCheck && logCheck.checked;
         
         const btn = document.getElementById('btn-confirm-new-aliment');
-        if (btn) btn.disabled = true;
+        let originalContentSubmitAliment = "";
+        if (btn) {
+            btn.disabled = true;
+            originalContentSubmitAliment = btn.innerHTML;
+            btn.innerHTML = `<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> Création...`;
+            if (window.lucide) lucide.createIcons();
+        }
         
         try {
             if (isLogged) {
@@ -3273,7 +3315,11 @@ function openIngredientSearchModal(row = null) {
             console.error("Erreur d'ajout de l'aliment:", err);
             alert("Erreur lors de la création de l'aliment. Veuillez réessayer.");
         } finally {
-            if (btn) btn.disabled = false;
+            if (btn) {
+                btn.disabled = false;
+                if (originalContentSubmitAliment) btn.innerHTML = originalContentSubmitAliment;
+                if (window.lucide) lucide.createIcons();
+            }
         }
     }
 
@@ -3345,7 +3391,13 @@ function openIngredientSearchModal(row = null) {
         }
         
         const btn = document.getElementById('btn-confirm-consume-qty');
-        if (btn) btn.disabled = true;
+        let originalContentLogFood = "";
+        if (btn) {
+            btn.disabled = true;
+            originalContentLogFood = btn.innerHTML;
+            btn.innerHTML = `<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> Enregistrement...`;
+            if (window.lucide) lucide.createIcons();
+        }
         
         try {
             const poids_ref = activeConsumedFood.poids_ref || 1;
@@ -3396,7 +3448,11 @@ function openIngredientSearchModal(row = null) {
             console.error("Erreur de log consommation aliment:", err);
             alert("Erreur lors de l'enregistrement de votre consommation. Veuillez réessayer.");
         } finally {
-            if (btn) btn.disabled = false;
+            if (btn) {
+                btn.disabled = false;
+                if (originalContentLogFood) btn.innerHTML = originalContentLogFood;
+                if (window.lucide) lucide.createIcons();
+            }
         }
     }
 
@@ -3566,10 +3622,18 @@ function openIngredientSearchModal(row = null) {
 
     function activerProgramme(programmeId, programmeNom) {
         if (!confirm(`Activer le programme "${programmeNom}" ?`)) return;
+        const loadingToast = showNotification(`Activation du programme "${programmeNom}"...`, "loading");
         fetch(`${N8N_URL}/webhook/training-action`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'activer_programme', programmeId, programmeNom, email: userEmail, userName: localStorage.getItem('fitbuddy_user_name') })
-        }).then(() => triggerQuickAction('training')).catch(() => {});
+        }).then(() => {
+            if (loadingToast) loadingToast.remove();
+            showNotification(`Programme "${programmeNom}" activé !`, "success");
+            triggerQuickAction('training');
+        }).catch(() => {
+            if (loadingToast) loadingToast.remove();
+            showNotification("Erreur lors de l'activation du programme.", "error");
+        });
     }
 
     function creerNouveauTraining() {
