@@ -2591,7 +2591,8 @@ async function triggerQuickAction(type) {
                 action: type, 
                 email: userEmail, 
                 userName: type === 'macros' ? userEmail : currentName,
-                nom: type === 'macros' ? userEmail : currentName 
+                nom: type === 'macros' ? userEmail : currentName,
+                groupe: currentGroupName
             }) 
         });
         
@@ -5605,7 +5606,8 @@ window.navigateCalendarWeek = function(direction) {
             email: userEmail, 
             userName: currentName, 
             nom: currentName,
-            week_monday: window.currentCalendarMonday.toISOString()
+            week_monday: window.currentCalendarMonday.toISOString(),
+            groupe: currentGroupName
         }) 
     })
     .then(res => res.json())
