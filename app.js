@@ -481,8 +481,11 @@
                 <!-- Carte Identité -->
                 <div class="bg-white/5 border border-white/10 rounded-3xl p-5 space-y-4 shadow-xl">
                     <div class="flex items-center gap-4">
-                        <div class="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 font-black text-lg">
-                            ${nickname.charAt(0).toUpperCase()}
+                        <div onclick="document.getElementById('profile-photo-input').click()" class="cursor-pointer relative w-14 h-14 rounded-2xl overflow-hidden border border-white/10 bg-white/5 group shadow-lg flex items-center justify-center">
+                            ${(user.photo_profil || user.photoProfil) ? `<img id="profile-preview-img" src="${(user.photo_profil || user.photoProfil).startsWith('http') || (user.photo_profil || user.photoProfil).startsWith('data:') || (user.photo_profil || user.photoProfil).startsWith('images/') ? (user.photo_profil || user.photoProfil) : 'images/profils/' + (user.photo_profil || user.photoProfil)}" class="w-full h-full object-cover">` : `<img id="profile-preview-img" class="hidden w-full h-full object-cover"><div id="profile-fallback-avatar" class="w-full h-full flex items-center justify-center bg-cyan-500/10 text-cyan-400 font-black text-xl">${nickname.charAt(0).toUpperCase()}</div>`}
+                            <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                <i data-lucide="camera" class="w-4 h-4 text-white"></i>
+                            </div>
                         </div>
                         <div>
                             <h3 class="text-sm font-black text-white tracking-tight">${nickname}</h3>
@@ -493,6 +496,21 @@
                     <div class="space-y-1 pt-2">
                         <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Pseudo</label>
                         <input type="text" id="prof-nickname" value="${nickname}" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-500">
+                    </div>
+                    <div class="space-y-1.5 pt-1">
+                        <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Ou choisir un avatar rapide</label>
+                        <div class="flex gap-2.5 overflow-x-auto no-scrollbar py-1">
+                            {[
+                                { name: "💪 Fit", url: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=150&auto=format&fit=crop&q=60" },
+                                { name: "🍳 Chef", url: "https://images.unsplash.com/photo-1577219491135-ce391730fb2c?w=150&auto=format&fit=crop&q=60" },
+                                { name: "🧘 Zen", url: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=150&auto=format&fit=crop&q=60" },
+                                { name: "⚡ Power", url: "https://images.unsplash.com/photo-1605296867304-46d5465a25f1?w=150&auto=format&fit=crop&q=60" }
+                            ].map(av => `
+                                <button type="button" onclick="selectQuickAvatar('${av.url}')" class="flex-none w-10 h-10 rounded-xl overflow-hidden border border-white/10 hover:border-cyan-400 active:scale-95 transition-all">
+                                    <img src="${av.url}" class="w-full h-full object-cover" title="${av.name}">
+                                </button>
+                            `).join('')}
+                        </div>
                     </div>
                     <div class="space-y-1 pt-2">
                         <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Date de naissance</label>
@@ -1070,9 +1088,21 @@
         
         const finalGroupMembers = currentGroupMembers.join(', ');
 
+        const profileImgEl = document.getElementById('profile-preview-img');
+        let profilePhotoUploadPayload = null;
+        let profilePhotoFilename = "";
+
+        if (profileImgEl && profileImgEl.dataset.base64) {
+            const ext = profileImgEl.dataset.extension || 'jpg';
+            profilePhotoFilename = `profile-${userEmail.replace(/[^a-z0-9]/g, '-')}-${Date.now()}.${ext}`;
+            profilePhotoUploadPayload = { base64: profileImgEl.dataset.base64, filename: profilePhotoFilename };
+        }
+
         const payload = {
             email: userEmail,
             surnom: document.getElementById('prof-nickname').value.trim(),
+            photo_profil: profilePhotoFilename ? `images/profils/${profilePhotoFilename}` : (profileImgEl ? profileImgEl.src : ""),
+            photoUploadPayload: profilePhotoUploadPayload,
             date_anniversaire: birthDateVal || null,
             date_naissance: birthDateVal || null,
             birthday: birthDateVal || null,
@@ -1245,105 +1275,21 @@
     function switchToCalendar(data) {
         moveToHeader("agent-avatar.mp4");
         showView('view-calendar');
-        const container = document.getElementById('view-calendar');
-        document.getElementById('floating-plus').classList.add('hidden');
-
-        const rows = Array.isArray(data) ? data : (data.data || data.items || []);
-
-        if (rows.length < 2) {
-            container.innerHTML = `
-                <div class="flex flex-col items-center justify-center h-full gap-4 text-center p-6">
-                    <div class="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 mb-2">
-                        <i data-lucide="calendar-days" class="w-8 h-8"></i>
-                    </div>
-                    <h3 class="text-sm font-black text-white uppercase tracking-wider">Données insuffisantes</h3>
-                </div>`;
-            lucide.createIcons();
-            return;
-        }
-
-        const ancienneLigne = rows[0];
-        const recenteLigne = rows[1];
-        const jours = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
         
-        let html = `
-        <div class="p-2 space-y-6 animate-in fade-in duration-500 pb-24">
-            <div class="category-badge mb-2">
-                <i data-lucide="calendar" class="w-3.5 h-3.5 text-rose-400"></i>
-                <h2 class="text-[10px] font-black text-white uppercase tracking-[0.15em]">Planning de la semaine</h2>
-            </div>
-            <div class="space-y-4">`;
-
-        jours.forEach(j => {
-            const source = (j === "Lundi") ? ancienneLigne : recenteLigne;
-            const midiId = source[`${j.toLowerCase()}_midi`] || "";
-            const soirId = source[`${j.toLowerCase()}_soir`] || "";
-            
-            const findInCache = (id) => {
-                if (!id) return null;
-                const cleanId = String(id).replace(/-/g, '').toLowerCase();
-                return recipesCache.find(r => String(r.id).replace(/-/g, '').toLowerCase() === cleanId);
-            };
-
-            const recetteMidi = findInCache(midiId);
-            const recetteSoir = findInCache(soirId);
-
-            const midiNom = recetteMidi ? (recetteMidi.property_nom || recetteMidi.name || recetteMidi.nom) : "Non défini";
-            const soirNom = recetteSoir ? (recetteSoir.property_nom || recetteSoir.name || recetteSoir.nom) : "Non défini";
-
-            const getImagePath = (recette, backupPhotoColumn) => {
-                let photoRaw = recette ? (recette.property_photo || recette.photo) : backupPhotoColumn;
-                if (!photoRaw) return 'images/recettes/default-recipe.jpg';
-                
-                let item = Array.isArray(photoRaw) ? photoRaw[0] : photoRaw;
-                let pathStr = "";
-                if (typeof item === 'string') pathStr = item.trim();
-                else if (item && typeof item === 'object') {
-                    pathStr = item.name || (item.file ? item.file.url : (item.external ? item.external.url : ""));
-                }
-                return pathStr.startsWith('http') || pathStr.startsWith('data:') ? pathStr : `images/recettes/${pathStr}`;
-            };
-
-            const imgMidi = getImagePath(recetteMidi, source[`photo_${j.toLowerCase()}_midi`]);
-            const imgSoir = getImagePath(recetteSoir, source[`photo_${j.toLowerCase()}_soir`]);
-
-            html += `
-            <div class="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3 shadow-xl">
-                <h3 class="text-xs font-black text-rose-400 uppercase tracking-wider border-b border-white/10 pb-1.5">${j}</h3>
-                <div class="grid grid-cols-2 gap-4">
-                    
-                    <div class="space-y-2 bg-white/[0.02] p-2.5 rounded-xl border border-white/5 flex flex-col justify-between">
-                        <div class="space-y-1.5">
-                            <div class="flex items-center gap-1.5 text-[9px] font-black text-cyan-400 uppercase tracking-widest">
-                                <i data-lucide="sun" class="w-3 h-3"></i> Midi
-                            </div>
-                            <p class="text-xs font-bold text-white leading-snug line-clamp-2">${midiNom}</p>
-                        </div>
-                        <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden border border-white/10 bg-white/5 mt-1">
-                            <img src="${imgMidi}" class="w-full h-full object-cover" onerror="this.onerror=null; this.src='images/recettes/default-recipe.jpg';">
-                        </div>
-                    </div>
-                    
-                    <div class="space-y-2 bg-white/[0.02] p-2.5 rounded-xl border border-white/5 flex flex-col justify-between">
-                        <div class="space-y-1.5">
-                            <div class="flex items-center gap-1.5 text-[9px] font-black text-indigo-400 uppercase tracking-widest">
-                                <i data-lucide="moon" class="w-3 h-3"></i> Soir
-                            </div>
-                            <p class="text-xs font-bold text-white leading-snug line-clamp-2">${soirNom}</p>
-                        </div>
-                        <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden border border-white/10 bg-white/5 mt-1">
-                            <img src="${imgSoir}" class="w-full h-full object-cover" onerror="this.onerror=null; this.src='images/recettes/default-recipe.jpg';">
-                        </div>
-                    </div>
-                    
-                </div>
-            </div>`;
-        });
-
-        html += `</div></div>`;
-        container.innerHTML = html;
-        lucide.createIcons();
-        setTimeout(() => { container.scrollTo({ top: 0, behavior: 'instant' }); }, 100);
+        // Enregistrer temporairement les lignes du calendrier Notion pour cette semaine
+        if (data) {
+            const rows = Array.isArray(data) ? data : (data.data || data.items || []);
+            if (rows.length > 0) {
+                window.currentWeekNotionRows = rows;
+            }
+        }
+        
+        // Appeler notre moteur modulaire de calendrier premium
+        if (typeof window.renderCalendarEngine === 'function') {
+            window.renderCalendarEngine();
+        } else {
+            console.warn("renderCalendarEngine non encore chargé à l'initialisation.");
+        }
     }
 
 function switchToCooking(data) {
@@ -5457,8 +5403,6 @@ window.initRadialMenu = function() {
             container.dataset.bound = "true";
         }
     }
-};
-
 // Initialize immediately and on DOMContentLoaded
 window.initRadialMenu();
 document.addEventListener('DOMContentLoaded', window.initRadialMenu);
@@ -5470,3 +5414,1548 @@ document.addEventListener('click', function(e) {
         window.toggleRadialMenu();
     }
 });
+
+
+/* ──────────────────────────────────────────────────────────────────────────
+   FITBUDDY CALENDAR BOOSTER ENGINE & WIZARDS
+   ────────────────────────────────────────────────────────────────────────── */
+
+// 1. DATES HELPERS & CACHES
+window.currentCalendarMonday = getMondayOfDate(new Date());
+window.scheduledRemindersMap = {};
+
+// Caches locaux d'initialisation pour RDV, Tâches, Événements et Repas cuisinés
+let appointmentsCache = stringToJson(localStorage.getItem('fitbuddy_appointments')) || [];
+let tasksCache = stringToJson(localStorage.getItem('fitbuddy_tasks')) || [];
+let eventsCache = stringToJson(localStorage.getItem('fitbuddy_events')) || [];
+let cookedMealsCache = stringToJson(localStorage.getItem('fitbuddy_cooked_meals')) || [];
+
+function getMondayOfDate(d) {
+    const date = new Date(d);
+    const day = date.getDay();
+    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(date.setDate(diff));
+    monday.setHours(0,0,0,0);
+    return monday;
+}
+
+function getWeekCode(d) {
+    const monday = getMondayOfDate(d);
+    const year = monday.getFullYear();
+    const target = new Date(monday.valueOf());
+    const dayNr = (monday.getDay() + 6) % 7;
+    target.setDate(target.getDate() - dayNr + 3);
+    const firstThursday = target.valueOf();
+    target.setMonth(0, 1);
+    if (target.getDay() !== 4) {
+        target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
+    }
+    const weekNum = 1 + Math.ceil((firstThursday - target) / 604800000);
+    return `${year}-W${String(weekNum).padStart(2, '0')}`;
+}
+
+function getDayDate(mondayDate, dayIndex) {
+    const d = new Date(mondayDate);
+    d.setDate(d.getDate() + dayIndex);
+    return d;
+}
+
+// 2. PROFILE PHOTO HANDLERS
+window.handleProfilePhotoUpload = function(input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = document.getElementById('profile-preview-img');
+            const fallback = document.getElementById('profile-fallback-avatar');
+            if (img) {
+                img.src = e.target.result;
+                img.classList.remove('hidden');
+                img.dataset.base64 = e.target.result.split(',')[1];
+                img.dataset.extension = input.files[0].name.split('.').pop();
+            }
+            if (fallback) fallback.classList.add('hidden');
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+};
+
+window.selectQuickAvatar = function(url) {
+    const img = document.getElementById('profile-preview-img');
+    const fallback = document.getElementById('profile-fallback-avatar');
+    if (img) {
+        img.src = url;
+        img.classList.remove('hidden');
+        delete img.dataset.base64; // Annule base64 si avatar rapide sélectionné
+    }
+    if (fallback) fallback.classList.add('hidden');
+};
+
+// 3. REMINDERS ENGINE (Option A PWA)
+window.scheduleLocalReminder = function(item, type) {
+    if (!window.Notification || Notification.permission !== 'granted') return;
+    
+    const apptDate = new Date(item.date);
+    const reminderMin = parseInt(item.rappel || item.rappel_delai || 15);
+    const triggerTime = apptDate.getTime() - (reminderMin * 60 * 1000);
+    const now = Date.now();
+    
+    if (triggerTime > now) {
+        const delay = triggerTime - now;
+        const reminderId = `${type}-${item.id}`;
+        
+        // Annuler un rappel préexistant pour cet objet
+        if (window.scheduledRemindersMap[reminderId]) {
+            clearTimeout(window.scheduledRemindersMap[reminderId]);
+        }
+        
+        window.scheduledRemindersMap[reminderId] = setTimeout(() => {
+            new Notification(`FitBuddy - ${type === 'appt' ? 'Rendez-vous' : 'Événement'}`, {
+                body: `"${item.name}" commence dans ${reminderMin} minutes !`,
+                icon: 'icone.png'
+            });
+            delete window.scheduledRemindersMap[reminderId];
+        }, delay);
+    }
+};
+
+// Demander les permissions
+if (window.Notification && Notification.permission === 'default') {
+    Notification.requestPermission();
+}
+
+// 4. CALCUL DES TEMPS HEBDOMADAIRES (MATHEMATIQUE & FRACTIONNE)
+window.calculateWeeklyDurations = function() {
+    const currentWeek = getWeekCode(window.currentCalendarMonday);
+    const durations = {};
+    
+    // Initialiser les membres du groupe
+    const groupEmails = currentGroupMembers.length > 0 
+        ? currentGroupMembers.map(e => e.trim().toLowerCase())
+        : [(userEmail || "").trim().toLowerCase()];
+        
+    groupEmails.forEach(email => {
+        durations[email] = 0;
+    });
+
+    // A. Calculer les repas cuisinés
+    cookedMealsCache.forEach(meal => {
+        if (meal.weekCode === currentWeek) {
+            const chef = meal.chef ? meal.chef.trim().toLowerCase() : "";
+            if (durations[chef] !== undefined) {
+                durations[chef] += parseFloat(meal.duree || 0);
+            }
+        }
+    });
+
+    // B. Calculer les tâches de checklist validées (avec répartition)
+    tasksCache.forEach(task => {
+        const isCompleted = task.fait || (task.fait_semaines && task.fait_semaines.includes(currentWeek));
+        
+        if (isCompleted) {
+            const dateObj = new Date(task.date);
+            const taskWeek = getWeekCode(dateObj);
+            const isRecurring = task.recurrence && task.recurrence !== 'Unique';
+            
+            // S'applique à la semaine active
+            if (taskWeek === currentWeek || isRecurring) {
+                const clickers = task.membres_qui_ont_fait || [];
+                const taskDuration = parseFloat(task.duree || 0);
+                
+                if (clickers.length === 1) {
+                    const u = clickers[0].trim().toLowerCase();
+                    if (durations[u] !== undefined) durations[u] += taskDuration;
+                } else if (clickers.length === 2) {
+                    const u1 = clickers[0].trim().toLowerCase();
+                    const u2 = clickers[1].trim().toLowerCase();
+                    if (durations[u1] !== undefined) durations[u1] += Math.round(taskDuration * 0.66);
+                    if (durations[u2] !== undefined) durations[u2] += Math.round(taskDuration * 0.33);
+                } else if (clickers.length >= 3) {
+                    const u1 = clickers[0].trim().toLowerCase();
+                    const uRest = clickers.slice(1);
+                    if (durations[u1] !== undefined) durations[u1] += Math.round(taskDuration * 0.50);
+                    
+                    const restShare = Math.round((taskDuration * 0.50) / uRest.length);
+                    uRest.forEach(u => {
+                        const email = u.trim().toLowerCase();
+                        if (durations[email] !== undefined) durations[email] += restShare;
+                    });
+                }
+            }
+        }
+    });
+
+    return durations;
+};
+
+// 5. WEEK NAVIGATION
+window.navigateCalendarWeek = function(direction) {
+    const newDate = new Date(window.currentCalendarMonday);
+    newDate.setDate(newDate.getDate() + (direction * 7));
+    window.currentCalendarMonday = newDate;
+    
+    // Charger dynamiquement les données Notion pour la semaine
+    const currentName = localStorage.getItem('fitbuddy_user_name');
+    fetch(`${N8N_URL}/webhook/quick-action`, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json', "ngrok-skip-browser-warning": "69420" }, 
+        body: JSON.stringify({ 
+            action: 'calendar', 
+            email: userEmail, 
+            userName: currentName, 
+            nom: currentName,
+            week_monday: window.currentCalendarMonday.toISOString()
+        }) 
+    })
+    .then(res => res.json())
+    .then(responseData => {
+        const r = Array.isArray(responseData) ? responseData[0] : responseData;
+        const rows = Array.isArray(r) ? r : (r.data || r.items || []);
+        if (rows.length > 0) {
+            window.currentWeekNotionRows = rows;
+        } else {
+            window.currentWeekNotionRows = null;
+        }
+        window.renderCalendarEngine();
+    })
+    .catch(() => {
+        // En cas de panne de connexion, recharger les tâches et repas locaux
+        window.currentWeekNotionRows = null;
+        window.renderCalendarEngine();
+    });
+};
+
+// Helper pour mapper l'e-mail ou nickname à son image
+function getMemberAvatarUrl(emailOrNick) {
+    const clean = String(emailOrNick).trim().toLowerCase();
+    
+    // Cas spécial si c'est notre utilisateur
+    if (clean === (userEmail || "").trim().toLowerCase() || clean === (storedName || "").trim().toLowerCase()) {
+        const profile = stringToJson(localStorage.getItem('fitbuddy_user_profile')) || {};
+        if (profile.photo_profil || profile.photoProfil) {
+            const path = profile.photo_profil || profile.photoProfil;
+            return path.startsWith('http') || path.startsWith('data:') || path.startsWith('images/') ? path : `images/profils/${path}`;
+        }
+        return null;
+    }
+    
+    // Chercher dans les autres membres du groupe locaux (si n8n a envoyé des photos)
+    return null;
+}
+
+// Helper pour afficher un joli badge avatar
+function renderUserAvatarBadge(emailOrNick, size = "w-7 h-7") {
+    const url = getMemberAvatarUrl(emailOrNick);
+    const initial = emailOrNick.charAt(0).toUpperCase();
+    
+    if (url) {
+        return `<img src="${url}" class="${size} rounded-full object-cover border border-white/20 shadow-md avatar-group-item" title="${emailOrNick}" onerror="this.onerror=null; this.outerHTML='<div class=\'${size} rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-[9px] border border-cyan-500/40 shadow-md\'>${initial}</div>'">`;
+    }
+    return `<div class="${size} rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-black text-[10px] border border-cyan-500/40 shadow-md avatar-group-item" title="${emailOrNick}">${initial}</div>`;
+}
+
+// 6. MAIN CALENDAR RENDERING ENGINE
+window.renderCalendarEngine = function() {
+    const container = document.getElementById('view-calendar');
+    if (!container) return;
+    
+    const weekCode = getWeekCode(window.currentCalendarMonday);
+    const formattedMonday = window.currentCalendarMonday.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+    const sundayDate = new Date(window.currentCalendarMonday);
+    sundayDate.setDate(sundayDate.getDate() + 6);
+    const formattedSunday = sundayDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+    
+    // Calculer les compteurs de temps
+    const durations = window.calculateWeeklyDurations();
+    
+    // Rendre la structure principale avec la Barre de Tracker Fixe en haut
+    let html = `
+    <!-- BARRE FIXE NAVIGATION & DUREES (Ne scrolle pas) -->
+    <div class="glass-tracker-bar sticky top-0 left-0 right-0 p-3 space-y-3 border-b border-white/10 z-50">
+        <!-- Navigateur de semaine -->
+        <div class="flex items-center justify-between">
+            <button onclick="navigateCalendarWeek(-1)" class="w-8 h-8 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center text-white active:scale-90 transition-transform">
+                <i data-lucide="chevron-left" class="w-4 h-4"></i>
+            </button>
+            <div class="flex items-center gap-2">
+                <i data-lucide="calendar" class="w-3.5 h-3.5 text-rose-400"></i>
+                <span class="text-xs font-black text-white uppercase tracking-wider">${formattedMonday} au ${formattedSunday}</span>
+            </div>
+            <button onclick="navigateCalendarWeek(1)" class="w-8 h-8 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center text-white active:scale-90 transition-transform">
+                <i data-lucide="chevron-right" class="w-4 h-4"></i>
+            </button>
+        </div>
+        
+        <!-- Compteur de Duree de Taches -->
+        <div class="flex items-center gap-3 overflow-x-auto no-scrollbar py-1">
+            <span class="text-[8px] font-black text-white/30 uppercase tracking-widest flex-none">Cumul Hebdo :</span>
+            <div class="flex gap-4">`;
+            
+            Object.keys(durations).forEach(member => {
+                const totalMin = durations[member];
+                const hours = Math.floor(totalMin / 60);
+                const mins = totalMin % 60;
+                const formattedTime = hours > 0 ? `${hours}h${mins}` : `${mins}m`;
+                
+                html += `
+                <div class="flex items-center gap-2 bg-white/[0.03] border border-white/5 px-2.5 py-1 rounded-2xl flex-none">
+                    ${renderUserAvatarBadge(member, "w-6 h-6")}
+                    <span class="text-[10px] font-black text-cyan-400 font-mono">${formattedTime}</span>
+                </div>`;
+            });
+            
+    html += `
+            </div>
+        </div>
+    </div>
+    
+    <!-- CONTENU SCROLLABLE (Jours de la semaine) -->
+    <div id="calendar-scrollable-content" class="flex-1 overflow-y-auto no-scrollbar p-2 pb-28 space-y-4">`;
+
+    // Récupérer les lignes de repas Notion
+    const rows = window.currentWeekNotionRows || [];
+    const LundiLigne = rows[0] || {};
+    const RecenteLigne = rows[1] || {};
+    const jours = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+    
+    jours.forEach((j, index) => {
+        const currentDayDate = getDayDate(window.currentCalendarMonday, index);
+        const dayStr = currentDayDate.toISOString().substring(0, 10);
+        
+        // Repas
+        const source = (j === "Lundi") ? LundiLigne : RecenteLigne;
+        const midiId = source[`${j.toLowerCase()}_midi`] || "";
+        const soirId = source[`${j.toLowerCase()}_soir`] || "";
+        
+        const findInCache = (id) => {
+            if (!id) return null;
+            const cleanId = String(id).replace(/-/g, '').toLowerCase();
+            return recipesCache.find(r => String(r.id).replace(/-/g, '').toLowerCase() === cleanId);
+        };
+
+        const recetteMidi = findInCache(midiId);
+        const recetteSoir = findInCache(soirId);
+
+        const midiNom = recetteMidi ? (recetteMidi.property_nom || recetteMidi.name || recetteMidi.nom) : "Non défini";
+        const soirNom = recetteSoir ? (recetteSoir.property_nom || recetteSoir.name || recetteSoir.nom) : "Non défini";
+        
+        const getImagePath = (recette, backupPhotoColumn) => {
+            let photoRaw = recette ? (recette.property_photo || recette.photo) : backupPhotoColumn;
+            if (!photoRaw) return 'images/recettes/default-recipe.jpg';
+            let item = Array.isArray(photoRaw) ? photoRaw[0] : photoRaw;
+            let pathStr = "";
+            if (typeof item === 'string') pathStr = item.trim();
+            else if (item && typeof item === 'object') {
+                pathStr = item.name || (item.file ? item.file.url : (item.external ? item.external.url : ""));
+            }
+            return pathStr.startsWith('http') || pathStr.startsWith('data:') ? pathStr : `images/recettes/${pathStr}`;
+        };
+
+        const imgMidi = getImagePath(recetteMidi, source[`photo_${j.toLowerCase()}_midi`]);
+        const imgSoir = getImagePath(recetteSoir, source[`photo_${j.toLowerCase()}_soir`]);
+        
+        // Vérifier si cuisinés
+        const isMidiCooked = cookedMealsCache.some(m => m.weekCode === weekCode && m.day === j.toLowerCase() && m.slot === 'midi');
+        const isSoirCooked = cookedMealsCache.some(m => m.weekCode === weekCode && m.day === j.toLowerCase() && m.slot === 'soir');
+
+        // Filtrer les rendez-vous, tâches, événements du jour (avec récurrences)
+        const dayAppointments = appointmentsCache.filter(item => {
+            const itemDate = new Date(item.date);
+            const isSameDay = itemDate.toISOString().substring(0, 10) === dayStr;
+            const isRecurring = item.recurrence && item.recurrence !== 'Unique';
+            
+            if (isSameDay) return true;
+            if (isRecurring) {
+                if (item.recurrence === 'Daily') return true;
+                if (item.recurrence === 'Weekly') return itemDate.getDay() === currentDayDate.getDay();
+                if (item.recurrence === 'Monthly') return itemDate.getDate() === currentDayDate.getDate();
+            }
+            return false;
+        });
+
+        const dayTasks = tasksCache.filter(item => {
+            const itemDate = new Date(item.date);
+            const isSameDay = itemDate.toISOString().substring(0, 10) === dayStr;
+            const isRecurring = item.recurrence && item.recurrence !== 'Unique';
+            
+            if (isSameDay) return true;
+            if (isRecurring) {
+                if (item.recurrence === 'Daily') return true;
+                if (item.recurrence === 'Weekly') return itemDate.getDay() === currentDayDate.getDay();
+                if (item.recurrence === 'Monthly') return itemDate.getDate() === currentDayDate.getDate();
+            }
+            return false;
+        });
+
+        const dayEvents = eventsCache.filter(item => {
+            const itemDate = new Date(item.date);
+            const isSameDay = itemDate.toISOString().substring(0, 10) === dayStr;
+            const isRecurring = item.recurrence && item.recurrence !== 'Unique';
+            
+            if (isSameDay) return true;
+            if (isRecurring) {
+                if (item.recurrence === 'Daily') return true;
+                if (item.recurrence === 'Weekly') return itemDate.getDay() === currentDayDate.getDay();
+                if (item.recurrence === 'Monthly') return itemDate.getDate() === currentDayDate.getDate();
+            }
+            return false;
+        });
+
+        html += `
+        <div class="bg-white/5 border border-white/10 rounded-3xl p-5 space-y-4 shadow-xl">
+            <!-- Jour & Date -->
+            <div class="flex justify-between items-center border-b border-white/10 pb-2">
+                <h3 class="text-xs font-black text-rose-400 uppercase tracking-wider">${j}</h3>
+                <span class="text-[9px] font-bold text-white/30 uppercase tracking-wider">${currentDayDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}</span>
+            </div>
+            
+            <!-- SECTION REPAS -->
+            <div class="grid grid-cols-2 gap-4">
+                <!-- Midi -->
+                <div onclick="openMealActionModal('${j}', 'midi', '${recetteMidi ? recetteMidi.id : ''}')" class="relative overflow-hidden cursor-pointer bg-white/[0.02] p-2.5 rounded-2xl border ${isMidiCooked ? 'border-cyan-500/40 shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5'} flex flex-col justify-between hover:bg-white/[0.05] active:scale-95 transition-all">
+                    <div class="space-y-1">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-1.5 text-[9px] font-black text-cyan-400 uppercase tracking-widest">
+                                <i data-lucide="sun" class="w-3 h-3"></i> Midi
+                            </div>
+                            ${isMidiCooked ? '<span class="text-[7px] bg-cyan-500 text-black px-1.5 py-0.5 rounded-md font-bold uppercase">Fait !</span>' : ''}
+                        </div>
+                        <p class="text-[10px] font-bold text-white leading-snug line-clamp-2">${midiNom}</p>
+                    </div>
+                    <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden border border-white/10 bg-white/5 mt-2">
+                        <img src="${imgMidi}" class="w-full h-full object-cover ${isMidiCooked ? 'brightness-50' : ''}" onerror="this.onerror=null; this.src='images/recettes/default-recipe.jpg';">
+                    </div>
+                </div>
+                
+                <!-- Soir -->
+                <div onclick="openMealActionModal('${j}', 'soir', '${recetteSoir ? recetteSoir.id : ''}')" class="relative overflow-hidden cursor-pointer bg-white/[0.02] p-2.5 rounded-2xl border ${isSoirCooked ? 'border-cyan-500/40 shadow-[0_0_15px_rgba(34,211,238,0.1)]' : 'border-white/5'} flex flex-col justify-between hover:bg-white/[0.05] active:scale-95 transition-all">
+                    <div class="space-y-1">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-1.5 text-[9px] font-black text-indigo-400 uppercase tracking-widest">
+                                <i data-lucide="moon" class="w-3 h-3"></i> Soir
+                            </div>
+                            ${isSoirCooked ? '<span class="text-[7px] bg-cyan-500 text-black px-1.5 py-0.5 rounded-md font-bold uppercase">Fait !</span>' : ''}
+                        </div>
+                        <p class="text-[10px] font-bold text-white leading-snug line-clamp-2">${soirNom}</p>
+                    </div>
+                    <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden border border-white/10 bg-white/5 mt-2">
+                        <img src="${imgSoir}" class="w-full h-full object-cover ${isSoirCooked ? 'brightness-50' : ''}" onerror="this.onerror=null; this.src='images/recettes/default-recipe.jpg';">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- SECTION RENDEZ-VOUS -->
+            <div class="space-y-2.5 pt-1">
+                <div class="flex justify-between items-center border-t border-white/5 pt-2">
+                    <span class="text-[9px] font-black text-white/40 uppercase tracking-widest flex items-center gap-1"><i data-lucide="calendar-check" class="w-3.5 h-3.5 text-cyan-400"></i> Rendez-vous</span>
+                    <button onclick="openAddAppointmentModal('${dayStr}')" class="text-[8px] font-black bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 px-2 py-0.5 rounded-md uppercase tracking-wider hover:bg-cyan-500 hover:text-black transition-colors">+ Ajouter</button>
+                </div>
+                <div class="space-y-2">
+                    ${dayAppointments.length === 0 ? '<p class="text-[8px] text-white/20 italic ml-1">Aucun rendez-vous planifié</p>' : dayAppointments.map(appt => `
+                        <div class="flex items-center justify-between bg-white/[0.02] border border-white/5 p-2 rounded-xl">
+                            <div class="flex items-center gap-3">
+                                <div class="text-right">
+                                    <p class="text-[9px] font-black text-cyan-400 font-mono">${appt.time}</p>
+                                    <p class="text-[7px] text-white/30 uppercase font-bold font-mono">${appt.duree}m</p>
+                                </div>
+                                <div class="border-l border-white/10 h-6"></div>
+                                <div>
+                                    <p class="text-[10px] font-bold text-white leading-tight uppercase">${appt.name}</p>
+                                    ${appt.localisation ? `<p class="text-[7px] text-white/40 flex items-center gap-1 mt-0.5"><i data-lucide="map-pin" class="w-2 h-2 text-rose-400"></i> ${appt.localisation}</p>` : ''}
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <div class="flex -space-x-1.5 overflow-hidden">
+                                    ${(appt.assignes || []).map(email => renderUserAvatarBadge(email, "w-5 h-5"))}
+                                </div>
+                                <button onclick="deleteCalendarItem('appt', '${appt.id}')" class="text-red-500/40 hover:text-red-500 transition-colors"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            
+            <!-- SECTION CHECKLIST (TACHES) -->
+            <div class="space-y-2.5 pt-1">
+                <div class="flex justify-between items-center border-t border-white/5 pt-2">
+                    <span class="text-[9px] font-black text-white/40 uppercase tracking-widest flex items-center gap-1"><i data-lucide="check-square" class="w-3.5 h-3.5 text-purple-400"></i> Tâches (To-Do)</span>
+                    <button onclick="openAddTaskModal('${dayStr}')" class="text-[8px] font-black bg-purple-500/10 border border-purple-500/30 text-purple-400 px-2 py-0.5 rounded-md uppercase tracking-wider hover:bg-purple-500 hover:text-white transition-colors">+ Ajouter</button>
+                </div>
+                <div class="space-y-2">
+                    ${dayTasks.length === 0 ? '<p class="text-[8px] text-white/20 italic ml-1">Aucune tâche répertoriée</p>' : dayTasks.map(task => {
+                        const isTaskDone = task.fait || (task.fait_semaines && task.fait_semaines.includes(weekCode));
+                        return `
+                        <div class="flex items-center justify-between bg-white/[0.02] border border-white/5 p-2 rounded-xl ${isTaskDone ? 'opacity-50' : ''}">
+                            <div class="flex items-center gap-3">
+                                <input type="checkbox" ${isTaskDone ? 'checked' : ''} onchange="toggleTaskFait('${task.id}', '${dayStr}')" class="rounded bg-white/5 border-white/10 text-purple-600 focus:ring-0 w-4 h-4 cursor-pointer">
+                                <div>
+                                    <p class="text-[10px] font-bold text-white leading-tight uppercase ${isTaskDone ? 'line-through text-white/40' : ''}">${task.name}</p>
+                                    <span class="text-[7px] text-white/30 font-black uppercase font-mono">${task.duree} min</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <div class="flex -space-x-1.5 overflow-hidden">
+                                    ${(task.assignes || []).map(email => renderUserAvatarBadge(email, "w-5 h-5"))}
+                                </div>
+                                <button onclick="deleteCalendarItem('task', '${task.id}')" class="text-red-500/40 hover:text-red-500 transition-colors"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
+                            </div>
+                        </div>
+                    `}).join('')}
+                </div>
+            </div>
+            
+            <!-- SECTION EVENTS (PUBLIC GROUPE) -->
+            <div class="space-y-2.5 pt-1">
+                <div class="flex justify-between items-center border-t border-white/5 pt-2">
+                    <span class="text-[9px] font-black text-white/40 uppercase tracking-widest flex items-center gap-1"><i data-lucide="users" class="w-3.5 h-3.5 text-amber-500"></i> Événements Publics</span>
+                    <button onclick="openAddEventModal('${dayStr}')" class="text-[8px] font-black bg-amber-500/10 border border-amber-500/30 text-amber-500 px-2 py-0.5 rounded-md uppercase tracking-wider hover:bg-amber-500 hover:text-black transition-colors">+ Ajouter</button>
+                </div>
+                <div class="space-y-2">
+                    ${dayEvents.length === 0 ? '<p class="text-[8px] text-white/20 italic ml-1">Aucun événement planifié</p>' : dayEvents.map(evt => `
+                        <div class="flex items-center justify-between bg-white/[0.02] border border-white/5 p-2.5 rounded-xl border-l-2 border-l-amber-500 shadow-md">
+                            <div class="flex items-center gap-3">
+                                <div>
+                                    <p class="text-[9px] font-black text-amber-400 font-mono">${evt.time}</p>
+                                </div>
+                                <div class="border-l border-white/10 h-6"></div>
+                                <div>
+                                    <p class="text-[10px] font-black text-white leading-tight uppercase">${evt.name}</p>
+                                    ${evt.localisation ? `<p class="text-[7px] text-white/40 flex items-center gap-1 mt-0.5"><i data-lucide="map-pin" class="w-2 h-2 text-rose-400"></i> ${evt.localisation}</p>` : ''}
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <div class="flex -space-x-1.5 overflow-hidden">
+                                    ${(evt.assignes || []).map(email => renderUserAvatarBadge(email, "w-5 h-5"))}
+                                </div>
+                                <button onclick="deleteCalendarItem('event', '${evt.id}')" class="text-red-500/40 hover:text-red-500 transition-colors"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        </div>`;
+    });
+
+    html += `
+    </div>
+    
+    <!-- BOUTON FLOTTANT GENERER EN BAS A DROITE -->
+    <button id="floating-calendar-generate" class="floating-add-btn !bg-violet-600 border !border-violet-400/30 shadow-[0_0_20px_rgba(139,92,246,0.4)]" onclick="openGenerateOptions()" style="bottom: 85px; right: 20px; z-index: 9999;">
+        <i data-lucide="sparkles" class="w-7 h-7 text-white"></i>
+    </button>`;
+    
+    container.innerHTML = html;
+    lucide.createIcons();
+    setTimeout(() => { container.scrollTo({ top: 0, behavior: 'instant' }); }, 100);
+};
+
+// 7. MEAL ACTION MODAL POPUP & IN-APP MARK DONE
+let activeMealDay = "";
+let activeMealSlot = "";
+let activeMealRecipeId = "";
+
+window.openMealActionModal = function(day, slot, recipeId) {
+    activeMealDay = day;
+    activeMealSlot = slot;
+    activeMealRecipeId = recipeId;
+    
+    const modal = document.getElementById('meal-action-modal');
+    const title = document.getElementById('meal-action-title');
+    const subtitle = document.getElementById('meal-action-subtitle');
+    const img = document.getElementById('meal-action-img');
+    const duration = document.getElementById('meal-action-duration');
+    const chefSelect = document.getElementById('meal-chef-selection-container');
+    const chefAvatars = document.getElementById('meal-chef-avatars');
+    
+    if(!modal) return;
+    
+    const recipe = recipesCache.find(r => String(r.id) === String(recipeId));
+    const recipeName = recipe ? (recipe.property_nom || recipe.nom || recipe.name) : "Non défini";
+    const prepTime = recipe ? (recipe.temps || recipe.property_dur_e || 15) : 15;
+    
+    title.innerText = recipeName;
+    subtitle.innerText = `${day} • ${slot === 'midi' ? 'Déjeuner' : 'Dîner'}`;
+    duration.innerText = `${prepTime} min`;
+    
+    // Charger la photo
+    let photoRaw = recipe ? (recipe.property_photo || recipe.photo) : null;
+    let photoStr = "";
+    if (photoRaw) {
+        let item = Array.isArray(photoRaw) ? photoRaw[0] : photoRaw;
+        if (typeof item === 'string') photoStr = item.trim();
+        else if (item && typeof item === 'object') photoStr = item.name || (item.file ? item.file.url : (item.external ? item.external.url : ""));
+    }
+    const path = photoStr || 'default-recipe.jpg';
+    img.src = path.startsWith('http') || path.startsWith('data:') ? path : `images/recettes/${path}`;
+    
+    // Si nous sommes dans un groupe, afficher la liste des colocs pour choisir qui cuisine
+    const groupEmails = currentGroupMembers.length > 0 
+        ? currentGroupMembers.map(e => e.trim().toLowerCase())
+        : [(userEmail || "").trim().toLowerCase()];
+        
+    if (groupEmails.length > 1) {
+        chefSelect.classList.remove('hidden');
+        chefAvatars.innerHTML = groupEmails.map(email => `
+            <div onclick="selectMealChef('${email}')" id="chef-opt-${email.replace(/[^a-z0-9]/g, '-')}" class="visual-avatar-select w-10 h-10 rounded-2xl overflow-hidden flex items-center justify-center border-2 border-transparent ${email === (userEmail || "").toLowerCase() ? 'selected border-cyan-400 shadow-md' : ''}">
+                ${renderUserAvatarBadge(email, "w-full h-full")}
+            </div>
+        `).join('');
+        window.selectedMealChefEmail = (userEmail || "").toLowerCase();
+    } else {
+        chefSelect.classList.add('hidden');
+        window.selectedMealChefEmail = (userEmail || "").toLowerCase();
+    }
+    
+    // Attacher le trigger pour remplacer la recette
+    document.getElementById('btn-replace-meal').onclick = function() {
+        closeMealActionModal();
+        openRecipePickerForReplacement(day, slot);
+    };
+    
+    // Attacher le trigger de validation
+    document.getElementById('btn-confirm-cooked').onclick = function() {
+        window.confirmMealCooked(prepTime);
+    };
+    
+    modal.style.display = 'flex';
+    lucide.createIcons();
+};
+
+window.selectMealChef = function(email) {
+    document.querySelectorAll('.visual-avatar-select').forEach(el => el.classList.remove('selected', 'border-cyan-400'));
+    const target = document.getElementById(`chef-opt-${email.replace(/[^a-z0-9]/g, '-')}`);
+    if (target) target.classList.add('selected', 'border-cyan-400');
+    window.selectedMealChefEmail = email;
+};
+
+window.closeMealActionModal = function() {
+    const modal = document.getElementById('meal-action-modal');
+    if(modal) modal.style.display = 'none';
+};
+
+window.confirmMealCooked = function(prepTime) {
+    const weekCode = getWeekCode(window.currentCalendarMonday);
+    
+    // Vérifier si le repas est déjà cuisiné pour l'inverser (toggle)
+    const existingIndex = cookedMealsCache.findIndex(m => m.weekCode === weekCode && m.day === activeMealDay.toLowerCase() && m.slot === activeMealSlot);
+    
+    if (existingIndex > -1) {
+        // Enlever
+        cookedMealsCache.splice(existingIndex, 1);
+        showNotification("Repas décoché ✓", "info");
+    } else {
+        // Ajouter
+        cookedMealsCache.push({
+            id: `cooked-${Date.now()}`,
+            weekCode: weekCode,
+            day: activeMealDay.toLowerCase(),
+            slot: activeMealSlot,
+            chef: window.selectedMealChefEmail,
+            recipeId: activeMealRecipeId,
+            duree: prepTime
+        });
+        showNotification("Cuisiné ! Temps de préparation ajouté ✓", "success");
+    }
+    
+    localStorage.setItem('fitbuddy_cooked_meals', JSON.stringify(cookedMealsCache));
+    closeMealActionModal();
+    window.renderCalendarEngine();
+};
+
+// Sélecteur de remplacement de repas
+function openRecipePickerForReplacement(day, slot) {
+    const modal = document.getElementById('recipe-picker-modal');
+    const body = document.getElementById('recipe-picker-body');
+    const floatBtn = document.getElementById('picker-float-btn');
+    
+    if (!modal || !body) return;
+    
+    floatBtn.style.display = 'none'; // Pas de multi-sélection nécessaire
+    
+    // Filtrer les recettes
+    const filteredRecipes = getFilteredItems(recipesCache, activeRecipeFilter);
+    
+    body.innerHTML = `
+    <div class="px-5 py-3 border-b border-white/5">
+        <p class="text-[9px] text-white/40 uppercase font-black tracking-widest">Sélectionnez le repas de remplacement pour ${day} ${slot === 'midi' ? 'Midi' : 'Soir'}</p>
+    </div>
+    <div class="p-5 grid grid-cols-2 gap-4">
+        ${filteredRecipes.map(r => {
+            const recipeTitle = r.property_nom || r.nom || r.name || "";
+            let photoRaw = r.property_photo || r.photo;
+            let photoStr = "";
+            if (photoRaw) {
+                let item = Array.isArray(photoRaw) ? photoRaw[0] : photoRaw;
+                if (typeof item === 'string') photoStr = item.trim();
+                else if (item && typeof item === 'object') photoStr = item.name || (item.file ? item.file.url : (item.external ? item.external.url : ""));
+            }
+            const path = photoStr || 'default-recipe.jpg';
+            const imgPath = path.startsWith('http') || path.startsWith('data:') ? path : `images/recettes/${path}`;
+            
+            return `
+            <div onclick="selectReplacementRecipe('${day}', '${slot}', '${r.id}')" class="bg-white/5 border border-white/10 rounded-2xl p-2.5 hover:border-cyan-400 active:scale-95 transition-all cursor-pointer">
+                <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden mb-2 bg-white/5 border border-white/10">
+                    <img src="${imgPath}" class="w-full h-full object-cover" onerror="this.onerror=null; this.src='images/recettes/default-recipe.jpg';">
+                </div>
+                <p class="text-[9px] font-black text-white line-clamp-2 uppercase">${recipeTitle}</p>
+            </div>`;
+        }).join('')}
+    </div>`;
+    
+    modal.style.display = 'flex';
+    lucide.createIcons();
+}
+
+window.selectReplacementRecipe = async function(day, slot, recipeId) {
+    const modal = document.getElementById('recipe-picker-modal');
+    if (modal) modal.style.display = 'none';
+    
+    showNotification("Remplacement en cours...", "info");
+    
+    // 1. Mettre à jour Notion en arrière-plan via le webhook n8n
+    try {
+        const currentName = localStorage.getItem('fitbuddy_user_name');
+        const res = await fetch(`${N8N_URL}/webhook/quick-action`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '69420' },
+            body: JSON.stringify({
+                action: 'replace-meal',
+                email: userEmail,
+                userName: currentName,
+                day: day.toLowerCase(),
+                slot: slot.toLowerCase(),
+                recipeId: recipeId,
+                weekMonday: window.currentCalendarMonday.toISOString()
+            })
+        });
+        const data = await res.json();
+        const r = Array.isArray(data) ? data[0] : data;
+        const rows = Array.isArray(r) ? r : (r.data || r.items || []);
+        
+        if (rows.length > 0) {
+            window.currentWeekNotionRows = rows;
+            showNotification("Planning mis à jour sur Notion !", "success");
+        } else {
+            throw new Error("Lignes invalides");
+        }
+    } catch (e) {
+        console.warn("Échec de la sauvegarde Notion, modification locale uniquement", e);
+        // Fallback local
+        if (!window.currentWeekNotionRows || window.currentWeekNotionRows.length === 0) {
+            window.currentWeekNotionRows = [{}, {}];
+        }
+        const targetRow = (day.toLowerCase() === 'lundi') ? window.currentWeekNotionRows[0] : window.currentWeekNotionRows[1];
+        if (targetRow) {
+            targetRow[`${day.toLowerCase()}_${slot}`] = recipeId;
+        }
+        showNotification("Planning mis à jour en local !", "success");
+    }
+    
+    window.renderCalendarEngine();
+};
+
+// 8. ADD/EDIT RENDEZ-VOUS MODAL
+let activeItemDayStr = "";
+
+window.openAddAppointmentModal = function(dayStr) {
+    activeItemDayStr = dayStr;
+    const modal = document.getElementById('add-appointment-modal');
+    if (!modal) return;
+    
+    // Titres & inputs par défaut
+    document.getElementById('appt-name').value = "";
+    document.getElementById('appt-time').value = "10:00";
+    document.getElementById('appt-duration').value = "30";
+    document.getElementById('appt-location').value = "";
+    document.getElementById('appt-recurrence').value = "Unique";
+    document.getElementById('appt-reminder').value = "15";
+    
+    // Affichage des avatars d'assignation
+    const avatarsDiv = document.getElementById('appt-assignees-avatars');
+    const groupEmails = currentGroupMembers.length > 0 
+        ? currentGroupMembers.map(e => e.trim().toLowerCase())
+        : [(userEmail || "").trim().toLowerCase()];
+        
+    avatarsDiv.innerHTML = groupEmails.map(email => `
+        <div onclick="toggleAssigneeSelect('appt', '${email}')" id="appt-assign-${email.replace(/[^a-z0-9]/g, '-')}" class="visual-avatar-select w-9 h-9 rounded-2xl overflow-hidden flex items-center justify-center border-2 border-transparent selected border-cyan-400 shadow-md">
+            ${renderUserAvatarBadge(email, "w-full h-full")}
+        </div>
+    `).join('');
+    
+    window.selectedApptAssignees = [...groupEmails];
+    
+    // Attacher le trigger de validation
+    document.getElementById('btn-save-appointment').onclick = function() {
+        window.saveAppointment();
+    };
+    
+    modal.style.display = 'flex';
+    lucide.createIcons();
+};
+
+window.closeAddAppointmentModal = function() {
+    const modal = document.getElementById('add-appointment-modal');
+    if(modal) modal.style.display = 'none';
+};
+
+window.toggleAssigneeSelect = function(type, email) {
+    const list = type === 'appt' ? window.selectedApptAssignees : type === 'task' ? window.selectedTaskAssignees : window.selectedEventAssignees;
+    const target = document.getElementById(`${type}-assign-${email.replace(/[^a-z0-9]/g, '-')}`);
+    
+    const idx = list.indexOf(email);
+    if (idx > -1) {
+        list.splice(idx, 1);
+        if (target) target.classList.remove('selected', 'border-cyan-400');
+    } else {
+        list.push(email);
+        if (target) target.classList.add('selected', 'border-cyan-400');
+    }
+};
+
+window.saveAppointment = async function() {
+    const name = document.getElementById('appt-name').value.trim();
+    const time = document.getElementById('appt-time').value;
+    const duration = parseInt(document.getElementById('appt-duration').value) || 30;
+    const loc = document.getElementById('appt-location').value.trim();
+    const recurrence = document.getElementById('appt-recurrence').value;
+    const reminder = parseInt(document.getElementById('appt-reminder').value);
+    
+    if (!name) {
+        alert("Veuillez donner un nom au rendez-vous.");
+        return;
+    }
+    
+    const appt = {
+        id: `appt-${Date.now()}`,
+        name: name,
+        date: `${activeItemDayStr}T${time}:00`,
+        time: time,
+        duree: duration,
+        localisation: loc,
+        assignes: window.selectedApptAssignees,
+        recurrence: recurrence,
+        rappel: reminder,
+        email: userEmail
+    };
+    
+    appointmentsCache.push(appt);
+    localStorage.setItem('fitbuddy_appointments', JSON.stringify(appointmentsCache));
+    
+    // Planifier le rappel local (Option A)
+    if (reminder > 0) {
+        window.scheduleLocalReminder(appt, 'appt');
+    }
+    
+    // Synchroniser avec n8n en arrière-plan
+    try {
+        fetch(`${N8N_URL}/webhook/calendar-action`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'create-appt', appt: appt, email: userEmail })
+        });
+    } catch(e) {}
+    
+    showNotification("Rendez-vous créé ✓", "success");
+    closeAddAppointmentModal();
+    window.renderCalendarEngine();
+};
+
+// 9. CHECKLIST (TACHES) ADD/EDIT MODAL
+window.openAddTaskModal = function(dayStr) {
+    activeItemDayStr = dayStr;
+    const modal = document.getElementById('add-task-modal');
+    if (!modal) return;
+    
+    document.getElementById('task-name').value = "";
+    document.getElementById('task-duration').value = "15";
+    document.getElementById('task-recurrence').value = "Unique";
+    
+    // Avatars d'assignation
+    const avatarsDiv = document.getElementById('task-assignees-avatars');
+    const groupEmails = currentGroupMembers.length > 0 
+        ? currentGroupMembers.map(e => e.trim().toLowerCase())
+        : [(userEmail || "").trim().toLowerCase()];
+        
+    avatarsDiv.innerHTML = groupEmails.map(email => `
+        <div onclick="toggleAssigneeSelect('task', '${email}')" id="task-assign-${email.replace(/[^a-z0-9]/g, '-')}" class="visual-avatar-select w-9 h-9 rounded-2xl overflow-hidden flex items-center justify-center border-2 border-transparent selected border-cyan-400 shadow-md">
+            ${renderUserAvatarBadge(email, "w-full h-full")}
+        </div>
+    `).join('');
+    
+    window.selectedTaskAssignees = [...groupEmails];
+    
+    document.getElementById('btn-save-task').onclick = function() {
+        window.saveTask();
+    };
+    
+    modal.style.display = 'flex';
+    lucide.createIcons();
+};
+
+window.closeAddTaskModal = function() {
+    const modal = document.getElementById('add-task-modal');
+    if(modal) modal.style.display = 'none';
+};
+
+window.saveTask = function() {
+    const name = document.getElementById('task-name').value.trim();
+    const duration = parseInt(document.getElementById('task-duration').value) || 15;
+    const recurrence = document.getElementById('task-recurrence').value;
+    
+    if(!name) {
+        alert("Veuillez saisir un nom pour la tâche.");
+        return;
+    }
+    
+    const task = {
+        id: `task-${Date.now()}`,
+        name: name,
+        date: activeItemDayStr,
+        duree: duration,
+        fait: false,
+        fait_semaines: [],
+        assignes: window.selectedTaskAssignees,
+        recurrence: recurrence,
+        membres_qui_ont_fait: [],
+        email: userEmail
+    };
+    
+    tasksCache.push(task);
+    localStorage.setItem('fitbuddy_tasks', JSON.stringify(tasksCache));
+    
+    // Sync n8n
+    try {
+        fetch(`${N8N_URL}/webhook/calendar-action`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'create-task', task: task, email: userEmail })
+        });
+    } catch(e) {}
+    
+    showNotification("Tâche créée ✓", "success");
+    closeAddTaskModal();
+    window.renderCalendarEngine();
+};
+
+// Estimations IA de durée avec Tyler en local
+window.estimateTaskDurationAI = function() {
+    const name = document.getElementById('task-name').value.trim();
+    const durationInput = document.getElementById('task-duration');
+    
+    if (!name) {
+        alert("Saisissez d'abord un intitulé de tâche pour que Tyler l'évalue !");
+        return;
+    }
+    
+    const btn = document.querySelector('button[onclick*="estimateTaskDurationAI"]');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i>';
+    lucide.createIcons();
+    
+    // Tyler Local rule estimation
+    setTimeout(() => {
+        let estimated = 15;
+        const low = name.toLowerCase();
+        
+        if (low.includes("aspirateur") || low.includes("aspi")) estimated = 25;
+        else if (low.includes("serpillière") || low.includes("laver le sol")) estimated = 30;
+        else if (low.includes("vaisselle")) estimated = 15;
+        else if (low.includes("vitres")) estimated = 45;
+        else if (low.includes("frigo")) estimated = 20;
+        else if (low.includes("poubelles") || low.includes("poubel")) estimated = 10;
+        else if (low.includes("poussière") || low.includes("poussier")) estimated = 15;
+        else if (low.includes("jardin") || low.includes("tondre")) estimated = 45;
+        else if (low.includes("grand ménage") || low.includes("complet")) estimated = 120;
+        else if (low.includes("linge") || low.includes("lessive")) estimated = 15;
+        else if (low.includes("courses")) estimated = 60;
+        else estimated = Math.max(10, Math.floor(Math.random() * 4 + 2) * 5); // Fallback random
+        
+        durationInput.value = estimated;
+        showNotification(`Tyler estime cette tâche à ${estimated} min ✓`, "success");
+        
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        lucide.createIcons();
+    }, 800);
+};
+
+// Toggling de tâche checklist (fait/pas fait et fractionnement)
+window.toggleTaskFait = function(taskId, dayStr) {
+    const task = tasksCache.find(t => String(t.id) === String(taskId));
+    if(!task) return;
+    
+    const weekCode = getWeekCode(window.currentCalendarMonday);
+    const currentUser = (userEmail || "").trim().toLowerCase();
+    
+    const isRecurring = task.recurrence && task.recurrence !== 'Unique';
+    
+    if (isRecurring) {
+        if (!task.fait_semaines) task.fait_semaines = [];
+        const weekIdx = task.fait_semaines.indexOf(weekCode);
+        
+        if (weekIdx > -1) {
+            // Décocher pour cette semaine
+            task.fait_semaines.splice(weekIdx, 1);
+            task.membres_qui_ont_fait = [];
+            showNotification("Tâche décochée pour cette semaine ✓", "info");
+        } else {
+            // Cocher
+            task.fait_semaines.push(weekCode);
+            task.membres_qui_ont_fait = [currentUser];
+            showNotification("Tâche accomplie cette semaine ✓", "success");
+        }
+    } else {
+        // Tâche unique
+        task.fait = !task.fait;
+        if (task.fait) {
+            task.membres_qui_ont_fait = [currentUser];
+            showNotification("Tâche accomplie ✓", "success");
+        } else {
+            task.membres_qui_ont_fait = [];
+            showNotification("Tâche décochée ✓", "info");
+        }
+    }
+    
+    localStorage.setItem('fitbuddy_tasks', JSON.stringify(tasksCache));
+    
+    // Sync n8n
+    try {
+        fetch(`${N8N_URL}/webhook/calendar-action`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'toggle-task', taskId: taskId, fait: task.fait, membres: task.membres_qui_ont_fait, weekCode: weekCode, email: userEmail })
+        });
+    } catch(e) {}
+    
+    window.renderCalendarEngine();
+};
+
+// 10. PUBLIC GROUP EVENTS MODAL
+window.openAddEventModal = function(dayStr) {
+    activeItemDayStr = dayStr;
+    const modal = document.getElementById('add-event-modal');
+    if (!modal) return;
+    
+    document.getElementById('evt-name').value = "";
+    document.getElementById('evt-time').value = "19:00";
+    document.getElementById('evt-location').value = "";
+    document.getElementById('evt-recurrence').value = "Unique";
+    
+    const avatarsDiv = document.getElementById('evt-assignees-avatars');
+    const groupEmails = currentGroupMembers.length > 0 
+        ? currentGroupMembers.map(e => e.trim().toLowerCase())
+        : [(userEmail || "").trim().toLowerCase()];
+        
+    avatarsDiv.innerHTML = groupEmails.map(email => `
+        <div onclick="toggleAssigneeSelect('event', '${email}')" id="event-assign-${email.replace(/[^a-z0-9]/g, '-')}" class="visual-avatar-select w-9 h-9 rounded-2xl overflow-hidden flex items-center justify-center border-2 border-transparent selected border-cyan-400 shadow-md">
+            ${renderUserAvatarBadge(email, "w-full h-full")}
+        </div>
+    `).join('');
+    
+    window.selectedEventAssignees = [...groupEmails];
+    
+    document.getElementById('btn-save-event').onclick = function() {
+        window.saveEvent();
+    };
+    
+    modal.style.display = 'flex';
+    lucide.createIcons();
+};
+
+window.closeAddEventModal = function() {
+    const modal = document.getElementById('add-event-modal');
+    if(modal) modal.style.display = 'none';
+};
+
+window.setEventLocation = function(loc) {
+    document.getElementById('evt-location').value = loc;
+};
+
+window.saveEvent = function() {
+    const name = document.getElementById('evt-name').value.trim();
+    const time = document.getElementById('evt-time').value;
+    const loc = document.getElementById('evt-location').value.trim();
+    const recurrence = document.getElementById('evt-recurrence').value;
+    
+    if(!name) {
+        alert("Veuillez donner un nom à l'événement.");
+        return;
+    }
+    
+    const event = {
+        id: `evt-${Date.now()}`,
+        name: name,
+        date: `${activeItemDayStr}T${time}:00`,
+        time: time,
+        localisation: loc || "À la maison",
+        assignes: window.selectedEventAssignees,
+        recurrence: recurrence,
+        email: userEmail
+    };
+    
+    eventsCache.push(event);
+    localStorage.setItem('fitbuddy_events', JSON.stringify(eventsCache));
+    
+    // Sync n8n
+    try {
+        fetch(`${N8N_URL}/webhook/calendar-action`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'create-event', event: event, email: userEmail })
+        });
+    } catch(e) {}
+    
+    showNotification("Événement public créé ✓", "success");
+    closeAddEventModal();
+    window.renderCalendarEngine();
+};
+
+// 11. SUPPRESSION D'ÉLÉMENT DU CALENDRIER
+window.deleteCalendarItem = function(type, id) {
+    if(!confirm("Voulez-vous vraiment supprimer cet élément ?")) return;
+    
+    if (type === 'appt') {
+        appointmentsCache = appointmentsCache.filter(item => String(item.id) !== String(id));
+        localStorage.setItem('fitbuddy_appointments', JSON.stringify(appointmentsCache));
+    } else if (type === 'task') {
+        tasksCache = tasksCache.filter(item => String(item.id) !== String(id));
+        localStorage.setItem('fitbuddy_tasks', JSON.stringify(tasksCache));
+    } else if (type === 'event') {
+        eventsCache = eventsCache.filter(item => String(item.id) !== String(id));
+        localStorage.setItem('fitbuddy_events', JSON.stringify(eventsCache));
+    }
+    
+    // Sync n8n
+    try {
+        fetch(`${N8N_URL}/webhook/calendar-action`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'delete-item', type: type, id: id, email: userEmail })
+        });
+    } catch(e) {}
+    
+    showNotification("Élément supprimé ✓", "info");
+    window.renderCalendarEngine();
+};
+
+// 12. MENAGE PLAN GENERATOR SYSTEM (WIZARD & ALGORITHM)
+let wizardActiveStep = 1;
+let generatedCleaningTasks = [];
+
+window.openGenerateOptions = function() {
+    const modal = document.getElementById('generate-options-modal');
+    if(modal) modal.style.display = 'flex';
+};
+
+window.closeGenerateOptions = function() {
+    const modal = document.getElementById('generate-options-modal');
+    if(modal) modal.style.display = 'none';
+};
+
+window.startCleaningWizard = function() {
+    closeGenerateOptions();
+    
+    const modal = document.getElementById('cleaning-wizard-modal');
+    if (!modal) return;
+    
+    // Initialiser les étapes
+    wizardActiveStep = 1;
+    document.querySelectorAll('.wizard-step').forEach(el => el.classList.remove('active'));
+    document.getElementById('wizard-step-1').classList.add('active');
+    
+    document.querySelectorAll('.wizard-indicator').forEach(el => el.classList.remove('active'));
+    document.getElementById('wizard-ind-1').classList.add('active');
+    
+    document.getElementById('wizard-btn-prev').style.display = 'none';
+    document.getElementById('wizard-btn-next').style.display = 'flex';
+    document.getElementById('wizard-btn-next').innerHTML = 'Suivant <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>';
+    document.getElementById('wizard-btn-confirm').style.display = 'none';
+    
+    // Nombre d'habitants par défaut
+    const groupEmails = currentGroupMembers.length > 0 ? currentGroupMembers : [userEmail];
+    document.getElementById('clean-house-residents').value = groupEmails.length;
+    
+    // Remplir les pièces de logement par défaut
+    const roomsList = document.getElementById('clean-rooms-list');
+    roomsList.innerHTML = "";
+    
+    const defaultRooms = [
+        { name: "Salon", size: 25 },
+        { name: "Cuisine", size: 12 },
+        { name: "Salle de bain", size: 8 },
+        { name: "Chambre principale", size: 14 },
+        { name: "Couloir & Entrée", size: 6 }
+    ];
+    
+    defaultRooms.forEach(r => addRoomRow(r.name, r.size));
+    
+    modal.style.display = 'flex';
+    lucide.createIcons();
+};
+
+window.closeCleaningWizard = function() {
+    const modal = document.getElementById('cleaning-wizard-modal');
+    if(modal) modal.style.display = 'none';
+};
+
+window.addRoomRow = function(name = "", size = 10) {
+    const container = document.getElementById('clean-rooms-list');
+    const idx = container.querySelectorAll('.room-row-item').length + 1;
+    
+    const div = document.createElement('div');
+    div.className = "room-row-item flex items-center gap-2 bg-white/[0.02] border border-white/5 p-2 rounded-xl";
+    div.innerHTML = `
+        <input type="text" placeholder="Nom pièce (ex: Salon)" class="room-name flex-[2] bg-transparent text-xs text-white outline-none font-bold uppercase" value="${name}">
+        <div class="flex items-center gap-1.5 flex-1">
+            <input type="number" class="room-size w-full bg-white/5 border border-white/10 rounded-lg p-1.5 text-xs text-center text-white outline-none focus:border-purple-500 font-bold" value="${size}">
+            <span class="text-[8px] font-bold text-white/30">m²</span>
+        </div>
+        <button onclick="this.parentElement.remove()" class="text-red-500/50 hover:text-red-500 transition-colors"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+    `;
+    
+    container.appendChild(div);
+    lucide.createIcons();
+};
+
+window.navigateWizard = function(stepChange) {
+    const nextStep = wizardActiveStep + stepChange;
+    if (nextStep < 1 || nextStep > 4) return;
+    
+    // Si passage à l'étape 2, pré-remplir la grille des préférences d'assignation
+    if (nextStep === 2 && wizardActiveStep === 1) {
+        const grid = document.getElementById('clean-preferences-grid');
+        grid.innerHTML = "";
+        
+        const groupEmails = currentGroupMembers.length > 0 ? currentGroupMembers : [userEmail];
+        const taskTypes = ["Aspirateur", "Serpillière", "Poussière", "Nettoyage sanitaires", "Sortir poubelles"];
+        
+        taskTypes.forEach(task => {
+            let rowHtml = `
+            <div class="bg-white/5 border border-white/10 p-3.5 rounded-2xl space-y-2.5">
+                <span class="text-[9px] font-black text-purple-300 uppercase tracking-widest block border-b border-white/5 pb-1"><i data-lucide="shield-alert" class="w-3.5 h-3.5 inline mr-1 text-purple-400"></i> ${task}</span>
+                <div class="space-y-2">`;
+                
+                groupEmails.forEach(email => {
+                    const cleanEmail = email.trim();
+                    rowHtml += `
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            ${renderUserAvatarBadge(cleanEmail, "w-6 h-6")}
+                            <span class="text-[9px] font-bold text-white/70 truncate w-32 uppercase">${cleanEmail.split('@')[0]}</span>
+                        </div>
+                        <select class="pref-selector custom-select !p-1.5 !text-[10px] bg-white/5 text-purple-400 font-bold outline-none" data-user="${cleanEmail}" data-task="${task}">
+                            <option value="1.0" class="bg-[#111]">Parfois (Standard)</option>
+                            <option value="1.5" class="bg-[#111]">Toujours</option>
+                            <option value="1.2" class="bg-[#111]">Souvent</option>
+                            <option value="0.5" class="bg-[#111]">Rarement</option>
+                            <option value="0.0" class="bg-[#111]">Jamais</option>
+                        </select>
+                    </div>`;
+                });
+                
+            rowHtml += `</div></div>`;
+            grid.innerHTML += rowHtml;
+        });
+        lucide.createIcons();
+    }
+    
+    // Si passage à l'étape 4, exécuter l'attribution et estimation automatique des corvées par l'algorithme
+    if (nextStep === 4 && wizardActiveStep === 3) {
+        window.generateCleaningPlan();
+    }
+    
+    // Activer l'étape visuelle
+    document.querySelectorAll('.wizard-step').forEach(el => el.classList.remove('active'));
+    document.getElementById(`wizard-step-${nextStep}`).classList.add('active');
+    
+    document.querySelectorAll('.wizard-indicator').forEach(el => el.classList.remove('active'));
+    document.getElementById(`wizard-ind-${nextStep}`).classList.add('active');
+    
+    wizardActiveStep = nextStep;
+    
+    // Mettre à jour les boutons du footer
+    if (wizardActiveStep === 1) {
+        document.getElementById('wizard-btn-prev').style.display = 'none';
+    } else {
+        document.getElementById('wizard-btn-prev').style.display = 'flex';
+    }
+    
+    if (wizardActiveStep === 4) {
+        document.getElementById('wizard-btn-next').style.display = 'none';
+        document.getElementById('wizard-btn-confirm').style.display = 'flex';
+    } else {
+        document.getElementById('wizard-btn-next').style.display = 'flex';
+        document.getElementById('wizard-btn-next').innerHTML = 'Suivant <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>';
+        document.getElementById('wizard-btn-confirm').style.display = 'none';
+    }
+};
+
+window.generateCleaningPlan = function() {
+    const sizeM2 = parseFloat(document.getElementById('clean-house-size').value) || 70;
+    const keepTogether = document.getElementById('clean-keep-together').checked;
+    
+    // Récupérer la liste des pièces
+    const rooms = [];
+    document.querySelectorAll('#clean-rooms-list .room-row-item').forEach(el => {
+        const name = el.querySelector('.room-name').value.trim();
+        const size = parseFloat(el.querySelector('.room-size').value) || 10;
+        if(name) rooms.push({ name: name, size: size });
+    });
+    
+    // Pièces spéciales
+    const specialRooms = [];
+    if (document.getElementById('spec-garden').checked) specialRooms.push({ name: "Jardin (Tondre / Arroser)", size: 50, type: 'jardin' });
+    if (document.getElementById('spec-terrace').checked) specialRooms.push({ name: "Terrasse", size: 20, type: 'terrasse' });
+    if (document.getElementById('spec-balcony').checked) specialRooms.push({ name: "Balcon", size: 10, type: 'balcon' });
+    if (document.getElementById('spec-cellar').checked) specialRooms.push({ name: "Cave", size: 15, type: 'cave' });
+    if (document.getElementById('spec-attic').checked) specialRooms.push({ name: "Grenier", size: 15, type: 'grenier' });
+    
+    // Récupérer la matrice des préférences
+    const prefs = {};
+    document.querySelectorAll('.pref-selector').forEach(el => {
+        const user = el.dataset.user;
+        const task = el.dataset.task;
+        const val = parseFloat(el.value);
+        if (!prefs[user]) prefs[user] = {};
+        prefs[user][task] = val;
+    });
+    
+    const groupEmails = currentGroupMembers.length > 0 ? currentGroupMembers : [userEmail];
+    
+    // Moteur d'estimation de temps par corvée
+    const proposedTasks = [];
+    
+    // A. Aspirateur dans chaque pièce
+    rooms.forEach(room => {
+        const tTime = Math.max(5, Math.round(room.size * 0.7)); // 0.7 min par m2
+        proposedTasks.push({
+            name: `Aspirateur : ${room.name}`,
+            duree: tTime,
+            category: "Aspirateur",
+            roomName: room.name
+        });
+    });
+    
+    // B. Serpillière (Cuisine, Salle de bain et Salon)
+    rooms.forEach(room => {
+        const norm = room.name.toLowerCase();
+        if (norm.includes("cuisine") || norm.includes("bain") || norm.includes("salon")) {
+            const tTime = Math.max(5, Math.round(room.size * 0.9)); // 0.9 min par m2
+            proposedTasks.push({
+                name: `Serpillière : ${room.name}`,
+                duree: tTime,
+                category: "Serpillière",
+                roomName: room.name
+            });
+        }
+    });
+
+    // C. Poussières (Toutes pièces hors sanitaires)
+    rooms.forEach(room => {
+        const norm = room.name.toLowerCase();
+        if (!norm.includes("bain")) {
+            const tTime = Math.max(5, Math.round(room.size * 0.4)); // 0.4 min par m2
+            proposedTasks.push({
+                name: `Poussières & Meubles : ${room.name}`,
+                duree: tTime,
+                category: "Poussière",
+                roomName: room.name
+            });
+        }
+    });
+
+    // D. Sanitaires
+    rooms.forEach(room => {
+        const norm = room.name.toLowerCase();
+        if (norm.includes("bain") || norm.includes("wc") || norm.includes("toilette")) {
+            proposedTasks.push({
+                name: `Désinfecter sanitaires & douche : ${room.name}`,
+                duree: 25,
+                category: "Nettoyage sanitaires",
+                roomName: room.name
+            });
+        }
+    });
+
+    // E. Poubelles
+    proposedTasks.push({
+        name: "Sortir les poubelles & Tri sélectif",
+        duree: 10,
+        category: "Sortir poubelles",
+        roomName: "Global"
+    });
+
+    // F. Pièces spéciales
+    specialRooms.forEach(spec => {
+        proposedTasks.push({
+            name: `Ménage extérieur : ${spec.name}`,
+            duree: spec.type === 'jardin' ? 40 : spec.type === 'cave' ? 30 : 20,
+            category: "Poussière",
+            roomName: spec.name
+        });
+    });
+
+    // ALGORITHME D'ATTRIBUTION EQUITABLE PONDEREE
+    // Initialisation des structures de charge par membre
+    const memberLoads = {};
+    groupEmails.forEach(email => {
+        memberLoads[email] = { totalTime: 0, tasks: [] };
+    });
+
+    // Option Regroupement "keepTogether" : Trier les tâches de manière à grouper par pièce d'abord ou par catégorie
+    if (keepTogether) {
+        // Regrouper par catégorie (ex: Aspirateur) pour attribuer la même catégorie de pièce au même membre
+        const categoriesMap = {};
+        proposedTasks.forEach(task => {
+            if(!categoriesMap[task.category]) categoriesMap[task.category] = [];
+            categoriesMap[task.category].push(task);
+        });
+
+        Object.keys(categoriesMap).forEach(cat => {
+            const tasksList = categoriesMap[cat];
+            
+            // Trouver le membre ayant le meilleur score d'affinité globale pour cette catégorie
+            let bestMember = groupEmails[0];
+            let bestScore = -1;
+            
+            groupEmails.forEach(email => {
+                const prefScore = prefs[email] && prefs[email][cat] !== undefined ? prefs[email][cat] : 1.0;
+                // Pondération par la charge actuelle pour éviter que la même personne fasse tout
+                const loadFactor = memberLoads[email].totalTime > 0 ? (100 / memberLoads[email].totalTime) : 10;
+                const score = prefScore * loadFactor;
+                
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMember = email;
+                }
+            });
+
+            // Assigner toutes les pièces de cette catégorie à la même personne
+            tasksList.forEach(task => {
+                memberLoads[bestMember].tasks.push(task);
+                memberLoads[bestMember].totalTime += task.duree;
+            });
+        });
+    } else {
+        // Répartition pièce par pièce classique (Glouton pondéré)
+        // Trier les tâches par durée décroissante pour optimiser la répartition
+        proposedTasks.sort((a,b) => b.duree - a.duree);
+
+        proposedTasks.forEach(task => {
+            let bestMember = groupEmails[0];
+            let minScore = Infinity;
+
+            groupEmails.forEach(email => {
+                const prefScore = prefs[email] && prefs[email][task.category] !== undefined ? prefs[email][task.category] : 1.0;
+                
+                // Si la préférence est à "Jamais" (0.0), donner une pénalité insurmontable
+                if (prefScore === 0.0) return; 
+
+                // Le score calcule la charge de travail future divisée par le coefficient d'affinité
+                const projectedLoad = (memberLoads[email].totalTime + task.duree) / prefScore;
+                
+                if (projectedLoad < minScore) {
+                    minScore = projectedLoad;
+                    bestMember = email;
+                }
+            });
+
+            memberLoads[bestMember].tasks.push(task);
+            memberLoads[bestMember].totalTime += task.duree;
+        });
+    }
+
+    // Compiler les tâches finales générées
+    generatedCleaningTasks = [];
+    const joursMénage = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+    
+    let taskIdx = 0;
+    Object.keys(memberLoads).forEach(email => {
+        const record = memberLoads[email];
+        record.tasks.forEach(t => {
+            // Assigner un jour de manière tournante pour équilibrer la checklist
+            const assignedDay = joursMénage[taskIdx % joursMénage.length];
+            taskIdx++;
+
+            const currentDayDate = getDayDate(window.currentCalendarMonday, joursMénage.indexOf(assignedDay));
+            const dayStr = currentDayDate.toISOString().substring(0, 10);
+
+            generatedCleaningTasks.push({
+                id: `gen-clean-${Date.now()}-${taskIdx}`,
+                name: `🧹 ${t.name}`,
+                date: dayStr,
+                duree: t.duree,
+                fait: false,
+                assignes: [email],
+                recurrence: 'Unique',
+                membres_qui_ont_fait: []
+            });
+        });
+    });
+
+    // ─── RENDU VISUEL DES RESULTATS (Étape 4) ───────────────────────────
+    document.getElementById('clean-res-count').innerText = generatedCleaningTasks.length;
+    
+    const totalTime = generatedCleaningTasks.reduce((acc, t) => acc + t.duree, 0);
+    document.getElementById('clean-res-duration').innerText = `${totalTime} min`;
+    
+    // Rendre les barres d'allocation
+    const allocDiv = document.getElementById('clean-res-allocations');
+    allocDiv.innerHTML = "";
+    
+    Object.keys(memberLoads).forEach(email => {
+        const time = memberLoads[email].totalTime;
+        const percent = totalTime > 0 ? Math.round((time / totalTime) * 100) : 0;
+        
+        allocDiv.innerHTML += `
+        <div class="space-y-1">
+            <div class="flex justify-between items-center text-[9px] font-bold uppercase">
+                <div class="flex items-center gap-1.5">
+                    ${renderUserAvatarBadge(email, "w-4.5 h-4.5")}
+                    <span class="text-white/70">${email.split('@')[0]}</span>
+                </div>
+                <span class="text-purple-400 font-mono">${time} min (${percent}%)</span>
+            </div>
+            <div class="progress-track !h-2.5">
+                <div class="progress-fill !h-full" style="width: ${percent}%; background: linear-gradient(90deg, #a855f7, #6366f1)"></div>
+            </div>
+        </div>`;
+    });
+
+    // Rendre la liste des tâches
+    const listDiv = document.getElementById('clean-res-tasks-list');
+    listDiv.innerHTML = generatedCleaningTasks.map(t => {
+        const dayIdx = new Date(t.date).getDay();
+        const cleanDayStr = joursMénage[dayIdx === 0 ? 6 : dayIdx - 1];
+        
+        return `
+        <div class="flex justify-between items-center bg-white/[0.02] border border-white/5 p-2 rounded-xl text-[9px]">
+            <div>
+                <p class="font-bold text-white uppercase">${t.name}</p>
+                <p class="text-white/30 font-bold uppercase mt-0.5">${cleanDayStr} • ⏱️ ${t.duree} min</p>
+            </div>
+            ${renderUserAvatarBadge(t.assignes[0], "w-5 h-5")}
+        </div>`;
+    }).join('');
+};
+
+window.applyGeneratedCleaningPlan = function() {
+    if (generatedCleaningTasks.length === 0) return;
+    
+    tasksCache = [...tasksCache, ...generatedCleaningTasks];
+    localStorage.setItem('fitbuddy_tasks', JSON.stringify(tasksCache));
+    
+    // Sync n8n en lot
+    try {
+        fetch(`${N8N_URL}/webhook/calendar-action`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'create-tasks-batch', tasks: generatedCleaningTasks, email: userEmail })
+        });
+    } catch(e) {}
+    
+    showNotification(`${generatedCleaningTasks.length} tâches de ménage injectées ✓`, "success");
+    closeCleaningWizard();
+    window.renderCalendarEngine();
+};
+

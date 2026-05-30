@@ -704,6 +704,350 @@
         </button>
     </div>
 
+    <!-- INPUT PROFIL PHOTO -->
+    <input type="file" id="profile-photo-input" class="hidden" accept="image/*" onchange="handleProfilePhotoUpload(this)">
+
+    <!-- MODAL ACTION REPAS -->
+    <div id="meal-action-modal" class="modal-overlay !justify-center !items-center p-6" style="background: rgba(0,0,0,0.95); z-index: 12000;">
+        <div class="bg-[#111] border border-white/10 w-full max-w-sm rounded-3xl p-6 space-y-6 shadow-2xl relative">
+            <button onclick="closeMealActionModal()" class="absolute top-4 right-4 w-8 h-8 bg-white/5 rounded-full flex items-center justify-center border border-white/5">
+                <i data-lucide="x" class="w-4 h-4 text-white/60"></i>
+            </button>
+            <div class="text-center space-y-2">
+                <h4 id="meal-action-title" class="text-white font-black text-sm uppercase tracking-tight">Détails du repas</h4>
+                <p id="meal-action-subtitle" class="text-[9px] text-white/40 uppercase tracking-widest"></p>
+            </div>
+            <div id="meal-action-img-container" class="relative w-full aspect-[16/9] rounded-2xl overflow-hidden border border-white/10 bg-white/5">
+                <img id="meal-action-img" src="" class="w-full h-full object-cover">
+            </div>
+            <div class="bg-white/5 border border-white/5 rounded-2xl p-4 space-y-3">
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-white/40 uppercase font-bold text-[9px]">Temps de préparation</span>
+                    <span id="meal-action-duration" class="text-cyan-400 font-bold">-- min</span>
+                </div>
+                <div id="meal-chef-selection-container" class="space-y-2 pt-1 hidden">
+                    <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Qui a cuisiné ?</label>
+                    <div id="meal-chef-avatars" class="flex gap-2.5 overflow-x-auto no-scrollbar py-1"></div>
+                </div>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="closeMealActionModal()" class="flex-1 py-3.5 text-[10px] font-black text-white/40 uppercase tracking-widest">Annuler</button>
+                <button id="btn-replace-meal" class="flex-1 bg-white/5 border border-white/10 py-3.5 rounded-xl text-[10px] font-black text-white uppercase tracking-widest">Remplacer</button>
+                <button id="btn-confirm-cooked" class="flex-1 bg-cyan-500 py-3.5 rounded-xl text-[10px] font-black text-black uppercase tracking-widest shadow-lg shadow-cyan-500/20">Cuisiné !</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL NOUVEAU RENDEZ-VOUS -->
+    <div id="add-appointment-modal" class="modal-overlay !justify-center !items-center p-6" style="background: rgba(0,0,0,0.95); z-index: 12000;">
+        <div class="bg-[#111] border border-white/10 w-full max-w-sm rounded-3xl p-6 space-y-5 shadow-2xl relative max-h-[90dvh] overflow-y-auto no-scrollbar">
+            <button onclick="closeAddAppointmentModal()" class="absolute top-4 right-4 w-8 h-8 bg-white/5 rounded-full flex items-center justify-center border border-white/5">
+                <i data-lucide="x" class="w-4 h-4 text-white/60"></i>
+            </button>
+            <div class="text-center space-y-1">
+                <h4 id="appointment-modal-title" class="text-white font-black text-sm uppercase tracking-tight">Nouveau Rendez-vous</h4>
+                <p class="text-[9px] text-cyan-400 uppercase tracking-widest font-black">Planification</p>
+            </div>
+            <div class="space-y-4">
+                <div class="space-y-1">
+                    <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Nom du rendez-vous</label>
+                    <input type="text" id="appt-name" placeholder="Ex: Dentiste, Réunion..." class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-500">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-1">
+                        <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Heure</label>
+                        <input type="time" id="appt-time" value="09:00" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-500">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Durée (minutes)</label>
+                        <input type="number" id="appt-duration" value="30" min="5" step="5" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-500 text-center font-bold">
+                    </div>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Localisation (Optionnelle)</label>
+                    <input type="text" id="appt-location" placeholder="Ex: Cabinet Médical, En ligne..." class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-500">
+                </div>
+                <div class="space-y-2">
+                    <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Qui participe ?</label>
+                    <div id="appt-assignees-avatars" class="flex gap-2.5 overflow-x-auto no-scrollbar py-1"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-1">
+                        <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Récurrence</label>
+                        <select id="appt-recurrence" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-500 appearance-none cursor-pointer">
+                            <option value="Unique" class="bg-[#111]">Unique</option>
+                            <option value="Daily" class="bg-[#111]">Quotidien</option>
+                            <option value="Weekly" class="bg-[#111]">Hebdomadaire</option>
+                            <option value="Monthly" class="bg-[#111]">Mensuel</option>
+                        </select>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Rappel Notification</label>
+                        <select id="appt-reminder" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-cyan-500 appearance-none cursor-pointer">
+                            <option value="0" class="bg-[#111]">Pile à l'heure</option>
+                            <option value="15" class="bg-[#111]" selected>15 min avant</option>
+                            <option value="30" class="bg-[#111]">30 min avant</option>
+                            <option value="60" class="bg-[#111]">1 heure avant</option>
+                            <option value="1440" class="bg-[#111]">1 jour avant</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button onclick="closeAddAppointmentModal()" class="flex-1 py-3 text-[10px] font-black text-white/40 uppercase tracking-widest">Annuler</button>
+                    <button id="btn-save-appointment" class="flex-1 bg-cyan-500 py-3 rounded-xl text-[10px] font-black text-black uppercase tracking-widest shadow-lg shadow-cyan-500/20">Enregistrer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL NOUVELLE TÂCHE (CHECKLIST) -->
+    <div id="add-task-modal" class="modal-overlay !justify-center !items-center p-6" style="background: rgba(0,0,0,0.95); z-index: 12000;">
+        <div class="bg-[#111] border border-white/10 w-full max-w-sm rounded-3xl p-6 space-y-5 shadow-2xl relative max-h-[90dvh] overflow-y-auto no-scrollbar">
+            <button onclick="closeAddTaskModal()" class="absolute top-4 right-4 w-8 h-8 bg-white/5 rounded-full flex items-center justify-center border border-white/5">
+                <i data-lucide="x" class="w-4 h-4 text-white/60"></i>
+            </button>
+            <div class="text-center space-y-1">
+                <h4 id="task-modal-title" class="text-white font-black text-sm uppercase tracking-tight">Nouvelle Tâche</h4>
+                <p class="text-[9px] text-purple-400 uppercase tracking-widest font-black">À Faire</p>
+            </div>
+            <div class="space-y-4">
+                <div class="space-y-1">
+                    <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Nom de la tâche</label>
+                    <input type="text" id="task-name" placeholder="Ex: Nettoyer le frigo, Poussières..." class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-purple-500">
+                </div>
+                <div class="grid grid-cols-1 gap-2">
+                    <div class="flex gap-2">
+                        <div class="space-y-1 flex-1">
+                            <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Durée estimée (minutes)</label>
+                            <input type="number" id="task-duration" value="15" min="1" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-purple-500 text-center font-bold">
+                        </div>
+                        <button onclick="estimateTaskDurationAI()" class="flex-none bg-purple-600/10 border border-purple-500/30 text-purple-400 px-3.5 rounded-xl flex items-center justify-center gap-1.5 active:scale-95 transition-transform self-end h-10 mb-0.5" title="Demander à Tyler d'estimer">
+                            <i data-lucide="sparkles" class="w-4 h-4"></i> <span class="text-[9px] font-black uppercase">Tyler</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Attribuer la tâche</label>
+                    <div id="task-assignees-avatars" class="flex gap-2.5 overflow-x-auto no-scrollbar py-1"></div>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Récurrence</label>
+                    <select id="task-recurrence" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-purple-500 appearance-none cursor-pointer">
+                        <option value="Unique" class="bg-[#111]">Unique</option>
+                        <option value="Daily" class="bg-[#111]">Quotidien</option>
+                        <option value="Weekly" class="bg-[#111]">Hebdomadaire</option>
+                        <option value="Monthly" class="bg-[#111]">Mensuel</option>
+                    </select>
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button onclick="closeAddTaskModal()" class="flex-1 py-3 text-[10px] font-black text-white/40 uppercase tracking-widest">Annuler</button>
+                    <button id="btn-save-task" class="flex-1 bg-purple-600 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest shadow-lg shadow-purple-500/20">Créer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL NOUVEL ÉVÉNEMENT -->
+    <div id="add-event-modal" class="modal-overlay !justify-center !items-center p-6" style="background: rgba(0,0,0,0.95); z-index: 12000;">
+        <div class="bg-[#111] border border-white/10 w-full max-w-sm rounded-3xl p-6 space-y-5 shadow-2xl relative max-h-[90dvh] overflow-y-auto no-scrollbar">
+            <button onclick="closeAddEventModal()" class="absolute top-4 right-4 w-8 h-8 bg-white/5 rounded-full flex items-center justify-center border border-white/5">
+                <i data-lucide="x" class="w-4 h-4 text-white/60"></i>
+            </button>
+            <div class="text-center space-y-1">
+                <h4 id="event-modal-title" class="text-white font-black text-sm uppercase tracking-tight">Nouvel Événement</h4>
+                <p class="text-[9px] text-amber-500 uppercase tracking-widest font-black">Public Groupe</p>
+            </div>
+            <div class="space-y-4">
+                <div class="space-y-1">
+                    <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Nom de l'événement</label>
+                    <input type="text" id="evt-name" placeholder="Ex: Soirée Crêpes, Grand ménage..." class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-amber-500">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-1">
+                        <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Heure</label>
+                        <input type="time" id="evt-time" value="19:00" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-amber-500">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Récurrence</label>
+                        <select id="evt-recurrence" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-amber-500 appearance-none cursor-pointer">
+                            <option value="Unique" class="bg-[#111]">Unique</option>
+                            <option value="Daily" class="bg-[#111]">Quotidien</option>
+                            <option value="Weekly" class="bg-[#111]">Hebdomadaire</option>
+                            <option value="Monthly" class="bg-[#111]">Mensuel</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Localisation</label>
+                    <div class="flex gap-2">
+                        <button onclick="setEventLocation('À la maison')" class="flex-1 bg-white/5 border border-white/10 py-2 rounded-xl text-[10px] font-bold text-white uppercase active:scale-95 transition-transform">🏡 À la maison</button>
+                        <input type="text" id="evt-location" placeholder="Autre adresse..." class="flex-[2] bg-white/5 border border-white/10 rounded-xl px-3 text-xs text-white outline-none focus:border-amber-500">
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Concerne qui dans le groupe ?</label>
+                    <div id="evt-assignees-avatars" class="flex gap-2.5 overflow-x-auto no-scrollbar py-1"></div>
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button onclick="closeAddEventModal()" class="flex-1 py-3 text-[10px] font-black text-white/40 uppercase tracking-widest">Annuler</button>
+                    <button id="btn-save-event" class="flex-1 bg-amber-500 py-3 rounded-xl text-[10px] font-black text-black uppercase tracking-widest shadow-lg shadow-amber-500/20">Créer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL GÉNÉRATEUR MÉNAGE IA -->
+    <div id="cleaning-wizard-modal" class="modal-overlay !justify-center !items-center p-4" style="background: rgba(0,0,0,0.96); z-index: 12000;">
+        <div class="bg-[#0b0b0c] border border-white/10 w-full max-w-md rounded-3xl p-6 space-y-6 shadow-[0_0_50px_rgba(139,92,246,0.15)] relative max-h-[92dvh] overflow-y-auto no-scrollbar flex flex-col justify-between">
+            <button onclick="closeCleaningWizard()" class="absolute top-4 right-4 w-8 h-8 bg-white/5 rounded-full flex items-center justify-center border border-white/5">
+                <i data-lucide="x" class="w-4 h-4 text-white/60"></i>
+            </button>
+            
+            <div class="text-center space-y-1.5 flex-none">
+                <div class="w-11 h-11 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 mx-auto mb-2 shadow-[0_0_15px_rgba(168,85,247,0.2)]">
+                    <i data-lucide="sparkles" class="w-6 h-6"></i>
+                </div>
+                <h4 class="text-white font-black text-sm uppercase tracking-widest">Générateur Ménage IA</h4>
+                <p class="text-[9px] text-white/40 uppercase tracking-widest">Estimation & Répartition Équitable</p>
+            </div>
+
+            <div class="flex justify-center items-center gap-3 py-1 flex-none">
+                <div id="wizard-ind-1" class="wizard-indicator active"></div>
+                <div id="wizard-ind-2" class="wizard-indicator"></div>
+                <div id="wizard-ind-3" class="wizard-indicator"></div>
+                <div id="wizard-ind-4" class="wizard-indicator"></div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto no-scrollbar py-2 space-y-4">
+                <!-- Etape 1 : Logement -->
+                <div id="wizard-step-1" class="wizard-step active space-y-4">
+                    <h5 class="text-xs font-black text-purple-400 uppercase tracking-wider mb-2">Étape 1 : Votre Logement</h5>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="space-y-1">
+                            <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Taille (m²)</label>
+                            <input type="number" id="clean-house-size" value="70" min="10" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-purple-500 text-center font-bold">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[9px] font-bold text-white/40 uppercase ml-1">Habitants</label>
+                            <input type="number" id="clean-house-residents" value="2" min="1" class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-purple-500 text-center font-bold" disabled>
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center px-1">
+                            <label class="text-[9px] font-bold text-white/40 uppercase">Pièces du logement</label>
+                            <button onclick="addRoomRow()" class="text-purple-400 hover:text-purple-300 transition-colors"><i data-lucide="plus-circle" class="w-5 h-5"></i></button>
+                        </div>
+                        <div id="clean-rooms-list" class="space-y-2 max-h-[220px] overflow-y-auto pr-1 no-scrollbar">
+                            <!-- Room rows added in JS -->
+                        </div>
+                    </div>
+                    <div class="space-y-2 bg-white/[0.02] p-3 rounded-2xl border border-white/5">
+                        <label class="text-[9px] font-black text-purple-300 uppercase tracking-widest block mb-1">Pièces spéciales présentes</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <label class="flex items-center gap-1.5 cursor-pointer text-[9px] text-white/70 font-bold uppercase"><input type="checkbox" id="spec-garden" class="rounded bg-white/5 border-white/10 text-purple-600 focus:ring-0 w-3.5 h-3.5"> Jardin</label>
+                            <label class="flex items-center gap-1.5 cursor-pointer text-[9px] text-white/70 font-bold uppercase"><input type="checkbox" id="spec-terrace" class="rounded bg-white/5 border-white/10 text-purple-600 focus:ring-0 w-3.5 h-3.5"> Terrasse</label>
+                            <label class="flex items-center gap-1.5 cursor-pointer text-[9px] text-white/70 font-bold uppercase"><input type="checkbox" id="spec-balcony" class="rounded bg-white/5 border-white/10 text-purple-600 focus:ring-0 w-3.5 h-3.5"> Balcon</label>
+                            <label class="flex items-center gap-1.5 cursor-pointer text-[9px] text-white/70 font-bold uppercase"><input type="checkbox" id="spec-cellar" class="rounded bg-white/5 border-white/10 text-purple-600 focus:ring-0 w-3.5 h-3.5"> Cave</label>
+                            <label class="flex items-center gap-1.5 cursor-pointer text-[9px] text-white/70 font-bold uppercase"><input type="checkbox" id="spec-attic" class="rounded bg-white/5 border-white/10 text-purple-600 focus:ring-0 w-3.5 h-3.5"> Grenier</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Etape 2 : Preferences d'assignation -->
+                <div id="wizard-step-2" class="wizard-step space-y-4">
+                    <h5 class="text-xs font-black text-purple-400 uppercase tracking-wider mb-2">Étape 2 : Préférences d'assignation</h5>
+                    <p class="text-[9px] text-white/40 uppercase tracking-widest leading-normal">Configurez le niveau d'affinité de chaque membre pour chaque type de corvée.</p>
+                    <div id="clean-preferences-grid" class="space-y-4 max-h-[350px] overflow-y-auto pr-1 no-scrollbar">
+                        <!-- Grid rows generated dynamically in JS -->
+                    </div>
+                </div>
+                
+                <!-- Etape 3 : Decoupage -->
+                <div id="wizard-step-3" class="wizard-step space-y-5">
+                    <h5 class="text-xs font-black text-purple-400 uppercase tracking-wider mb-2">Étape 3 : Découpage des Tâches</h5>
+                    <div class="bg-white/5 border border-white/10 p-5 rounded-3xl space-y-4">
+                        <div class="flex items-start gap-3">
+                            <i data-lucide="split" class="w-5 h-5 text-purple-400 flex-shrink-0 mt-0.5"></i>
+                            <div>
+                                <h6 class="text-xs font-black text-white uppercase tracking-wider">Regroupement des pièces</h6>
+                                <p class="text-[9px] text-white/40 mt-1 leading-normal">Si vous préférez que les tâches découpables (ex: passer l'aspirateur dans la chambre A, le bureau) soient attribuées à la même personne pour optimiser les sessions.</p>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center pt-2 border-t border-white/5">
+                            <span class="text-[10px] font-bold text-white/70 uppercase">Attribuer à la même personne</span>
+                            <label class="relative inline-flex items-center cursor-pointer select-none">
+                                <input type="checkbox" id="clean-keep-together" class="sr-only peer" checked>
+                                <div class="w-9 h-5 bg-white/10 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Etape 4 : Resultats -->
+                <div id="wizard-step-4" class="wizard-step space-y-4">
+                    <h5 class="text-xs font-black text-purple-400 uppercase tracking-wider mb-2">Étape 4 : Proposition de Tyler</h5>
+                    <div class="bg-purple-950/20 border border-purple-500/20 rounded-2xl p-3 flex justify-between items-center text-center">
+                        <div>
+                            <p class="text-[8px] text-purple-300 font-bold uppercase tracking-widest">Tâches Générées</p>
+                            <p id="clean-res-count" class="text-lg font-black text-white">0</p>
+                        </div>
+                        <div class="border-l border-white/10 h-8"></div>
+                        <div>
+                            <p class="text-[8px] text-purple-300 font-bold uppercase tracking-widest">Temps Total Estimé</p>
+                            <p id="clean-res-duration" class="text-lg font-black text-purple-400">0 min</p>
+                        </div>
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="text-[9px] font-black text-white/40 uppercase ml-1">Répartition des charges</label>
+                        <div id="clean-res-allocations" class="space-y-2 bg-white/5 border border-white/10 p-3 rounded-2xl">
+                            <!-- Allocation bars per member -->
+                        </div>
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="text-[9px] font-black text-white/40 uppercase ml-1">Détails des corvées de la semaine</label>
+                        <div id="clean-res-tasks-list" class="space-y-2 max-h-[160px] overflow-y-auto pr-1 no-scrollbar">
+                            <!-- List of proposed tasks -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex gap-2 pt-2 border-t border-white/5 flex-none">
+                <button id="wizard-btn-prev" onclick="navigateWizard(-1)" class="flex-1 py-3.5 text-[10px] font-black text-white/40 uppercase tracking-widest" style="display:none;">Précédent</button>
+                <button id="wizard-btn-next" onclick="navigateWizard(1)" class="flex-1 bg-purple-600 py-3.5 rounded-xl text-[10px] font-black text-white uppercase tracking-widest shadow-lg shadow-purple-500/20 flex items-center justify-center gap-1.5">
+                    Suivant <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+                </button>
+                <button id="wizard-btn-confirm" onclick="applyGeneratedCleaningPlan()" class="flex-1 bg-emerald-500 py-3.5 rounded-xl text-[10px] font-black text-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-1.5" style="display:none;">
+                    <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Valider & Injecter
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL HUBS OPTIONS GÉNÉRATION -->
+    <div id="generate-options-modal" class="modal-overlay !justify-center !items-center p-6" style="background: rgba(0,0,0,0.95); z-index: 12000;">
+        <div class="bg-[#111] border border-white/10 w-full max-w-xs rounded-3xl p-6 space-y-6 shadow-2xl relative">
+            <button onclick="closeGenerateOptions()" class="absolute top-4 right-4 w-8 h-8 bg-white/5 rounded-full flex items-center justify-center border border-white/5">
+                <i data-lucide="x" class="w-4 h-4 text-white/60"></i>
+            </button>
+            <div class="text-center space-y-1">
+                <h4 class="text-white font-black text-xs uppercase tracking-widest">Que voulez-vous générer ?</h4>
+                <p class="text-[9px] text-white/40 uppercase tracking-wider">Assistant Intelligent FitBuddy</p>
+            </div>
+            <div class="space-y-3">
+                <button class="w-full bg-white/5 border border-white/10 py-4 rounded-xl flex items-center justify-center gap-3 text-xs text-white/40 cursor-not-allowed select-none">
+                    <i data-lucide="utensils" class="w-4 h-4"></i>
+                    <span class="font-bold uppercase tracking-wider">Repas de la semaine (Bientôt)</span>
+                </button>
+                <button onclick="startCleaningWizard()" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 py-4 rounded-xl flex items-center justify-center gap-3 text-xs text-white font-black uppercase tracking-wider active:scale-95 transition-all shadow-lg shadow-purple-500/20">
+                    <i data-lucide="sparkles" class="w-4 h-4 text-white"></i>
+                    <span>Ménage de la semaine</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="app.js?v=5"></script>
 </body>
 </html>
+

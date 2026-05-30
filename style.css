@@ -399,3 +399,85 @@
             opacity: 1;
             transform: rotate(0deg) scale(1);
         }
+
+        /* --- FITBUDDY CALENDAR BOOSTER STYLE SYSTEM --- */
+        .glass-tracker-bar {
+            background: rgba(10, 10, 12, 0.75);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+            z-index: 100;
+        }
+
+        .avatar-group-item {
+            position: relative;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .avatar-group-item:hover {
+            transform: translateY(-2px) scale(1.05);
+            z-index: 10;
+        }
+
+        .premium-glow-badge {
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.15), rgba(139, 92, 246, 0.15));
+            border: 1px solid rgba(6, 182, 212, 0.3);
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.1);
+        }
+
+        .task-checked {
+            text-decoration: line-through;
+            opacity: 0.45;
+            transition: all 0.4s ease;
+        }
+
+        .visual-avatar-select {
+            cursor: pointer;
+            transition: all 0.25s ease;
+            border: 2px solid transparent;
+        }
+        .visual-avatar-select.selected {
+            border-color: #22d3ee;
+            box-shadow: 0 0 15px rgba(34, 211, 238, 0.4);
+            transform: scale(1.05);
+        }
+
+        .wizard-step {
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .wizard-step.active {
+            display: block;
+            opacity: 1;
+        }
+
+        .wizard-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.15);
+            transition: all 0.3s ease;
+        }
+        .wizard-indicator.active {
+            background: #22d3ee;
+            box-shadow: 0 0 8px #22d3ee;
+            transform: scale(1.2);
+        }
+
+        /* Micro-animations and states */
+        .meal-card-cooked {
+            border-color: rgba(34, 211, 238, 0.4) !important;
+            box-shadow: 0 0 15px rgba(34, 211, 238, 0.15) !important;
+        }
+        .meal-card-cooked img {
+            filter: brightness(0.6) contrast(1.1);
+        }
+
+        .pulse-cyan-glow {
+            animation: cyan-glow-pulse 2s infinite alternate;
+        }
+        @keyframes cyan-glow-pulse {
+            0% { box-shadow: 0 0 5px rgba(34, 211, 238, 0.2); }
+            100% { box-shadow: 0 0 15px rgba(34, 211, 238, 0.5); }
+        }
