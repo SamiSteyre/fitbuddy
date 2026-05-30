@@ -12,13 +12,35 @@
     let searchModalMode = "recipe"; 
     let activeConsumedFood = null; 
 
+    // États actifs des filtres de vue (perso, coloc, tout)
+    let activeShoppingFilter = "perso"; // Par défaut "perso", basculera sur "coloc" si un groupe existe
+    let activeRecipeFilter = "perso";   // Par défaut "perso", basculera sur "coloc" si un groupe existe
+
     // Liste dynamique des e-mails membres du groupe (chargée depuis le profil)
     let currentGroupMembers = []; 
     let currentGroupName = "";
 
-    // États actifs des filtres de vue (perso, coloc, tout)
-    let activeShoppingFilter = "coloc"; // Par défaut
-    let activeRecipeFilter = "coloc";   // Par défaut
+    function updateGroupData(user) {
+        if (!user) return;
+        const membresRaw = user.membres_groupe || user.membresGroupe || "";
+        currentGroupName = user.nom_groupe || user.nomGroupe || "";
+        currentGroupMembers = typeof membresRaw === 'string' 
+            ? membresRaw.split(',').map(s => s.trim()).filter(Boolean)
+            : (Array.isArray(membresRaw) ? membresRaw : []);
+            
+        // Ajustement dynamique du filtre actif : "coloc" si groupe valide, sinon "perso"
+        const hasGroup = currentGroupMembers.length > 0 && currentGroupName;
+        activeShoppingFilter = hasGroup ? "coloc" : "perso";
+        activeRecipeFilter = hasGroup ? "coloc" : "perso";
+    }
+
+    // Chargement initial du groupe depuis le cache local
+    try {
+        const cached = JSON.parse(localStorage.getItem('fitbuddy_user_profile'));
+        if (cached) {
+            updateGroupData(cached);
+        }
+    } catch(e) {}
 
     function extractOwnerEmail(item) {
         if (!item) return "";
@@ -211,6 +233,7 @@
                 localStorage.setItem('fitbuddy_email', email);
                 localStorage.setItem('fitbuddy_user_name', data.user.nom || "Utilisateur");
                 localStorage.setItem('fitbuddy_user_profile', JSON.stringify(data.user));
+                updateGroupData(data.user);
                 
                 userEmail = email;
                 storedName = data.user.nom || "Utilisateur";
@@ -266,6 +289,7 @@
                         localStorage.setItem('fitbuddy_user_profile', JSON.stringify(data.user));
                         localStorage.setItem('fitbuddy_user_name', data.user.nom || "Utilisateur");
                         updateUserNameUI(data.user.surnom || data.user.nom || "Utilisateur");
+                        updateGroupData(data.user);
                     }
                 }).catch(() => {});
             } catch(e) {
@@ -307,6 +331,7 @@
                 localStorage.setItem('fitbuddy_user_profile', JSON.stringify(data.user));
                 localStorage.setItem('fitbuddy_user_name', data.user.nom || "Utilisateur");
                 updateUserNameUI(data.user.surnom || data.user.nom || "Utilisateur");
+                updateGroupData(data.user);
                 renderProfileUI(data.user);
             } else {
                 const cached = stringToJson(localStorage.getItem('fitbuddy_user_profile'));
@@ -1090,6 +1115,7 @@
                 localStorage.setItem('fitbuddy_user_profile', JSON.stringify(updatedProfile));
                 localStorage.setItem('fitbuddy_user_name', payload.surnom || storedName);
                 updateUserNameUI(payload.surnom || storedName);
+                updateGroupData(updatedProfile);
 
                 if (data.tyler_note) {
                     localStorage.setItem('fitbuddy_tyler_metabolic_note', data.tyler_note);
@@ -4389,6 +4415,7 @@ async function switchToRapport(data) {
     // Save the combined profile back to local storage
     if (data.profile) {
         localStorage.setItem('fitbuddy_user_profile', JSON.stringify(profile));
+        updateGroupData(profile);
     }
 
     const nickname = profile.surnom || profile.nom || "Athlète";
