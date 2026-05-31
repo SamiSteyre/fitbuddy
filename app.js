@@ -6139,7 +6139,8 @@ window.confirmMealCooked = function(prepTime) {
                 duree: prepTime,
                 prepare_pour: window.selectedMealConsumers || [(userEmail || "").toLowerCase()],
                 fait: existingIndex === -1,
-                email: userEmail
+                email: userEmail,
+                groupe: currentGroupName
             })
         });
     } catch(e) {}
