@@ -7235,6 +7235,37 @@ const DEFAULT_FITBUDDY_JSON = {
   }
 };
 
+const getSafeFitBuddyJson = () => {
+    let currentJson = JSON.parse(JSON.stringify(DEFAULT_FITBUDDY_JSON));
+    try {
+        const cachedJson = localStorage.getItem('fitbuddy_custom_json');
+        if (cachedJson) {
+            const parsed = JSON.parse(cachedJson);
+            if (parsed && typeof parsed === 'object' && parsed.character_features) {
+                currentJson = {
+                    ...currentJson,
+                    ...parsed,
+                    character_features: {
+                        ...currentJson.character_features,
+                        ...parsed.character_features,
+                        head_and_face: {
+                            ...currentJson.character_features.head_and_face,
+                            ...(parsed.character_features.head_and_face || {})
+                        },
+                        hair: {
+                            ...currentJson.character_features.hair,
+                            ...(parsed.character_features.hair || {})
+                        }
+                    }
+                };
+            }
+        }
+    } catch(e) {
+        console.error("Error parsing cached FitBuddy JSON:", e);
+    }
+    return currentJson;
+};
+
 window.initFitBuddyAvatar = function() {
     try {
         const avatarUrl = localStorage.getItem('fitbuddy_custom_avatar_url');
@@ -7262,12 +7293,8 @@ window.openFitBuddyModal = function() {
         
         modal.style.display = 'flex';
         
-        // Récupérer le JSON actuel
-        let currentJson = DEFAULT_FITBUDDY_JSON;
-        try {
-            const cachedJson = localStorage.getItem('fitbuddy_custom_json');
-            if (cachedJson) currentJson = JSON.parse(cachedJson);
-        } catch(e) {}
+        // Récupérer le JSON actuel de manière sécurisée
+        const currentJson = getSafeFitBuddyJson();
         
         const setVal = (id, val) => {
             const el = document.getElementById(id);
@@ -7344,12 +7371,8 @@ window.submitFitBuddyCustomization = function() {
             return;
         }
         
-        // Construire le JSON à envoyer, basé sur les modifications des champs avancés
-        let currentJson = DEFAULT_FITBUDDY_JSON;
-        try {
-            const cachedJson = localStorage.getItem('fitbuddy_custom_json');
-            if (cachedJson) currentJson = JSON.parse(cachedJson);
-        } catch(e) {}
+        // Construire le JSON à envoyer, basé sur les modifications des champs avancés de manière sécurisée
+        const currentJson = getSafeFitBuddyJson();
         
         const getVal = (id, fallback) => {
             const el = document.getElementById(id);
