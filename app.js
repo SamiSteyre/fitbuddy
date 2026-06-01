@@ -49,6 +49,13 @@
         if (item.email) return item.email;
         if (item.property_email) return item.property_email;
 
+        // Si l'élément a une liste d'assignés contenant l'e-mail de l'utilisateur actif
+        const currentUserEmail = (localStorage.getItem('fitbuddy_email') || "").trim().toLowerCase();
+        const assignees = item.assignes || item.property_assignes || [];
+        if (Array.isArray(assignees) && assignees.map(x => String(x).trim().toLowerCase()).includes(currentUserEmail)) {
+            return currentUserEmail;
+        }
+
         // Notion raw properties structure
         const props = item.properties || {};
         for (const key of Object.keys(props)) {
@@ -1282,6 +1289,20 @@
             if (rows.length > 0) {
                 window.currentWeekNotionRows = rows;
             }
+            
+            // Synchroniser les caches locaux de rendez-vous, tâches et événements si présents dans la réponse
+            if (data.appointments) {
+                appointmentsCache = data.appointments;
+                localStorage.setItem('fitbuddy_appointments', JSON.stringify(appointmentsCache));
+            }
+            if (data.tasks) {
+                tasksCache = data.tasks;
+                localStorage.setItem('fitbuddy_tasks', JSON.stringify(tasksCache));
+            }
+            if (data.events) {
+                eventsCache = data.events;
+                localStorage.setItem('fitbuddy_events', JSON.stringify(eventsCache));
+            }
         }
         
         // Appeler notre moteur modulaire de calendrier premium
@@ -1290,6 +1311,40 @@
         } else {
             console.warn("renderCalendarEngine non encore chargé à l'initialisation.");
         }
+        
+        // Lancer une synchronisation en arrière-plan des rendez-vous, tâches et événements
+        const currentName = localStorage.getItem('fitbuddy_user_name');
+        fetch(`${N8N_URL}/webhook/quick-action`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', "ngrok-skip-browser-warning": "69420" },
+            body: JSON.stringify({
+                action: 'calendar-sync',
+                email: userEmail,
+                userName: currentName,
+                nom: currentName,
+                groupe: currentGroupName
+            })
+        })
+        .then(res => res.json())
+        .then(r => {
+            const syncData = Array.isArray(r) ? r[0] : r;
+            if (syncData && syncData.success) {
+                if (syncData.appointments) {
+                    appointmentsCache = syncData.appointments;
+                    localStorage.setItem('fitbuddy_appointments', JSON.stringify(appointmentsCache));
+                }
+                if (syncData.tasks) {
+                    tasksCache = syncData.tasks;
+                    localStorage.setItem('fitbuddy_tasks', JSON.stringify(tasksCache));
+                }
+                if (syncData.events) {
+                    eventsCache = syncData.events;
+                    localStorage.setItem('fitbuddy_events', JSON.stringify(eventsCache));
+                }
+                window.renderCalendarEngine();
+            }
+        })
+        .catch(err => console.warn("Asynchronous calendar sync failed:", err));
     }
 
 function switchToCooking(data) {
@@ -5619,7 +5674,56 @@ window.navigateCalendarWeek = function(direction) {
         } else {
             window.currentWeekNotionRows = null;
         }
+        
+        // Synchroniser également les caches locaux si présents dans la réponse immédiate
+        if (r && r.appointments) {
+            appointmentsCache = r.appointments;
+            localStorage.setItem('fitbuddy_appointments', JSON.stringify(appointmentsCache));
+        }
+        if (r && r.tasks) {
+            tasksCache = r.tasks;
+            localStorage.setItem('fitbuddy_tasks', JSON.stringify(tasksCache));
+        }
+        if (r && r.events) {
+            eventsCache = r.events;
+            localStorage.setItem('fitbuddy_events', JSON.stringify(eventsCache));
+        }
+        
         window.renderCalendarEngine();
+        
+        // Lancer la synchronisation en arrière-plan pour cette semaine spécifique
+        fetch(`${N8N_URL}/webhook/quick-action`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', "ngrok-skip-browser-warning": "69420" },
+            body: JSON.stringify({
+                action: 'calendar-sync',
+                email: userEmail,
+                userName: currentName,
+                nom: currentName,
+                week_monday: window.currentCalendarMonday.toISOString(),
+                groupe: currentGroupName
+            })
+        })
+        .then(res => res.json())
+        .then(syncRes => {
+            const syncData = Array.isArray(syncRes) ? syncRes[0] : syncRes;
+            if (syncData && syncData.success) {
+                if (syncData.appointments) {
+                    appointmentsCache = syncData.appointments;
+                    localStorage.setItem('fitbuddy_appointments', JSON.stringify(appointmentsCache));
+                }
+                if (syncData.tasks) {
+                    tasksCache = syncData.tasks;
+                    localStorage.setItem('fitbuddy_tasks', JSON.stringify(tasksCache));
+                }
+                if (syncData.events) {
+                    eventsCache = syncData.events;
+                    localStorage.setItem('fitbuddy_events', JSON.stringify(eventsCache));
+                }
+                window.renderCalendarEngine();
+            }
+        })
+        .catch(err => console.warn("Asynchronous calendar sync failed:", err));
     })
     .catch(() => {
         // En cas de panne de connexion, recharger les tâches et repas locaux
@@ -5717,16 +5821,14 @@ window.renderCalendarEngine = function() {
 
     // Récupérer les lignes de repas Notion
     const rows = window.currentWeekNotionRows || [];
-    const LundiLigne = rows[0] || {};
-    const RecenteLigne = rows[1] || {};
+    const source = rows[0] || {};
     const jours = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
     
     jours.forEach((j, index) => {
         const currentDayDate = getDayDate(window.currentCalendarMonday, index);
-        const dayStr = currentDayDate.toISOString().substring(0, 10);
+        const dayStr = `${currentDayDate.getFullYear()}-${String(currentDayDate.getMonth() + 1).padStart(2, '0')}-${String(currentDayDate.getDate()).padStart(2, '0')}`;
         
         // Repas
-        const source = (j === "Lundi") ? LundiLigne : RecenteLigne;
         const midiId = source[`${j.toLowerCase()}_midi`] || "";
         const soirId = source[`${j.toLowerCase()}_soir`] || "";
         
@@ -5761,8 +5863,13 @@ window.renderCalendarEngine = function() {
         const isMidiCooked = cookedMealsCache.some(m => m.weekCode === weekCode && m.day === j.toLowerCase() && m.slot === 'midi');
         const isSoirCooked = cookedMealsCache.some(m => m.weekCode === weekCode && m.day === j.toLowerCase() && m.slot === 'soir');
 
-        // Filtrer les rendez-vous, tâches, événements du jour (avec récurrences)
-        const dayAppointments = appointmentsCache.filter(item => {
+        // Filtrer les rendez-vous, tâches, événements du jour (avec récurrences et filtrage groupe/solo)
+        const activeFilter = currentGroupMembers.length > 0 && currentGroupName ? "coloc" : "perso";
+        const filteredAppts = getFilteredItems(appointmentsCache, activeFilter);
+        const filteredTasks = getFilteredItems(tasksCache, activeFilter);
+        const filteredEvents = getFilteredItems(eventsCache, activeFilter);
+
+        const dayAppointments = filteredAppts.filter(item => {
             const itemDate = new Date(item.date);
             const isSameDay = itemDate.toISOString().substring(0, 10) === dayStr;
             const isRecurring = item.recurrence && item.recurrence !== 'Unique';
@@ -5776,7 +5883,7 @@ window.renderCalendarEngine = function() {
             return false;
         });
 
-        const dayTasks = tasksCache.filter(item => {
+        const dayTasks = filteredTasks.filter(item => {
             const itemDate = new Date(item.date);
             const isSameDay = itemDate.toISOString().substring(0, 10) === dayStr;
             const isRecurring = item.recurrence && item.recurrence !== 'Unique';
@@ -5790,7 +5897,7 @@ window.renderCalendarEngine = function() {
             return false;
         });
 
-        const dayEvents = eventsCache.filter(item => {
+        const dayEvents = filteredEvents.filter(item => {
             const itemDate = new Date(item.date);
             const isSameDay = itemDate.toISOString().substring(0, 10) === dayStr;
             const isRecurring = item.recurrence && item.recurrence !== 'Unique';
@@ -5887,13 +5994,42 @@ window.renderCalendarEngine = function() {
                 <div class="space-y-2">
                     ${dayTasks.length === 0 ? '<p class="text-[8px] text-white/20 italic ml-1">Aucune tâche répertoriée</p>' : dayTasks.map(task => {
                         const isTaskDone = task.fait || (task.fait_semaines && task.fait_semaines.includes(weekCode));
+                        
+                        // Détection des dépendances de corvées
+                        let isLocked = false;
+                        let lockReason = "";
+                        const depIdRaw = task.property_dependance || task.dependance || "";
+                        const depId = Array.isArray(depIdRaw) ? depIdRaw[0] : depIdRaw;
+                        if (depId) {
+                            const cleanDepId = String(depId).replace(/-/g, '').toLowerCase();
+                            const predecessor = tasksCache.find(t => String(t.id).replace(/-/g, '').toLowerCase() === cleanDepId);
+                            if (predecessor) {
+                                const isPredDone = predecessor.fait || (predecessor.fait_semaines && predecessor.fait_semaines.includes(weekCode));
+                                if (!isPredDone) {
+                                    isLocked = true;
+                                    lockReason = predecessor.name.replace(/🧹|🧽/g, '').trim();
+                                }
+                            }
+                        }
+
                         return `
-                        <div class="flex items-center justify-between bg-white/[0.02] border border-white/5 p-2 rounded-xl ${isTaskDone ? 'opacity-50' : ''}">
+                        <div class="flex items-center justify-between bg-white/[0.02] border border-white/5 p-2 rounded-xl ${isTaskDone ? 'opacity-50' : ''} ${isLocked ? 'opacity-40' : ''}">
                             <div class="flex items-center gap-3">
-                                <input type="checkbox" ${isTaskDone ? 'checked' : ''} onchange="toggleTaskFait('${task.id}', '${dayStr}')" class="rounded bg-white/5 border-white/10 text-purple-600 focus:ring-0 w-4 h-4 cursor-pointer">
+                                ${isLocked ? `
+                                    <div class="flex items-center justify-center w-4 h-4 bg-white/5 border border-white/10 rounded cursor-not-allowed">
+                                        <i data-lucide="lock" class="w-2.5 h-2.5 text-amber-500"></i>
+                                    </div>
+                                ` : `
+                                    <input type="checkbox" ${isTaskDone ? 'checked' : ''} onchange="toggleTaskFait('${task.id}', '${dayStr}')" class="rounded bg-white/5 border-white/10 text-purple-600 focus:ring-0 w-4 h-4 cursor-pointer">
+                                `}
                                 <div>
-                                    <p class="text-[10px] font-bold text-white leading-tight uppercase ${isTaskDone ? 'line-through text-white/40' : ''}">${task.name}</p>
-                                    <span class="text-[7px] text-white/30 font-black uppercase font-mono">${task.duree} min</span>
+                                    <p class="text-[10px] font-bold text-white leading-tight uppercase ${isTaskDone ? 'line-through text-white/40' : ''} ${isLocked ? 'text-white/30' : ''}">${task.name}</p>
+                                    <div class="flex items-center gap-2 mt-0.5">
+                                        <span class="text-[7px] text-white/30 font-black uppercase font-mono">${task.duree} min</span>
+                                        ${isLocked ? `
+                                            <span class="text-[7px] text-amber-400 font-bold uppercase flex items-center gap-0.5"><i data-lucide="lock" class="w-2 h-2 text-amber-400"></i> Bloqué par : ${lockReason}</span>
+                                        ` : ''}
+                                    </div>
                                 </div>
                             </div>
                             <div class="flex items-center gap-3">
@@ -6212,7 +6348,8 @@ window.selectReplacementRecipe = async function(day, slot, recipeId) {
                 day: day.toLowerCase(),
                 slot: slot.toLowerCase(),
                 recipeId: recipeId,
-                weekMonday: window.currentCalendarMonday.toISOString()
+                weekMonday: window.currentCalendarMonday.toISOString(),
+                groupe: currentGroupName
             })
         });
         const data = await res.json();
@@ -6229,9 +6366,9 @@ window.selectReplacementRecipe = async function(day, slot, recipeId) {
         console.warn("Échec de la sauvegarde Notion, modification locale uniquement", e);
         // Fallback local
         if (!window.currentWeekNotionRows || window.currentWeekNotionRows.length === 0) {
-            window.currentWeekNotionRows = [{}, {}];
+            window.currentWeekNotionRows = [{}];
         }
-        const targetRow = (day.toLowerCase() === 'lundi') ? window.currentWeekNotionRows[0] : window.currentWeekNotionRows[1];
+        const targetRow = window.currentWeekNotionRows[0];
         if (targetRow) {
             targetRow[`${day.toLowerCase()}_${slot}`] = recipeId;
         }
@@ -7046,4 +7183,214 @@ window.applyGeneratedCleaningPlan = function() {
     closeCleaningWizard();
     window.renderCalendarEngine();
 };
+
+
+/* ──────────────────────────────────────────────────────────────────────────
+   SOUS-MODULE DE PERSONNALISATION FITBUDDY (CRÉE TON FITBUDDY)
+   ────────────────────────────────────────────────────────────────────────── */
+
+const DEFAULT_FITBUDDY_JSON = {
+  "generation_metadata": {
+    "target_consistency_level": "100%_strict_clone",
+    "instructions": "All keys marked with [STRICT_INVARIANT] must be replicated exactly without a single modification. Only keys explicitly modified by the user can alter the final image."
+  },
+  "character_features": {
+    "gender_and_age_appearance": "Homme, athlète d'environ 25-30 ans",
+    "ethnicity_or_skin_tone": "Teint métis, peau mate, sous-tons chauds, texture huileuse et luisante hautement réfléchissante sous les projecteurs",
+    "body_type": "[STRICT_INVARIANT] Culturiste d'élite, définition musculaire extrême (cut), masse grasse inférieure à 6%, abdominaux en pack de 6 parfaitement symétriques, quadriceps massifs et striés avec veines apparentes, pose de face stricte (akimbo), mains posées fermement sur les hanches, cou large",
+    "head_and_face": {
+      "shape": "[STRICT_INVARIANT] Visage carré, mâchoire anguleuse et ultra-saillante, menton ferme",
+      "eyes": "En amande, iris marron foncé, regard horizontal fixe, symétrique et perçant",
+      "eyebrows": "[STRICT_INVARIANT] Sombres, rectilignes, denses, très sculptés et nets",
+      "nose": "Droit, symétrique, base de nez fine",
+      "mouth_and_lips": "[STRICT_INVARIANT] Lèvres fermées, horizontales, expression neutre, aucune esquisse de sourire",
+      "expression": "[STRICT_INVARIANT] Détermination froide, concentration athlétique, sérieux absolu"
+    },
+    "hair": {
+      "style": "Coupe ultra-courte, rasé de près (buzz cut) avec des contours millimétrés et rectilignes, une fine ligne horizontale rasée est visible sur le dessus/côté gauche du front",
+      "color": "Noir profond",
+      "length": "[STRICT_INVARIANT] Longueur uniforme de 1mm"
+    },
+    "clothing": {
+      "upper_body": "[STRICT_INVARIANT] Veste de sport zippée entièrement ouverte sur le torse nu. Col montant vert. Manches blanches avec une large bande verte sur le dessus. Sur le côté gauche de la poitrine, le logo blanc 'FB' is présent (lettres capitales d'une typographie athlétique carrée et épurée)",
+      "lower_body": "[STRICT_INVARIANT] Short de compression de sport (type boxer serré), couleur vert forêt, avec deux empiècements vert clair sur les côtés extérieurs des cuisses et des coutures apparentes vert clair",
+      "accessories": "[STRICT_INVARIANT] Aucun accessoire, pas de bijoux, pas de montre, pieds nus",
+      "materials_and_textures": "[STRICT_INVARIANT] Tissu technique synthétique mat pour la veste, lycra/élasthanne extensible pour le short",
+      "color_palette": "[STRICT_INVARIANT] Vert émeraude (#008751), vert clair, blanc pur, noir"
+    }
+  },
+  "art_style": {
+    "genre": "[STRICT_INVARIANT] Photographie de studio fitness haut de gamme, look commercial",
+    "rendering_type": "[STRICT_INVARIANT] Réalisme photographique absolu, piqué d'image ultra-net, aucun effet de grain ou de flou artistique sur le sujet",
+    "line_art": "[STRICT_INVARIANT] Aucun contour dessiné, délimitation uniquement par le contraste et la lumière",
+    "shading_and_lighting": "[STRICT_INVARIANT] Éclairage de studio dramatique (Chiaroscuro / Clair-obscur). Rim lighting puissant (lumière blanche rasante) sur les contours des bras, des épaules et des cuisses pour détacher le corps du fond. Lumière principale venant du haut (Key light) accentuant chaque relief et ombre musculaire",
+    "color_grading": "[STRICT_INVARIANT] Contraste maximal, noirs profonds et absolus, saturation vive sur les textiles verts"
+  },
+  "composition_and_camera": {
+    "shot_type": "[STRICT_INVARIANT] Plan-pied large (Full body shot), le personnage est entièrement visible au centre de l'espace",
+    "camera_angle": "[STRICT_INVARIANT] Parfaitement de face, hauteur d'yeux, axe centré à 0 degré",
+    "background": "[STRICT_INVARIANT] Fond de studio noir mat et opaque, totalement vide",
+    "floor_details": "[STRICT_INVARIANT] Le personnage est debout, pieds nus sur un sol de studio technique sombre, légèrement texturé de dalles de sport noires, visible au premier plan",
+    "depth_of_field": "[STRICT_INVARIANT] Netteté intégrale sur le personnage, de la tête aux pieds"
+  }
+};
+
+window.initFitBuddyAvatar = function() {
+    const avatarUrl = localStorage.getItem('fitbuddy_custom_avatar_url');
+    const video = document.getElementById('agentVideo');
+    const img = document.getElementById('agentImage');
+    
+    if (avatarUrl && img && video) {
+        img.src = avatarUrl;
+        img.classList.remove('hidden');
+        video.classList.add('hidden');
+    } else if (img && video) {
+        img.classList.add('hidden');
+        img.src = '';
+        video.classList.remove('hidden');
+    }
+};
+
+window.openFitBuddyModal = function() {
+    const modal = document.getElementById('fitbuddy-creation-modal');
+    if (!modal) return;
+    
+    modal.style.display = 'flex';
+    
+    // Récupérer le JSON actuel
+    let currentJson = DEFAULT_FITBUDDY_JSON;
+    try {
+        const cachedJson = localStorage.getItem('fitbuddy_custom_json');
+        if (cachedJson) currentJson = JSON.parse(cachedJson);
+    } catch(e) {}
+    
+    // Remplir les champs
+    document.getElementById('fb-field-gender').value = currentJson.character_features.gender_and_age_appearance;
+    document.getElementById('fb-field-skin').value = currentJson.character_features.ethnicity_or_skin_tone;
+    document.getElementById('fb-field-eyes').value = currentJson.character_features.head_and_face.eyes;
+    document.getElementById('fb-field-nose').value = currentJson.character_features.head_and_face.nose;
+    document.getElementById('fb-field-hair-style').value = currentJson.character_features.hair.style;
+    document.getElementById('fb-field-hair-color').value = currentJson.character_features.hair.color;
+    
+    // Afficher ou masquer le bouton de réinitialisation
+    const resetBtn = document.getElementById('btn-reset-fitbuddy');
+    if (resetBtn) {
+        const hasCustomAvatar = !!localStorage.getItem('fitbuddy_custom_avatar_url');
+        if (hasCustomAvatar) {
+            resetBtn.classList.remove('hidden');
+        } else {
+            resetBtn.classList.add('hidden');
+        }
+    }
+    
+    lucide.createIcons();
+};
+
+window.closeFitBuddyModal = function() {
+    const modal = document.getElementById('fitbuddy-creation-modal');
+    if (modal) modal.style.display = 'none';
+};
+
+window.toggleFbAdvancedFields = function() {
+    const fields = document.getElementById('fb-advanced-fields');
+    const chevron = document.getElementById('fb-advanced-chevron');
+    if (!fields || !chevron) return;
+    
+    fields.classList.toggle('hidden');
+    if (fields.classList.contains('hidden')) {
+        chevron.style.transform = 'rotate(0deg)';
+    } else {
+        chevron.style.transform = 'rotate(180deg)';
+    }
+};
+
+window.submitFitBuddyCustomization = function() {
+    const promptInput = document.getElementById('fb-prompt').value.trim();
+    const btn = document.getElementById('btn-generate-fitbuddy');
+    const loader = document.getElementById('fb-loading-area');
+    const actionButtons = document.getElementById('fb-action-buttons');
+    
+    if (!promptInput) {
+        showNotification("Veuillez saisir une consigne pour l'IA !", "error");
+        return;
+    }
+    
+    // Construire le JSON à envoyer, basé sur les modifications des champs avancés
+    let currentJson = DEFAULT_FITBUDDY_JSON;
+    try {
+        const cachedJson = localStorage.getItem('fitbuddy_custom_json');
+        if (cachedJson) currentJson = JSON.parse(cachedJson);
+    } catch(e) {}
+    
+    // Mettre à jour avec les valeurs des champs avancés s'ils ont été modifiés
+    currentJson.character_features.gender_and_age_appearance = document.getElementById('fb-field-gender').value;
+    currentJson.character_features.ethnicity_or_skin_tone = document.getElementById('fb-field-skin').value;
+    currentJson.character_features.head_and_face.eyes = document.getElementById('fb-field-eyes').value;
+    currentJson.character_features.head_and_face.nose = document.getElementById('fb-field-nose').value;
+    currentJson.character_features.hair.style = document.getElementById('fb-field-hair-style').value;
+    currentJson.character_features.hair.color = document.getElementById('fb-field-hair-color').value;
+    
+    // Activer l'affichage du chargement
+    btn.disabled = true;
+    if (actionButtons) actionButtons.classList.add('hidden');
+    if (loader) loader.classList.remove('hidden');
+    
+    const payload = {
+        prompt: promptInput,
+        characterJson: currentJson
+    };
+    
+    fetch(`${N8N_URL}/webhook/generate-fitbuddy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(res => {
+        if (!res.ok) throw new Error("HTTP error " + res.status);
+        return res.json();
+    })
+    .then(data => {
+        // Le webhook renvoie { url: "...", characterJson: {...} }
+        const r = Array.isArray(data) ? data[0] : data;
+        if (r && r.url) {
+            localStorage.setItem('fitbuddy_custom_avatar_url', r.url);
+            if (r.characterJson) {
+                localStorage.setItem('fitbuddy_custom_json', JSON.stringify(r.characterJson));
+            } else {
+                localStorage.setItem('fitbuddy_custom_json', JSON.stringify(currentJson));
+            }
+            
+            showNotification("Ton FitBuddy a été sculpté avec succès ! ✨", "success");
+            window.initFitBuddyAvatar();
+            window.closeFitBuddyModal();
+        } else {
+            throw new Error("Réponse invalide du serveur");
+        }
+    })
+    .catch(err => {
+        console.error("FitBuddy creation error:", err);
+        showNotification("Erreur lors de la création de l'avatar. Assurez-vous que le workflow n8n est actif !", "error");
+    })
+    .finally(() => {
+        btn.disabled = false;
+        if (actionButtons) actionButtons.classList.remove('hidden');
+        if (loader) loader.classList.add('hidden');
+    });
+};
+
+window.resetFitBuddyAvatar = function() {
+    if (confirm("Voulez-vous vraiment réinitialiser l'avatar FitBuddy d'origine ?")) {
+        localStorage.removeItem('fitbuddy_custom_avatar_url');
+        localStorage.removeItem('fitbuddy_custom_json');
+        document.getElementById('fb-prompt').value = '';
+        window.initFitBuddyAvatar();
+        window.closeFitBuddyModal();
+        showNotification("Avatar d'origine restauré ✓", "success");
+    }
+};
+
+// Initialiser sur load de l'application
+document.addEventListener('DOMContentLoaded', () => {
+    window.initFitBuddyAvatar();
+});
 
