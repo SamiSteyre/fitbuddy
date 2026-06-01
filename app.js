@@ -7236,156 +7236,211 @@ const DEFAULT_FITBUDDY_JSON = {
 };
 
 window.initFitBuddyAvatar = function() {
-    const avatarUrl = localStorage.getItem('fitbuddy_custom_avatar_url');
-    const video = document.getElementById('agentVideo');
-    const img = document.getElementById('agentImage');
-    
-    if (avatarUrl && img && video) {
-        img.src = avatarUrl;
-        img.classList.remove('hidden');
-        video.classList.add('hidden');
-    } else if (img && video) {
-        img.classList.add('hidden');
-        img.src = '';
-        video.classList.remove('hidden');
+    try {
+        const avatarUrl = localStorage.getItem('fitbuddy_custom_avatar_url');
+        const video = document.getElementById('agentVideo');
+        const img = document.getElementById('agentImage');
+        
+        if (avatarUrl && img && video) {
+            img.src = avatarUrl;
+            img.classList.remove('hidden');
+            video.classList.add('hidden');
+        } else if (img && video) {
+            img.classList.add('hidden');
+            img.src = '';
+            video.classList.remove('hidden');
+        }
+    } catch(err) {
+        console.error("Error initializing FitBuddy avatar:", err);
     }
 };
 
 window.openFitBuddyModal = function() {
-    const modal = document.getElementById('fitbuddy-creation-modal');
-    if (!modal) return;
-    
-    modal.style.display = 'flex';
-    
-    // Récupérer le JSON actuel
-    let currentJson = DEFAULT_FITBUDDY_JSON;
     try {
-        const cachedJson = localStorage.getItem('fitbuddy_custom_json');
-        if (cachedJson) currentJson = JSON.parse(cachedJson);
-    } catch(e) {}
-    
-    // Remplir les champs
-    document.getElementById('fb-field-gender').value = currentJson.character_features.gender_and_age_appearance;
-    document.getElementById('fb-field-skin').value = currentJson.character_features.ethnicity_or_skin_tone;
-    document.getElementById('fb-field-eyes').value = currentJson.character_features.head_and_face.eyes;
-    document.getElementById('fb-field-nose').value = currentJson.character_features.head_and_face.nose;
-    document.getElementById('fb-field-hair-style').value = currentJson.character_features.hair.style;
-    document.getElementById('fb-field-hair-color').value = currentJson.character_features.hair.color;
-    
-    // Afficher ou masquer le bouton de réinitialisation
-    const resetBtn = document.getElementById('btn-reset-fitbuddy');
-    if (resetBtn) {
-        const hasCustomAvatar = !!localStorage.getItem('fitbuddy_custom_avatar_url');
-        if (hasCustomAvatar) {
-            resetBtn.classList.remove('hidden');
-        } else {
-            resetBtn.classList.add('hidden');
+        const modal = document.getElementById('fitbuddy-creation-modal');
+        if (!modal) return;
+        
+        modal.style.display = 'flex';
+        
+        // Récupérer le JSON actuel
+        let currentJson = DEFAULT_FITBUDDY_JSON;
+        try {
+            const cachedJson = localStorage.getItem('fitbuddy_custom_json');
+            if (cachedJson) currentJson = JSON.parse(cachedJson);
+        } catch(e) {}
+        
+        const setVal = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.value = val || '';
+        };
+        
+        // Remplir les champs de manière ultra-sécurisée
+        setVal('fb-field-gender', currentJson.character_features.gender_and_age_appearance);
+        setVal('fb-field-skin', currentJson.character_features.ethnicity_or_skin_tone);
+        setVal('fb-field-eyes', currentJson.character_features.head_and_face.eyes);
+        setVal('fb-field-nose', currentJson.character_features.head_and_face.nose);
+        setVal('fb-field-hair-style', currentJson.character_features.hair.style);
+        setVal('fb-field-hair-color', currentJson.character_features.hair.color);
+        
+        // Afficher ou masquer le bouton de réinitialisation
+        const resetBtn = document.getElementById('btn-reset-fitbuddy');
+        if (resetBtn) {
+            const hasCustomAvatar = !!localStorage.getItem('fitbuddy_custom_avatar_url');
+            if (hasCustomAvatar) {
+                resetBtn.classList.remove('hidden');
+            } else {
+                resetBtn.classList.add('hidden');
+            }
         }
+        
+        if (window.lucide) lucide.createIcons();
+    } catch(err) {
+        console.error("Error opening FitBuddy modal:", err);
     }
-    
-    lucide.createIcons();
 };
 
 window.closeFitBuddyModal = function() {
-    const modal = document.getElementById('fitbuddy-creation-modal');
-    if (modal) modal.style.display = 'none';
+    try {
+        const modal = document.getElementById('fitbuddy-creation-modal');
+        if (modal) modal.style.display = 'none';
+    } catch(e) {}
 };
 
 window.toggleFbAdvancedFields = function() {
-    const fields = document.getElementById('fb-advanced-fields');
-    const chevron = document.getElementById('fb-advanced-chevron');
-    if (!fields || !chevron) return;
-    
-    fields.classList.toggle('hidden');
-    if (fields.classList.contains('hidden')) {
-        chevron.style.transform = 'rotate(0deg)';
-    } else {
-        chevron.style.transform = 'rotate(180deg)';
-    }
+    try {
+        const fields = document.getElementById('fb-advanced-fields');
+        const chevron = document.getElementById('fb-advanced-chevron');
+        if (!fields || !chevron) return;
+        
+        fields.classList.toggle('hidden');
+        if (fields.classList.contains('hidden')) {
+            chevron.style.transform = 'rotate(0deg)';
+        } else {
+            chevron.style.transform = 'rotate(180deg)';
+        }
+    } catch(e) {}
 };
 
 window.submitFitBuddyCustomization = function() {
-    const promptInput = document.getElementById('fb-prompt').value.trim();
-    const btn = document.getElementById('btn-generate-fitbuddy');
-    const loader = document.getElementById('fb-loading-area');
-    const actionButtons = document.getElementById('fb-action-buttons');
-    
-    if (!promptInput) {
-        showNotification("Veuillez saisir une consigne pour l'IA !", "error");
-        return;
-    }
-    
-    // Construire le JSON à envoyer, basé sur les modifications des champs avancés
-    let currentJson = DEFAULT_FITBUDDY_JSON;
     try {
-        const cachedJson = localStorage.getItem('fitbuddy_custom_json');
-        if (cachedJson) currentJson = JSON.parse(cachedJson);
-    } catch(e) {}
-    
-    // Mettre à jour avec les valeurs des champs avancés s'ils ont été modifiés
-    currentJson.character_features.gender_and_age_appearance = document.getElementById('fb-field-gender').value;
-    currentJson.character_features.ethnicity_or_skin_tone = document.getElementById('fb-field-skin').value;
-    currentJson.character_features.head_and_face.eyes = document.getElementById('fb-field-eyes').value;
-    currentJson.character_features.head_and_face.nose = document.getElementById('fb-field-nose').value;
-    currentJson.character_features.hair.style = document.getElementById('fb-field-hair-style').value;
-    currentJson.character_features.hair.color = document.getElementById('fb-field-hair-color').value;
-    
-    // Activer l'affichage du chargement
-    btn.disabled = true;
-    if (actionButtons) actionButtons.classList.add('hidden');
-    if (loader) loader.classList.remove('hidden');
-    
-    const payload = {
-        prompt: promptInput,
-        characterJson: currentJson
-    };
-    
-    fetch(`${N8N_URL}/webhook/generate-fitbuddy`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    })
-    .then(res => {
-        if (!res.ok) throw new Error("HTTP error " + res.status);
-        return res.json();
-    })
-    .then(data => {
-        // Le webhook renvoie { url: "...", characterJson: {...} }
-        const r = Array.isArray(data) ? data[0] : data;
-        if (r && r.url) {
-            localStorage.setItem('fitbuddy_custom_avatar_url', r.url);
-            if (r.characterJson) {
-                localStorage.setItem('fitbuddy_custom_json', JSON.stringify(r.characterJson));
+        const promptEl = document.getElementById('fb-prompt');
+        const promptInput = promptEl ? promptEl.value.trim() : '';
+        const btn = document.getElementById('btn-generate-fitbuddy');
+        const loader = document.getElementById('fb-loading-area');
+        const actionButtons = document.getElementById('fb-action-buttons');
+        
+        const triggerNotification = (msg, type) => {
+            if (typeof showNotification === 'function') {
+                showNotification(msg, type);
+            } else if (typeof window.showNotification === 'function') {
+                window.showNotification(msg, type);
             } else {
-                localStorage.setItem('fitbuddy_custom_json', JSON.stringify(currentJson));
+                alert(msg);
             }
-            
-            showNotification("Ton FitBuddy a été sculpté avec succès ! ✨", "success");
-            window.initFitBuddyAvatar();
-            window.closeFitBuddyModal();
-        } else {
-            throw new Error("Réponse invalide du serveur");
+        };
+
+        if (!promptInput) {
+            triggerNotification("Veuillez saisir une consigne pour l'IA !", "error");
+            return;
         }
-    })
-    .catch(err => {
-        console.error("FitBuddy creation error:", err);
-        showNotification("Erreur lors de la création de l'avatar. Assurez-vous que le workflow n8n est actif !", "error");
-    })
-    .finally(() => {
-        btn.disabled = false;
-        if (actionButtons) actionButtons.classList.remove('hidden');
-        if (loader) loader.classList.add('hidden');
-    });
+        
+        // Construire le JSON à envoyer, basé sur les modifications des champs avancés
+        let currentJson = DEFAULT_FITBUDDY_JSON;
+        try {
+            const cachedJson = localStorage.getItem('fitbuddy_custom_json');
+            if (cachedJson) currentJson = JSON.parse(cachedJson);
+        } catch(e) {}
+        
+        const getVal = (id, fallback) => {
+            const el = document.getElementById(id);
+            return el ? el.value : fallback;
+        };
+
+        // Mettre à jour avec les valeurs des champs avancés s'ils ont été modifiés
+        currentJson.character_features.gender_and_age_appearance = getVal('fb-field-gender', currentJson.character_features.gender_and_age_appearance);
+        currentJson.character_features.ethnicity_or_skin_tone = getVal('fb-field-skin', currentJson.character_features.ethnicity_or_skin_tone);
+        currentJson.character_features.head_and_face.eyes = getVal('fb-field-eyes', currentJson.character_features.head_and_face.eyes);
+        currentJson.character_features.head_and_face.nose = getVal('fb-field-nose', currentJson.character_features.head_and_face.nose);
+        currentJson.character_features.hair.style = getVal('fb-field-hair-style', currentJson.character_features.hair.style);
+        currentJson.character_features.hair.color = getVal('fb-field-hair-color', currentJson.character_features.hair.color);
+        
+        // Activer l'affichage du chargement
+        if (btn) btn.disabled = true;
+        if (actionButtons) actionButtons.classList.add('hidden');
+        if (loader) loader.classList.remove('hidden');
+        
+        const payload = {
+            prompt: promptInput,
+            characterJson: currentJson
+        };
+        
+        console.log("Submitting custom avatar request with payload:", payload);
+
+        fetch(`${N8N_URL}/webhook/generate-fitbuddy`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(res => {
+            if (!res.ok) throw new Error("HTTP error " + res.status);
+            return res.json();
+        })
+        .then(data => {
+            console.log("Received avatar response:", data);
+            const r = Array.isArray(data) ? data[0] : data;
+            if (r && r.url) {
+                localStorage.setItem('fitbuddy_custom_avatar_url', r.url);
+                if (r.characterJson) {
+                    localStorage.setItem('fitbuddy_custom_json', JSON.stringify(r.characterJson));
+                } else {
+                    localStorage.setItem('fitbuddy_custom_json', JSON.stringify(currentJson));
+                }
+                
+                triggerNotification("Ton FitBuddy a été sculpté avec succès ! ✨", "success");
+                window.initFitBuddyAvatar();
+                window.closeFitBuddyModal();
+            } else {
+                throw new Error("Réponse invalide du serveur (pas d'URL d'image)");
+            }
+        })
+        .catch(err => {
+            console.error("FitBuddy creation network error:", err);
+            triggerNotification("Erreur lors de la création de l'avatar. Assurez-vous que le workflow n8n est actif !", "error");
+        })
+        .finally(() => {
+            if (btn) btn.disabled = false;
+            if (actionButtons) actionButtons.classList.remove('hidden');
+            if (loader) loader.classList.add('hidden');
+        });
+    } catch(err) {
+        console.error("Crash inside submitFitBuddyCustomization:", err);
+        alert("Erreur critique : " + err.message);
+    }
 };
 
 window.resetFitBuddyAvatar = function() {
-    if (confirm("Voulez-vous vraiment réinitialiser l'avatar FitBuddy d'origine ?")) {
-        localStorage.removeItem('fitbuddy_custom_avatar_url');
-        localStorage.removeItem('fitbuddy_custom_json');
-        document.getElementById('fb-prompt').value = '';
-        window.initFitBuddyAvatar();
-        window.closeFitBuddyModal();
-        showNotification("Avatar d'origine restauré ✓", "success");
+    try {
+        const triggerNotification = (msg, type) => {
+            if (typeof showNotification === 'function') {
+                showNotification(msg, type);
+            } else if (typeof window.showNotification === 'function') {
+                window.showNotification(msg, type);
+            } else {
+                alert(msg);
+            }
+        };
+
+        if (confirm("Voulez-vous vraiment réinitialiser l'avatar FitBuddy d'origine ?")) {
+            localStorage.removeItem('fitbuddy_custom_avatar_url');
+            localStorage.removeItem('fitbuddy_custom_json');
+            const promptEl = document.getElementById('fb-prompt');
+            if (promptEl) promptEl.value = '';
+            window.initFitBuddyAvatar();
+            window.closeFitBuddyModal();
+            triggerNotification("Avatar d'origine restauré ✓", "success");
+        }
+    } catch(err) {
+        console.error("Error resetting FitBuddy avatar:", err);
     }
 };
 
