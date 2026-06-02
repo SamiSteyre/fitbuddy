@@ -7376,7 +7376,7 @@ window.submitFitBuddyCustomization = function() {
         
         const getVal = (id, fallback) => {
             const el = document.getElementById(id);
-            return el ? el.value : fallback;
+            return el && el.value.trim() !== "" ? el.value.trim() : fallback;
         };
 
         // Mettre à jour avec les valeurs des champs avancés s'ils ont été modifiés
